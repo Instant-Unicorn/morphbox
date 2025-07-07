@@ -115,12 +115,10 @@ start_vm() {
         
         if ! check_kvm; then
             warn "KVM not available, using software emulation (slower performance)"
-            # Create a temporary override file
-            yaml_override="$MORPHBOX_HOME/claude-vm-override.yaml"
-            cp "$yaml_file" "$yaml_override"
-            # Append the accel override
-            echo -e "\n# Override: Disable KVM acceleration\naccel: []" >> "$yaml_override"
-            yaml_file="$yaml_override"
+            # For systems without KVM, we need to use a different approach
+            # Lima doesn't respect accel settings properly, so we'll need to handle this differently
+            export LIMA_QEMU_ACCEL="tcg"
+            warn "Note: First boot will be VERY slow without KVM (may take 10-15 minutes)"
         fi
         
         case "$os" in

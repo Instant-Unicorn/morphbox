@@ -108,7 +108,10 @@ ssh:
   loadDotSSHPubKeys: false
 
 # Optimize for fast startup
-vmType: "qemu"
+# vmType is automatically selected based on the host OS:
+# - macOS: vz (Virtualization.framework) on M1/M2, or qemu on Intel
+# - Linux: qemu (with KVM acceleration when available)
+# - Windows: wsl2
 firmware:
   legacyBIOS: true  # Faster boot than UEFI
 

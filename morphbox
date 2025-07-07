@@ -89,6 +89,18 @@ vm_running() {
     esac
 }
 
+# Check if KVM is available
+check_kvm() {
+    if [[ "$OSTYPE" == "linux"* ]]; then
+        if [[ -e /dev/kvm ]] && [[ -r /dev/kvm ]] && [[ -w /dev/kvm ]]; then
+            return 0  # KVM is available
+        else
+            return 1  # KVM is not available
+        fi
+    fi
+    return 0  # Assume KVM is available on non-Linux
+}
+
 # Start VM
 start_vm() {
     local os=$1
@@ -97,9 +109,23 @@ start_vm() {
         info "First run detected. Creating MorphBox VM..."
         info "This may take up to 3 minutes..."
         
+        # Check for KVM and create appropriate config
+        local yaml_file="$MORPHBOX_HOME/claude-vm.yaml"
+        local yaml_override=""
+        
+        if ! check_kvm; then
+            warn "KVM not available, using software emulation (slower performance)"
+            # Create a temporary override file
+            yaml_override="$MORPHBOX_HOME/claude-vm-override.yaml"
+            cp "$yaml_file" "$yaml_override"
+            # Append the accel override
+            echo -e "\n# Override: Disable KVM acceleration\naccel: []" >> "$yaml_override"
+            yaml_file="$yaml_override"
+        fi
+        
         case "$os" in
             macos|linux)
-                limactl start --name="$VM_NAME" --tty=false "$MORPHBOX_HOME/claude-vm.yaml"
+                limactl start --name="$VM_NAME" --tty=false "$yaml_file"
                 ;;
             windows)
                 error "WSL setup requires manual configuration. Please see README for instructions."
@@ -122,8 +148,17 @@ start_vm() {
         info "Creating clean snapshot..."
         create_snapshot "$os"
         
+        # Clean up override file if it exists
+        if [[ -n "$yaml_override" ]] && [[ -f "$yaml_override" ]]; then
+            rm -f "$yaml_override"
+        fi
+        
     elif ! vm_running "$os"; then
         info "Starting MorphBox VM..."
+        # Check if we need to warn about KVM
+        if ! check_kvm; then
+            warn "KVM not available, using software emulation (slower performance)"
+        fi
         case "$os" in
             macos|linux)
                 limactl start --tty=false "$VM_NAME"

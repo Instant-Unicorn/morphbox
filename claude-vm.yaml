@@ -2,10 +2,9 @@
 # Optimized for fast startup and AI development
 
 # VM configuration
-# Reduced resources for software emulation
-cpus: 2
-memory: "2GiB"
-disk: "10GiB"
+cpus: 4
+memory: "4GiB"
+disk: "20GiB"
 
 # Use Ubuntu 22.04 for stability
 images:
@@ -112,10 +111,6 @@ ssh:
 vmType: "qemu"
 firmware:
   legacyBIOS: true  # Faster boot than UEFI
-
-# Disable KVM acceleration for compatibility with VPS/containers
-# This uses software emulation which is slower but works everywhere
-accel: []
 
 # Environment variables
 env:

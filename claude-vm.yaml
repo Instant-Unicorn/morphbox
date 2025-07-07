@@ -112,6 +112,15 @@ vmType: "qemu"
 firmware:
   legacyBIOS: true  # Faster boot than UEFI
 
+# QEMU configuration - disable KVM for compatibility
+qemu:
+  # Use TCG (software emulation) instead of KVM
+  # This is slower but works everywhere
+  machine: "q35"
+  cpu: "max"
+  # Disable KVM acceleration
+  accelerator: "tcg"
+
 # Environment variables
 env:
   MORPHBOX: "true"

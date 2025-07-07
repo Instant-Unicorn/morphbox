@@ -1,0 +1,28 @@
+# Source files not needed in npm package
+*.sh
+*.yaml
+morphbox
+allowed.txt
+firewall.sh
+install.sh
+claude-vm.yaml
+
+# Documentation
+README.md
+
+# Git files
+.git/
+.gitignore
+
+# Development files
+.DS_Store
+*.log
+node_modules/
+*.swp
+*.swo
+*~
+
+# Keep only the npm-specific files
+!bin/
+!lib/
+!README.npm.md

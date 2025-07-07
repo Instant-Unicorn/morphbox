@@ -43,6 +43,23 @@ install_lima() {
     
     if command -v limactl &> /dev/null; then
         info "Lima is already installed"
+    else
+        info "Lima needs to be installed"
+    fi
+    
+    # Check for QEMU on Linux
+    if [[ "$os" == "linux" ]]; then
+        if ! command -v qemu-img &> /dev/null; then
+            error "QEMU is required for Lima on Linux. Please install it first:"
+            error "  sudo apt-get install -y qemu-system-x86 qemu-utils"
+            error "  # or for other distros:"
+            error "  sudo dnf install qemu"
+            error "  sudo pacman -S qemu"
+            exit 1
+        fi
+    fi
+    
+    if command -v limactl &> /dev/null; then
         return
     fi
     
@@ -67,8 +84,39 @@ install_lima() {
         local lima_url="https://github.com/lima-vm/lima/releases/download/v${lima_version}/lima-${lima_version}-Linux-${arch}.tar.gz"
         
         info "Downloading Lima from $lima_url..."
-        curl -fsSL "$lima_url" | sudo tar -xz -C /usr/local/bin limactl
-        sudo chmod +x /usr/local/bin/limactl
+        # Download to temp directory first
+        local temp_dir=$(mktemp -d)
+        curl -fsSL "$lima_url" | tar -xz -C "$temp_dir"
+        
+        # Copy all Lima binaries
+        if [[ -d "$temp_dir/bin" ]]; then
+            # Copy all binaries from bin directory
+            sudo cp -r "$temp_dir/bin/"* /usr/local/bin/ 2>/dev/null || true
+        fi
+        
+        # Create Lima share directory and copy required files
+        sudo mkdir -p /usr/local/share/lima
+        
+        # Copy guest agent and other required files
+        if [[ -d "$temp_dir/share/lima" ]]; then
+            sudo cp -r "$temp_dir/share/lima/"* /usr/local/share/lima/ 2>/dev/null || true
+        fi
+        
+        # Look for guest agent in common locations
+        for agent in "$temp_dir/lima-guestagent.Linux-x86_64" \
+                     "$temp_dir/bin/lima-guestagent.Linux-x86_64" \
+                     "$temp_dir/share/lima/lima-guestagent.Linux-x86_64"; do
+            if [[ -f "$agent" ]]; then
+                sudo cp "$agent" /usr/local/share/lima/
+                break
+            fi
+        done
+        
+        # Make everything executable
+        sudo chmod +x /usr/local/bin/lima* 2>/dev/null || true
+        sudo chmod +x /usr/local/share/lima/lima* 2>/dev/null || true
+        
+        rm -rf "$temp_dir"
     fi
 }
 
@@ -90,17 +138,21 @@ setup_wsl() {
     fi
 }
 
-# Download MorphBox files
-download_morphbox_files() {
+# Copy MorphBox files
+copy_morphbox_files() {
     info "Creating MorphBox directory at $MORPHBOX_HOME..."
     mkdir -p "$MORPHBOX_HOME"
     
     local files=("morphbox" "claude-vm.yaml" "firewall.sh" "allowed.txt")
-    local base_url="https://raw.githubusercontent.com/morphbox/morphbox/main"
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     
     for file in "${files[@]}"; do
-        info "Downloading $file..."
-        curl -fsSL "$base_url/$file" -o "$MORPHBOX_HOME/$file"
+        if [[ -f "$script_dir/$file" ]]; then
+            info "Copying $file..."
+            cp "$script_dir/$file" "$MORPHBOX_HOME/$file"
+        else
+            error "Required file not found: $script_dir/$file"
+        fi
     done
     
     # Make scripts executable
@@ -137,7 +189,7 @@ main() {
             ;;
     esac
     
-    download_morphbox_files
+    copy_morphbox_files
     install_morphbox_cli
     
     echo ""

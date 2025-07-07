@@ -86,35 +86,44 @@ install_lima() {
         info "Downloading Lima from $lima_url..."
         # Download to temp directory first
         local temp_dir=$(mktemp -d)
-        curl -fsSL "$lima_url" | tar -xz -C "$temp_dir"
         
-        # Copy all Lima binaries
+        # Download and extract with proper path stripping
+        info "Extracting Lima files..."
+        curl -fsSL "$lima_url" | tar -xz -C "$temp_dir" --strip-components=1
+        
+        # Copy binaries
         if [[ -d "$temp_dir/bin" ]]; then
-            # Copy all binaries from bin directory
-            sudo cp -r "$temp_dir/bin/"* /usr/local/bin/ 2>/dev/null || true
+            info "Installing Lima binaries..."
+            sudo mkdir -p /usr/local/bin
+            sudo cp -v "$temp_dir/bin/"* /usr/local/bin/
+            sudo chmod +x /usr/local/bin/lima*
+        else
+            error "Could not find bin directory in Lima archive"
         fi
         
-        # Create Lima share directory and copy required files
-        sudo mkdir -p /usr/local/share/lima
-        
-        # Copy guest agent and other required files
+        # Copy share files (including guest agent)
         if [[ -d "$temp_dir/share/lima" ]]; then
-            sudo cp -r "$temp_dir/share/lima/"* /usr/local/share/lima/ 2>/dev/null || true
+            info "Installing Lima support files..."
+            sudo mkdir -p /usr/local/share/lima
+            # Copy files (not directories)
+            sudo find "$temp_dir/share/lima" -maxdepth 1 -type f -exec cp -v {} /usr/local/share/lima/ \;
+            # Copy subdirectories recursively
+            for dir in "$temp_dir/share/lima"/*; do
+                if [[ -d "$dir" ]]; then
+                    sudo cp -rv "$dir" /usr/local/share/lima/
+                fi
+            done
+            sudo chmod +x /usr/local/share/lima/lima-guestagent*
+        else
+            error "Could not find share/lima directory in archive"
         fi
         
-        # Look for guest agent in common locations
-        for agent in "$temp_dir/lima-guestagent.Linux-x86_64" \
-                     "$temp_dir/bin/lima-guestagent.Linux-x86_64" \
-                     "$temp_dir/share/lima/lima-guestagent.Linux-x86_64"; do
-            if [[ -f "$agent" ]]; then
-                sudo cp "$agent" /usr/local/share/lima/
-                break
-            fi
-        done
-        
-        # Make everything executable
-        sudo chmod +x /usr/local/bin/lima* 2>/dev/null || true
-        sudo chmod +x /usr/local/share/lima/lima* 2>/dev/null || true
+        # Verify installation
+        if [[ ! -f "/usr/local/share/lima/lima-guestagent.Linux-${arch}" ]]; then
+            error "Lima guest agent not found after installation!"
+        else
+            info "Lima installed successfully"
+        fi
         
         rm -rf "$temp_dir"
     fi

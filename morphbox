@@ -99,7 +99,7 @@ start_vm() {
         
         case "$os" in
             macos|linux)
-                limactl start --name="$VM_NAME" "$MORPHBOX_HOME/claude-vm.yaml"
+                limactl start --name="$VM_NAME" --tty=false "$MORPHBOX_HOME/claude-vm.yaml"
                 ;;
             windows)
                 error "WSL setup requires manual configuration. Please see README for instructions."
@@ -126,7 +126,7 @@ start_vm() {
         info "Starting MorphBox VM..."
         case "$os" in
             macos|linux)
-                limactl start "$VM_NAME"
+                limactl start --tty=false "$VM_NAME"
                 ;;
             windows)
                 wsl -d "$VM_NAME" --exec true
@@ -180,7 +180,7 @@ reset_vm() {
                 limactl delete -f "$VM_NAME"
             fi
             # Recreate from yaml
-            limactl start --name="$VM_NAME" "$MORPHBOX_HOME/claude-vm.yaml"
+            limactl start --name="$VM_NAME" --tty=false "$MORPHBOX_HOME/claude-vm.yaml"
             
             # Reapply firewall
             info "Reapplying firewall rules..."

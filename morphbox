@@ -91,7 +91,7 @@ vm_running() {
 
 # Check if KVM is available
 check_kvm() {
-    if [[ "$OSTYPE" == "linux"* ]]; then
+    if [[ "$(uname -s)" == "Linux" ]]; then
         if [[ -e /dev/kvm ]] && [[ -r /dev/kvm ]] && [[ -w /dev/kvm ]]; then
             return 0  # KVM is available
         else
@@ -261,30 +261,49 @@ show_status() {
 enter_shell() {
     local os=$1
     local cwd=$(pwd)
+    local command="${2:-}"
     
     info "Mounting $cwd as /workspace in sandbox..."
-    info "Dropping into MorphBox shell..."
-    echo ""
-    echo -e "${BLUE}Welcome to MorphBox!${NC}"
-    echo -e "${BLUE}Your current directory is mounted at /workspace${NC}"
-    echo -e "${BLUE}Type 'exit' to leave the sandbox${NC}"
-    echo ""
     
-    case "$os" in
-        macos|linux)
-            # Mount current directory and drop into shell
-            limactl shell \
-                --workdir=/workspace \
-                "$VM_NAME" \
-                bash -c "cd /workspace && exec bash"
-            ;;
-        windows)
-            # WSL mount is automatic at /mnt/c/...
-            # Convert Windows path to WSL path
-            local wsl_path=$(wslpath -u "$cwd")
-            wsl -d "$VM_NAME" --cd "/workspace" bash -c "ln -sf '$wsl_path' /workspace 2>/dev/null; cd /workspace && exec bash"
-            ;;
-    esac
+    if [[ -z "$command" ]]; then
+        # Interactive shell
+        info "Dropping into MorphBox shell..."
+        echo ""
+        echo -e "${BLUE}Welcome to MorphBox!${NC}"
+        echo -e "${BLUE}Your current directory is mounted at /workspace${NC}"
+        echo -e "${BLUE}Type 'exit' to leave the sandbox${NC}"
+        echo ""
+        
+        case "$os" in
+            macos|linux)
+                # Mount current directory and drop into shell
+                limactl shell \
+                    --workdir=/workspace \
+                    "$VM_NAME" \
+                    bash -c "cd /workspace && exec bash"
+                ;;
+            windows)
+                # WSL mount is automatic at /mnt/c/...
+                # Convert Windows path to WSL path
+                local wsl_path=$(wslpath -u "$cwd")
+                wsl -d "$VM_NAME" --cd "/workspace" bash -c "ln -sf '$wsl_path' /workspace 2>/dev/null; cd /workspace && exec bash"
+                ;;
+        esac
+    else
+        # Execute command
+        case "$os" in
+            macos|linux)
+                limactl shell \
+                    --workdir=/workspace \
+                    "$VM_NAME" \
+                    bash -c "$command"
+                ;;
+            windows)
+                local wsl_path=$(wslpath -u "$cwd")
+                wsl -d "$VM_NAME" --cd "/workspace" bash -c "ln -sf '$wsl_path' /workspace 2>/dev/null; $command"
+                ;;
+        esac
+    fi
 }
 
 # Main
@@ -313,8 +332,19 @@ main() {
             show_status "$os"
             exit 0
             ;;
-        --shell|"")
-            # Default action
+        --shell)
+            # Check if -c follows for command execution
+            if [[ "${2:-}" == "-c" ]] && [[ -n "${3:-}" ]]; then
+                start_vm "$os"
+                enter_shell "$os" "$3"
+            else
+                # Interactive shell
+                start_vm "$os"
+                enter_shell "$os"
+            fi
+            ;;
+        "")
+            # Default action - interactive shell
             start_vm "$os"
             enter_shell "$os"
             ;;

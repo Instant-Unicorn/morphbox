@@ -7,6 +7,7 @@ set -euo pipefail
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m'
 
 info() { echo -e "${GREEN}[INFO]${NC} $1"; }
@@ -15,6 +16,54 @@ warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 WEB_DIR="$SCRIPT_DIR/web"
+
+# Load config from .morphbox.env if exists
+if [[ -f "$SCRIPT_DIR/.morphbox.env" ]]; then
+    source "$SCRIPT_DIR/.morphbox.env"
+fi
+
+# Default to local only
+BIND_HOST="${MORPHBOX_HOST:-localhost}"
+ACCESS_MODE="${MORPHBOX_BIND_MODE:-local}"
+
+# Apply bind mode
+if [[ "$ACCESS_MODE" == "external" ]]; then
+    BIND_HOST="0.0.0.0"
+fi
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --external)
+            BIND_HOST="0.0.0.0"
+            ACCESS_MODE="external"
+            shift
+            ;;
+        --local)
+            BIND_HOST="localhost"
+            ACCESS_MODE="local"
+            shift
+            ;;
+        --help)
+            echo "MorphBox Launcher"
+            echo ""
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --local     Bind to localhost only (default)"
+            echo "  --external  Bind to all interfaces (WARNING: exposes to network)"
+            echo "  --help      Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  $0              # Start locally (safe)"
+            echo "  $0 --external   # Expose to network (use with caution)"
+            exit 0
+            ;;
+        *)
+            error "Unknown option: $1. Use --help for usage."
+            ;;
+    esac
+done
 
 # Check dependencies
 if ! command -v node > /dev/null; then
@@ -27,14 +76,40 @@ if [[ ! -d "$WEB_DIR/node_modules" ]]; then
     cd "$WEB_DIR" && npm install
 fi
 
+# Show security warning if external
+if [[ "$ACCESS_MODE" == "external" ]]; then
+    echo ""
+    warn "⚠️  SECURITY WARNING ⚠️"
+    warn "MorphBox will be accessible from external networks!"
+    warn "This exposes your development environment to potential security risks."
+    warn "Only use --external on trusted networks."
+    echo ""
+    read -p "Continue with external access? (y/N) " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        info "Aborted. Use without --external for local-only access."
+        exit 0
+    fi
+fi
+
 # Kill any existing processes
 pkill -f "tsx.*websocket-server" 2>/dev/null || true
 pkill -f "vite dev" 2>/dev/null || true
 
+# Get local IP for external mode
+if [[ "$ACCESS_MODE" == "external" ]]; then
+    LOCAL_IP=$(hostname -I | awk '{print $1}')
+    WS_URL="ws://${LOCAL_IP}:8009"
+    WEB_URL="http://${LOCAL_IP}:8008"
+else
+    WS_URL="ws://localhost:8009"
+    WEB_URL="http://localhost:8008"
+fi
+
 # Start WebSocket server
-info "Starting WebSocket server on ws://localhost:8009..."
+info "Starting WebSocket server..."
 cd "$WEB_DIR"
-npm run dev:ws > "$SCRIPT_DIR/websocket.log" 2>&1 &
+MORPHBOX_HOST="$BIND_HOST" npm run dev:ws > "$SCRIPT_DIR/websocket.log" 2>&1 &
 WS_PID=$!
 
 # Wait for WebSocket server
@@ -42,15 +117,25 @@ sleep 2
 
 # Start SvelteKit dev server
 info "Starting MorphBox web interface..."
-npm run dev > "$SCRIPT_DIR/web.log" 2>&1 &
+npm run dev -- --host "$BIND_HOST" > "$SCRIPT_DIR/web.log" 2>&1 &
 WEB_PID=$!
 
 # Wait for web server
 sleep 3
 
 info "MorphBox is running!"
-info "- Web interface: http://localhost:8008"
-info "- WebSocket server: ws://localhost:8009"
+echo ""
+if [[ "$ACCESS_MODE" == "external" ]]; then
+    echo -e "${BLUE}External Access Enabled:${NC}"
+    info "- Web interface: $WEB_URL"
+    info "- Also accessible at: http://${BIND_HOST}:8008"
+    info "- WebSocket server: $WS_URL"
+    echo ""
+    warn "Remember to configure firewall rules if needed"
+else
+    info "- Web interface: $WEB_URL"
+    info "- WebSocket server: $WS_URL"
+fi
 info ""
 info "Press Ctrl+C to stop all services"
 

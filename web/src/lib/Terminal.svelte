@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, createEventDispatcher } from 'svelte';
   import { browser } from '$app/environment';
   
   let Terminal: any;
@@ -27,6 +27,8 @@
   let fitAddon: FitAddon;
   let ws: WebSocket | null = null;
   let inputBuffer = '';
+  
+  const dispatch = createEventDispatcher();
   
   export function write(data: string) {
     if (terminal) {
@@ -57,6 +59,7 @@
     ws.onopen = () => {
       console.log('WebSocket connected');
       writeln('Connected to server');
+      dispatch('connection', { connected: true });
     };
     
     ws.onmessage = (event) => {
@@ -68,6 +71,18 @@
           case 'CONNECTED':
             writeln(`\r\n${message.payload?.message || 'Connected'}`);
             break;
+          case 'SESSION_CREATED':
+            dispatch('session', { sessionId: message.payload?.sessionId });
+            break;
+          case 'AGENT_LAUNCHED':
+            dispatch('agent', { 
+              status: 'Active', 
+              agentId: message.payload?.agentId 
+            });
+            break;
+          case 'AGENT_EXIT':
+            dispatch('agent', { status: 'No agent' });
+            break;
           case 'OUTPUT':
             if (message.payload?.data) {
               write(message.payload.data);
@@ -78,6 +93,12 @@
             break;
           case 'STATE_UPDATE':
             // Handle state updates if needed
+            if (message.payload?.agent) {
+              dispatch('agent', { 
+                status: message.payload.agent.status || 'Active',
+                agentId: message.payload.agent.id
+              });
+            }
             break;
           case 'CLEAR':
             clear();
@@ -100,6 +121,8 @@
     ws.onclose = (event) => {
       console.log('WebSocket closed:', event.code, event.reason);
       writeln(`\r\nDisconnected from server (code: ${event.code})`);
+      dispatch('connection', { connected: false });
+      dispatch('agent', { status: 'No agent' });
       
       // Only reconnect if it wasn't a normal closure
       if (event.code !== 1000 && event.code !== 1001) {

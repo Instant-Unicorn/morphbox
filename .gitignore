@@ -6,3 +6,4 @@ web/.svelte-kit/
 web/build/
 web/dist/
 *.pid
+.morphbox.env

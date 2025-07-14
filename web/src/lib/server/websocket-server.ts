@@ -5,6 +5,7 @@ import { AgentManager } from './agent-manager';
 import { StateManager } from './state-manager';
 
 const PORT = process.env.WS_PORT || 8009;
+const HOST = process.env.MORPHBOX_HOST || 'localhost';
 
 // Initialize managers
 const agentManager = new AgentManager();
@@ -28,8 +29,9 @@ async function startWebSocketServer() {
     });
 
     // Start listening
-    server.listen(PORT, () => {
-      console.log(`🚀 WebSocket server running on ws://localhost:${PORT}`);
+    server.listen(PORT, HOST, () => {
+      const displayHost = HOST === '0.0.0.0' ? 'all interfaces' : HOST;
+      console.log(`🚀 WebSocket server running on ws://${HOST}:${PORT} (${displayHost})`);
     });
 
   } catch (error) {

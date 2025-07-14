@@ -1,0 +1,39 @@
+{
+  "name": "morphbox-web",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite dev --port 8008 --host",
+    "dev:ws": "tsx src/lib/server/websocket-server.ts",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-node": "^4.0.1",
+    "@sveltejs/kit": "^2.23.0",
+    "@sveltejs/vite-plugin-svelte": "^3.1.2",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^20.11.5",
+    "svelte": "^4.2.20",
+    "svelte-check": "^3.6.0",
+    "tslib": "^2.4.1",
+    "tsx": "^4.20.3",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.3"
+  },
+  "dependencies": {
+    "@sveltejs/adapter-auto": "^6.0.1",
+    "@types/ws": "^8.18.1",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-web-links": "^0.11.0",
+    "@xterm/xterm": "^5.5.0",
+    "better-sqlite3": "^12.2.0",
+    "ws": "^8.18.3",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0",
+    "xterm-addon-web-links": "^0.9.0"
+  },
+  "type": "module"
+}

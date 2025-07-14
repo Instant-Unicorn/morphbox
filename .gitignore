@@ -1,0 +1,8 @@
+*.log
+data/
+web/node_modules/
+server/node_modules/
+web/.svelte-kit/
+web/build/
+web/dist/
+*.pid

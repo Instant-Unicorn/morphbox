@@ -35,13 +35,9 @@ class ClaudeAgent extends EventEmitter implements Agent {
   async initialize(): Promise<void> {
     const { workspacePath, sessionId } = this.options;
 
-    // Spawn Claude CLI process
-    const args = ['--session', sessionId];
-    
-    // Add workspace path if provided
-    if (workspacePath) {
-      args.push('--workspace', workspacePath);
-    }
+    // Spawn Claude CLI process in interactive mode
+    // The claude command doesn't take --session or --workspace arguments
+    const args: string[] = [];
 
     try {
       this.process = spawn('claude', args, {

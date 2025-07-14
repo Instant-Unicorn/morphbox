@@ -19,13 +19,9 @@ export class ClaudeAgent extends EventEmitter {
   async initialize() {
     const { workspacePath, sessionId } = this.options;
 
-    // Spawn Claude CLI process
-    const args = ['--session', sessionId];
-    
-    // Add workspace path if provided
-    if (workspacePath) {
-      args.push('--workspace', workspacePath);
-    }
+    // Spawn Claude CLI process without arguments
+    // The claude command runs in interactive mode by default
+    const args = [];
 
     try {
       this.process = spawn('claude', args, {
@@ -34,7 +30,8 @@ export class ClaudeAgent extends EventEmitter {
           ...process.env,
           CLAUDE_SESSION_ID: sessionId,
           CLAUDE_WORKSPACE: workspacePath
-        }
+        },
+        shell: true
       });
 
       this.status = 'running';

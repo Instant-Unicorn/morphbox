@@ -23,10 +23,11 @@ export function handleWebSocketConnection(
   let currentAgentId: string | null = null;
 
   console.log('New WebSocket connection established');
+  console.log('WebSocket readyState:', ws.readyState);
   
   // Setup ping/pong to keep connection alive
   const pingInterval = setInterval(() => {
-    if (ws.readyState === ws.OPEN) {
+    if (ws.readyState === 1) { // OPEN state
       ws.ping();
     }
   }, 30000); // Ping every 30 seconds
@@ -39,8 +40,10 @@ export function handleWebSocketConnection(
     console.error('WebSocket error:', error);
   });
 
-  // Send initial state
-  send('CONNECTED', { message: 'Welcome to MorphBox' });
+  // Send initial state after a small delay to ensure connection is ready
+  setTimeout(() => {
+    send('CONNECTED', { message: 'Welcome to MorphBox' });
+  }, 100);
 
   // Handle incoming messages
   ws.on('message', async (data) => {
@@ -100,8 +103,13 @@ export function handleWebSocketConnection(
 
   // Helper functions
   function send(type: string, payload?: any) {
-    if (ws.readyState === ws.OPEN) {
-      ws.send(JSON.stringify({ type, payload }));
+    // WebSocket.OPEN is 1
+    if (ws.readyState === 1) {
+      const message = JSON.stringify({ type, payload });
+      console.log('Sending message:', type);
+      ws.send(message);
+    } else {
+      console.log('Cannot send message, WebSocket not open. State:', ws.readyState);
     }
   }
 

@@ -18,8 +18,16 @@ async function startWebSocketServer() {
     await stateManager.initialize();
     console.log('✅ Managers initialized');
 
-    // Create HTTP server
-    const server = createServer();
+    // Create HTTP server with CORS headers
+    const server = createServer((req, res) => {
+      // Handle CORS for WebSocket upgrade
+      res.writeHead(200, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      });
+      res.end();
+    });
     
     // Create WebSocket server
     const wss = new WebSocketServer({ server });

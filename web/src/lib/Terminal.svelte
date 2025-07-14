@@ -1,9 +1,24 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { Terminal } from 'xterm';
-  import { FitAddon } from 'xterm-addon-fit';
-  import { WebLinksAddon } from 'xterm-addon-web-links';
-  import 'xterm/css/xterm.css';
+  import { browser } from '$app/environment';
+  
+  let Terminal: any;
+  let FitAddon: any;
+  let WebLinksAddon: any;
+  
+  // Only import xterm in the browser
+  if (browser) {
+    import('xterm').then(module => {
+      Terminal = module.Terminal;
+    });
+    import('xterm-addon-fit').then(module => {
+      FitAddon = module.FitAddon;
+    });
+    import('xterm-addon-web-links').then(module => {
+      WebLinksAddon = module.WebLinksAddon;
+    });
+    import('xterm/css/xterm.css');
+  }
 
   export let websocketUrl = 'ws://localhost:3000';
   
@@ -61,7 +76,21 @@
     };
   }
   
-  onMount(() => {
+  onMount(async () => {
+    if (!browser) return;
+    
+    // Wait for modules to load
+    let attempts = 0;
+    while ((!Terminal || !FitAddon || !WebLinksAddon) && attempts < 50) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      attempts++;
+    }
+    
+    if (!Terminal || !FitAddon || !WebLinksAddon) {
+      console.error('Failed to load xterm modules');
+      return;
+    }
+    
     // Create terminal instance
     terminal = new Terminal({
       theme: {
@@ -118,7 +147,7 @@
     window.addEventListener('resize', handleResize);
     
     // Handle terminal input
-    terminal.onData((data) => {
+    terminal.onData((data: string) => {
       // Send input to WebSocket if connected
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(data);

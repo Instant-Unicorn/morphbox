@@ -1,4 +1,4 @@
-import type { Handle } from '@sveltejs/kit';
+import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { building } from '$app/environment';
 import { WebSocketServer } from 'ws';
 import { handleWebSocketConnection } from '$lib/server/websocket';
@@ -29,6 +29,23 @@ if (!building) {
 // For production WebSocket handling
 export const handle: Handle = async ({ event, resolve }) => {
   return resolve(event);
+};
+
+// Handle server errors
+export const handleError: HandleServerError = ({ error, event }) => {
+  console.error('Server error:', error);
+  console.error('Error context:', {
+    url: event.url.pathname,
+    method: event.request.method,
+    headers: Object.fromEntries(event.request.headers.entries()),
+    stack: error instanceof Error ? error.stack : undefined
+  });
+
+  // Return a safe error message
+  return {
+    message: 'Internal server error',
+    code: 'SERVER_ERROR'
+  };
 };
 
 // Cleanup on server shutdown

@@ -3,11 +3,14 @@
 	import Terminal from '$lib/Terminal.svelte';
 	
 	let terminal: Terminal;
+	
+	// Use the same host as the current page
+	$: websocketUrl = browser ? `ws://${window.location.hostname}:8009` : '';
 </script>
 
 <div class="terminal-container">
 	{#if browser}
-		<Terminal bind:this={terminal} websocketUrl="ws://localhost:8009" />
+		<Terminal bind:this={terminal} {websocketUrl} />
 	{:else}
 		<div class="loading">Loading terminal...</div>
 	{/if}

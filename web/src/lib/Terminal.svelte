@@ -50,29 +50,62 @@
       ws.close();
     }
     
+    console.log('Connecting to WebSocket:', websocketUrl);
     ws = new WebSocket(websocketUrl);
     
     ws.onopen = () => {
+      console.log('WebSocket connected');
       writeln('Connected to server');
     };
     
     ws.onmessage = (event) => {
-      write(event.data);
+      try {
+        const message = JSON.parse(event.data);
+        console.log('Received message:', message.type);
+        
+        switch (message.type) {
+          case 'CONNECTED':
+            writeln(`\r\n${message.payload?.message || 'Connected'}`);
+            break;
+          case 'OUTPUT':
+            if (message.payload?.data) {
+              write(message.payload.data);
+            }
+            break;
+          case 'ERROR':
+            writeln(`\r\nError: ${message.payload?.message || 'Unknown error'}`);
+            break;
+          case 'STATE_UPDATE':
+            // Handle state updates if needed
+            break;
+          default:
+            console.log('Unknown message type:', message.type);
+        }
+      } catch (e) {
+        console.error('Error parsing WebSocket message:', e);
+        // If it's not JSON, just write it as-is
+        write(event.data);
+      }
     };
     
     ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
       writeln(`\r\nWebSocket error: ${error}`);
     };
     
-    ws.onclose = () => {
-      writeln('\r\nDisconnected from server');
-      // Attempt to reconnect after 3 seconds
-      setTimeout(() => {
-        if (ws?.readyState === WebSocket.CLOSED) {
-          writeln('\r\nAttempting to reconnect...');
-          connectWebSocket();
-        }
-      }, 3000);
+    ws.onclose = (event) => {
+      console.log('WebSocket closed:', event.code, event.reason);
+      writeln(`\r\nDisconnected from server (code: ${event.code})`);
+      
+      // Only reconnect if it wasn't a normal closure
+      if (event.code !== 1000 && event.code !== 1001) {
+        setTimeout(() => {
+          if (!ws || ws.readyState === WebSocket.CLOSED) {
+            writeln('\r\nAttempting to reconnect...');
+            connectWebSocket();
+          }
+        }, 3000);
+      }
     };
   }
   
@@ -150,7 +183,11 @@
     terminal.onData((data: string) => {
       // Send input to WebSocket if connected
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(data);
+        const message = JSON.stringify({
+          type: 'SEND_INPUT',
+          payload: { input: data }
+        });
+        ws.send(message);
       }
     });
     

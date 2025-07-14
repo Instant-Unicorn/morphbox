@@ -23,9 +23,24 @@ export function handleWebSocketConnection(
   let currentAgentId: string | null = null;
 
   console.log('New WebSocket connection established');
+  
+  // Setup ping/pong to keep connection alive
+  const pingInterval = setInterval(() => {
+    if (ws.readyState === ws.OPEN) {
+      ws.ping();
+    }
+  }, 30000); // Ping every 30 seconds
+
+  ws.on('pong', () => {
+    // Connection is alive
+  });
+
+  ws.on('error', (error) => {
+    console.error('WebSocket error:', error);
+  });
 
   // Send initial state
-  sendCurrentState();
+  send('CONNECTED', { message: 'Welcome to MorphBox' });
 
   // Handle incoming messages
   ws.on('message', async (data) => {
@@ -69,6 +84,9 @@ export function handleWebSocketConnection(
   // Handle connection close
   ws.on('close', async () => {
     console.log('WebSocket connection closed');
+    
+    // Clear ping interval
+    clearInterval(pingInterval);
     
     // Clean up agent if one is running
     if (currentAgentId) {

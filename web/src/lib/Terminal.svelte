@@ -78,6 +78,9 @@
           case 'STATE_UPDATE':
             // Handle state updates if needed
             break;
+          case 'CLEAR':
+            clear();
+            break;
           default:
             console.log('Unknown message type:', message.type);
         }

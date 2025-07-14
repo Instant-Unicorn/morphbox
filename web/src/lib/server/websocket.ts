@@ -1,0 +1,238 @@
+import type { WebSocket } from 'ws';
+import type { IncomingMessage } from 'http';
+import type { AgentManager } from './agent-manager';
+import type { StateManager } from './state-manager';
+
+interface WebSocketMessage {
+  type: string;
+  payload?: any;
+}
+
+interface WebSocketContext {
+  agentManager: AgentManager;
+  stateManager: StateManager;
+}
+
+export function handleWebSocketConnection(
+  ws: WebSocket,
+  request: IncomingMessage,
+  context: WebSocketContext
+) {
+  const { agentManager, stateManager } = context;
+  let currentSessionId: string | null = null;
+  let currentAgentId: string | null = null;
+
+  console.log('New WebSocket connection established');
+
+  // Send initial state
+  sendCurrentState();
+
+  // Handle incoming messages
+  ws.on('message', async (data) => {
+    try {
+      const message = JSON.parse(data.toString()) as WebSocketMessage;
+      
+      switch (message.type) {
+        case 'CREATE_SESSION':
+          await handleCreateSession(message.payload);
+          break;
+          
+        case 'LAUNCH_AGENT':
+          await handleLaunchAgent(message.payload);
+          break;
+          
+        case 'SEND_INPUT':
+          await handleSendInput(message.payload);
+          break;
+          
+        case 'STOP_AGENT':
+          await handleStopAgent();
+          break;
+          
+        case 'GET_STATE':
+          await sendCurrentState();
+          break;
+          
+        case 'CREATE_SNAPSHOT':
+          await handleCreateSnapshot(message.payload);
+          break;
+          
+        default:
+          sendError(`Unknown message type: ${message.type}`);
+      }
+    } catch (error) {
+      console.error('Error handling WebSocket message:', error);
+      sendError(error instanceof Error ? error.message : 'Unknown error');
+    }
+  });
+
+  // Handle connection close
+  ws.on('close', async () => {
+    console.log('WebSocket connection closed');
+    
+    // Clean up agent if one is running
+    if (currentAgentId) {
+      try {
+        await agentManager.stopAgent(currentAgentId);
+      } catch (error) {
+        console.error('Error stopping agent on disconnect:', error);
+      }
+    }
+  });
+
+  // Helper functions
+  function send(type: string, payload?: any) {
+    if (ws.readyState === ws.OPEN) {
+      ws.send(JSON.stringify({ type, payload }));
+    }
+  }
+
+  function sendError(message: string) {
+    send('ERROR', { message });
+  }
+
+  async function sendCurrentState() {
+    try {
+      const state = await stateManager.getCurrentState();
+      const activeAgents = agentManager.getActiveAgents();
+      
+      send('STATE_UPDATE', {
+        ...state,
+        activeAgents,
+        currentSessionId,
+        currentAgentId
+      });
+    } catch (error) {
+      sendError('Failed to get current state');
+    }
+  }
+
+  async function handleCreateSession(payload: any) {
+    const { workspacePath, agentType } = payload;
+    
+    if (!workspacePath || !agentType) {
+      sendError('Missing required fields: workspacePath, agentType');
+      return;
+    }
+
+    try {
+      currentSessionId = await stateManager.createSession(workspacePath, agentType);
+      send('SESSION_CREATED', { sessionId: currentSessionId });
+      await sendCurrentState();
+    } catch (error) {
+      sendError('Failed to create session');
+    }
+  }
+
+  async function handleLaunchAgent(payload: any) {
+    const { type = 'claude' } = payload;
+    
+    if (!currentSessionId) {
+      sendError('No active session. Create a session first.');
+      return;
+    }
+
+    try {
+      currentAgentId = await agentManager.launchAgent(type, {
+        sessionId: currentSessionId,
+        workspacePath: payload.workspacePath
+      });
+
+      // Set up agent event listeners
+      const handleOutput = (data: { agentId: string; data: string }) => {
+        if (data.agentId === currentAgentId) {
+          send('AGENT_OUTPUT', { data: data.data });
+        }
+      };
+
+      const handleError = (data: { agentId: string; error: string }) => {
+        if (data.agentId === currentAgentId) {
+          send('AGENT_ERROR', { error: data.error });
+        }
+      };
+
+      const handleExit = (data: { agentId: string; code: number }) => {
+        if (data.agentId === currentAgentId) {
+          send('AGENT_EXIT', { code: data.code });
+          currentAgentId = null;
+          
+          // Clean up listeners
+          agentManager.off('agent_output', handleOutput);
+          agentManager.off('agent_error', handleError);
+          agentManager.off('agent_exit', handleExit);
+        }
+      };
+
+      agentManager.on('agent_output', handleOutput);
+      agentManager.on('agent_error', handleError);
+      agentManager.on('agent_exit', handleExit);
+
+      send('AGENT_LAUNCHED', { agentId: currentAgentId });
+      await sendCurrentState();
+    } catch (error) {
+      sendError('Failed to launch agent');
+    }
+  }
+
+  async function handleSendInput(payload: any) {
+    const { input } = payload;
+    
+    if (!currentAgentId) {
+      sendError('No active agent');
+      return;
+    }
+
+    if (!input) {
+      sendError('Missing input');
+      return;
+    }
+
+    try {
+      await agentManager.sendToAgent(currentAgentId, input);
+      
+      // Log command
+      if (currentSessionId) {
+        await stateManager.logCommand(currentSessionId, input, '', null);
+      }
+    } catch (error) {
+      sendError('Failed to send input to agent');
+    }
+  }
+
+  async function handleStopAgent() {
+    if (!currentAgentId) {
+      sendError('No active agent');
+      return;
+    }
+
+    try {
+      await agentManager.stopAgent(currentAgentId);
+      currentAgentId = null;
+      send('AGENT_STOPPED');
+      await sendCurrentState();
+    } catch (error) {
+      sendError('Failed to stop agent');
+    }
+  }
+
+  async function handleCreateSnapshot(payload: any) {
+    const { name, description } = payload;
+    
+    if (!currentSessionId) {
+      sendError('No active session');
+      return;
+    }
+
+    if (!name || !description) {
+      sendError('Missing required fields: name, description');
+      return;
+    }
+
+    try {
+      const snapshotId = await stateManager.createSnapshot(currentSessionId, name, description);
+      send('SNAPSHOT_CREATED', { snapshotId });
+    } catch (error) {
+      sendError('Failed to create snapshot');
+    }
+  }
+}

@@ -1,0 +1,57 @@
+import { WebSocketServer } from 'ws';
+import { createServer } from 'http';
+import { handleWebSocketConnection } from './websocket';
+import { AgentManager } from './agent-manager';
+import { StateManager } from './state-manager';
+
+const PORT = process.env.WS_PORT || 8009;
+
+// Initialize managers
+const agentManager = new AgentManager();
+const stateManager = new StateManager();
+
+async function startWebSocketServer() {
+  try {
+    // Initialize managers
+    await agentManager.initialize();
+    await stateManager.initialize();
+    console.log('✅ Managers initialized');
+
+    // Create HTTP server
+    const server = createServer();
+    
+    // Create WebSocket server
+    const wss = new WebSocketServer({ server });
+
+    wss.on('connection', (ws, request) => {
+      handleWebSocketConnection(ws, request, { agentManager, stateManager });
+    });
+
+    // Start listening
+    server.listen(PORT, () => {
+      console.log(`🚀 WebSocket server running on ws://localhost:${PORT}`);
+    });
+
+  } catch (error) {
+    console.error('Failed to start WebSocket server:', error);
+    process.exit(1);
+  }
+}
+
+// Handle cleanup
+process.on('SIGINT', async () => {
+  console.log('\n🛑 Shutting down WebSocket server...');
+  await agentManager.stopAllAgents();
+  await stateManager.close();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('\n🛑 Shutting down WebSocket server...');
+  await agentManager.stopAllAgents();
+  await stateManager.close();
+  process.exit(0);
+});
+
+// Start the server
+startWebSocketServer();

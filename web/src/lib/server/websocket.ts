@@ -41,8 +41,19 @@ export function handleWebSocketConnection(
   });
 
   // Send initial state after a small delay to ensure connection is ready
-  setTimeout(() => {
+  setTimeout(async () => {
     send('CONNECTED', { message: 'Welcome to MorphBox' });
+    
+    // Create a default session
+    try {
+      currentSessionId = await stateManager.createSession(process.cwd(), 'claude');
+      send('SESSION_CREATED', { sessionId: currentSessionId });
+      
+      // Send help message
+      send('OUTPUT', { data: '\r\nType "help" for available commands or "launch" to start Claude.\r\n' });
+    } catch (error) {
+      console.error('Failed to create default session:', error);
+    }
   }, 100);
 
   // Handle incoming messages
@@ -167,13 +178,13 @@ export function handleWebSocketConnection(
       // Set up agent event listeners
       const handleOutput = (data: { agentId: string; data: string }) => {
         if (data.agentId === currentAgentId) {
-          send('AGENT_OUTPUT', { data: data.data });
+          send('OUTPUT', { data: data.data });
         }
       };
 
       const handleError = (data: { agentId: string; error: string }) => {
         if (data.agentId === currentAgentId) {
-          send('AGENT_ERROR', { error: data.error });
+          send('ERROR', { message: data.error });
         }
       };
 
@@ -203,16 +214,37 @@ export function handleWebSocketConnection(
   async function handleSendInput(payload: any) {
     const { input } = payload;
     
-    if (!currentAgentId) {
-      sendError('No active agent');
-      return;
-    }
-
     if (!input) {
       sendError('Missing input');
       return;
     }
 
+    // Handle commands when no agent is active
+    if (!currentAgentId) {
+      const command = input.trim().toLowerCase();
+      
+      if (command === 'help') {
+        send('OUTPUT', { data: '\r\nAvailable commands:\r\n' });
+        send('OUTPUT', { data: '  help     - Show this help message\r\n' });
+        send('OUTPUT', { data: '  launch   - Launch Claude agent\r\n' });
+        send('OUTPUT', { data: '  exit     - Stop the current agent\r\n' });
+        send('OUTPUT', { data: '  clear    - Clear the terminal\r\n' });
+        send('OUTPUT', { data: '\r\n' });
+      } else if (command === 'launch' || command === 'claude') {
+        send('OUTPUT', { data: '\r\nLaunching Claude agent...\r\n' });
+        await handleLaunchAgent({ type: 'claude', workspacePath: process.cwd() });
+      } else if (command === 'clear') {
+        send('CLEAR', {});
+      } else if (command === '') {
+        // Just return on empty input
+        return;
+      } else {
+        send('OUTPUT', { data: `\r\nNo agent active. Type "help" for commands or "launch" to start Claude.\r\n` });
+      }
+      return;
+    }
+
+    // Send to active agent
     try {
       await agentManager.sendToAgent(currentAgentId, input);
       

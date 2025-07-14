@@ -26,6 +26,7 @@
   let terminal: Terminal;
   let fitAddon: FitAddon;
   let ws: WebSocket | null = null;
+  let inputBuffer = '';
   
   export function write(data: string) {
     if (terminal) {
@@ -182,15 +183,30 @@
     };
     window.addEventListener('resize', handleResize);
     
-    // Handle terminal input
+    // Handle terminal input with line buffering
     terminal.onData((data: string) => {
-      // Send input to WebSocket if connected
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        const message = JSON.stringify({
-          type: 'SEND_INPUT',
-          payload: { input: data }
-        });
-        ws.send(message);
+      // Handle special characters
+      if (data === '\r' || data === '\n') {
+        // Enter pressed - send the complete line
+        if (ws && ws.readyState === WebSocket.OPEN && inputBuffer.length > 0) {
+          const message = JSON.stringify({
+            type: 'SEND_INPUT',
+            payload: { input: inputBuffer }
+          });
+          ws.send(message);
+          inputBuffer = '';
+        }
+      } else if (data === '\x7f' || data === '\b') {
+        // Backspace
+        if (inputBuffer.length > 0) {
+          inputBuffer = inputBuffer.slice(0, -1);
+        }
+      } else if (data === '\x03') {
+        // Ctrl+C
+        inputBuffer = '';
+      } else if (data.charCodeAt(0) >= 32) {
+        // Regular printable character
+        inputBuffer += data;
       }
     });
     

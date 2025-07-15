@@ -69,7 +69,6 @@ export class SSHAgent extends EventEmitter implements Agent {
       name: 'xterm-256color',
       cols: 80,
       rows: 30,
-      cwd: process.cwd(),
       env: {
         ...process.env,
         TERM: 'xterm-256color'

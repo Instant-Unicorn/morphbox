@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import pty from 'node-pty';
 import type { Agent, AgentOptions } from '../agent-manager';
-import { tmuxContainerManager } from '../tmux-container-manager';
+// import { tmuxContainerManager } from '../tmux-container-manager';
 
 export class SSHAgent extends EventEmitter implements Agent {
   id: string;
@@ -58,20 +58,13 @@ export class SSHAgent extends EventEmitter implements Agent {
     };
 
     try {
+      // For now, disable tmux to fix visual issues
+      this.ptyProcess = pty.spawn('docker', args, ptyOptions);
+      
       // Generate session ID if not provided
       if (!this.sessionId) {
         this.sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       }
-      
-      // Use tmux container manager for persistent sessions
-      this.ptyProcess = tmuxContainerManager.attachOrCreateSession(
-        this.sessionId,
-        {
-          command: 'docker',
-          args,
-          options: ptyOptions
-        }
-      );
 
       // Emit the session ID so the client can store it
       this.emit('sessionId', this.sessionId);
@@ -108,18 +101,14 @@ export class SSHAgent extends EventEmitter implements Agent {
   }
 
   async stop(): Promise<void> {
-    // Detach from tmux session instead of killing it
-    if (this.sessionId) {
-      tmuxContainerManager.detachSession(this.sessionId);
-      
-      if (this.ptyProcess) {
-        this.ptyProcess.removeAllListeners();
-        this.ptyProcess = null;
-      }
-      
+    // Clean up PTY process
+    if (this.ptyProcess) {
+      this.ptyProcess.removeAllListeners();
+      this.ptyProcess.kill();
+      this.ptyProcess = null;
       this.status = 'stopped';
       
-      console.log(`[SSHAgent] Detached from tmux session ${this.sessionId}`);
+      console.log(`[SSHAgent] Stopped session ${this.sessionId}`);
     }
   }
 

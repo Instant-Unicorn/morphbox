@@ -4,7 +4,7 @@ import { WebSocketServer } from 'ws';
 import { handleWebSocketConnection } from '$lib/server/websocket';
 import { AgentManager } from '$lib/server/agent-manager';
 import { StateManager } from '$lib/server/state-manager';
-import { tmuxContainerManager } from '$lib/server/tmux-container-manager';
+// import { tmuxContainerManager } from '$lib/server/tmux-container-manager';
 
 // Initialize managers
 export const agentManager = new AgentManager();
@@ -18,7 +18,7 @@ if (!building) {
       await stateManager.initialize();
       
       // Start tmux cleanup timer (clean up sessions older than 24 hours)
-      tmuxContainerManager.startCleanupTimer();
+      // tmuxContainerManager.startCleanupTimer();
       
       console.log('🚀 Server managers initialized');
     } catch (error) {

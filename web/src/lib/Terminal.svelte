@@ -488,7 +488,7 @@
   }
   
   .terminal-container.loading {
-    opacity: 0.3;
+    opacity: 0.2;
   }
   
   .loading-overlay {
@@ -505,19 +505,10 @@
   }
   
   .loading-logo {
-    max-width: 300px;
-    max-height: 150px;
-    opacity: 0.15;
-    animation: pulse 2s ease-in-out infinite;
-  }
-  
-  @keyframes pulse {
-    0%, 100% {
-      opacity: 0.15;
-    }
-    50% {
-      opacity: 0.25;
-    }
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.7;
   }
   
   .connection-status {

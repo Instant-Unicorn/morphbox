@@ -5,7 +5,7 @@ import { AgentManager } from './agent-manager';
 import { StateManager } from './state-manager';
 
 const PORT = process.env.WS_PORT || 8009;
-const HOST = process.env.MORPHBOX_HOST || 'localhost';
+const HOST = process.env.MORPHBOX_HOST || '0.0.0.0';
 
 // Initialize managers
 const agentManager = new AgentManager();
@@ -33,6 +33,7 @@ async function startWebSocketServer() {
     const wss = new WebSocketServer({ server });
 
     wss.on('connection', (ws, request) => {
+      console.log('New WebSocket connection from:', request.headers.host);
       handleWebSocketConnection(ws, request, { agentManager, stateManager });
     });
 

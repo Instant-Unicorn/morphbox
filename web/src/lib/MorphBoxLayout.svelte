@@ -32,7 +32,9 @@
   const panelComponents = {
     terminal: Terminal,
     fileExplorer: FileExplorer,
+    'file-explorer': FileExplorer,  // Support both naming conventions
     codeEditor: CodeEditor,
+    'code-editor': CodeEditor,      // Support both naming conventions
     settings: Settings
   };
   
@@ -147,6 +149,13 @@
   <!-- Minimal Header with just Panel Manager -->
   <div class="panel-manager-container">
     <PanelManager on:action={handlePanelAction} />
+    <!-- Temporary clear button -->
+    <button 
+      on:click={() => { localStorage.clear(); location.reload(); }} 
+      style="position: fixed; top: 50px; right: 10px; padding: 5px 10px; background: #d73a49; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; z-index: 1001;"
+    >
+      Clear Storage
+    </button>
   </div>
 
   <!-- Main Content Area -->

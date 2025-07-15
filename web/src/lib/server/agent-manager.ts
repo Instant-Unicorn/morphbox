@@ -123,9 +123,9 @@ export class AgentManager extends EventEmitter {
     return this.agents.get(agentId);
   }
 
-  private handleAgentExit(agentId: string, code: number): void {
+  private handleAgentExit(agentId: string, code: number | null): void {
     console.log(`Agent ${agentId} exited with code ${code}`);
     this.agents.delete(agentId);
-    this.emit('agent_exit', { agentId, code });
+    this.emit('agent_exit', { agentId, code: code ?? 0 });
   }
 }

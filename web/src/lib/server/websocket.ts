@@ -281,7 +281,7 @@ export function handleWebSocketConnection(
       agentManager.on('agent_output', handleOutput);
       agentManager.on('agent_error', handleError);
       agentManager.on('agent_exit', handleExit);
-      agentManager.on('agent_sessionId', handleSessionId);
+      // Note: handleSessionId is not needed here since it's only used in the initial launch
 
       send('AGENT_LAUNCHED', { agentId: currentAgentId });
       await sendCurrentState();

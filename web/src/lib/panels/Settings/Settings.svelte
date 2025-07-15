@@ -229,7 +229,7 @@
           </label>
         </div>
         
-        {#if settings.theme === 'custom'}
+        {#if settings.theme === 'custom' && settings.customTheme}
           <div class="custom-theme-settings">
             <h4>Custom Theme Colors</h4>
             <div class="color-setting">
@@ -388,8 +388,9 @@
         <div class="shortcuts-list">
           {#each Object.entries(settings.shortcuts) as [action, shortcut]}
             <div class="shortcut-row">
-              <label>{action.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</label>
+              <label for="shortcut-{action}">{action.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</label>
               <input 
+                id="shortcut-{action}"
                 type="text" 
                 value={shortcut}
                 readonly

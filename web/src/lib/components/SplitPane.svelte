@@ -152,6 +152,9 @@
   bind:this={container}
   class="split-pane {orientation} {className}"
   class:disabled
+  role="application"
+  aria-label="Split pane container"
+  tabindex="0"
   on:keydown={handleKeyDown}
 >
   <div
@@ -184,6 +187,11 @@
     height: 100%;
     position: relative;
     overflow: hidden;
+    outline: none;
+  }
+  
+  .split-pane:focus {
+    box-shadow: inset 0 0 0 2px var(--focus-ring-color, #0066cc);
   }
   
   .split-pane.horizontal {

@@ -509,10 +509,16 @@ ${styles.join('\n')}
   $: if (panelType === 'template' && selectedTemplate) {
     selectTemplate(selectedTemplate);
   }
+  
+  function handleOverlayKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      closeWizard();
+    }
+  }
 </script>
 
-<div class="wizard-overlay" on:click={closeWizard}>
-  <div class="wizard-container" on:click|stopPropagation transition:fade={{ duration: 200 }}>
+<div class="wizard-overlay" role="dialog" aria-modal="true" aria-label="Create Panel Wizard" on:click={closeWizard} on:keydown={handleOverlayKeydown}>
+  <div class="wizard-container" role="document" on:click|stopPropagation transition:fade={{ duration: 200 }}>
     <header class="wizard-header">
       <h2>Create New Panel</h2>
       <button class="close-button" on:click={closeWizard}>×</button>

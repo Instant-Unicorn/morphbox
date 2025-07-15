@@ -2,7 +2,6 @@
   import CodeEditor from './CodeEditor.svelte';
   import type { SaveEvent, ChangeEvent } from './types';
   
-  export let panelId: string;
   export let panelConfig: any = {};
   
   let editor: CodeEditor;

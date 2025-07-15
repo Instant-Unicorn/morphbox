@@ -63,12 +63,22 @@
   }
   
   function handleKeyDown(event: KeyboardEvent) {
-    if (isRenaming && event.key === 'Enter') {
-      event.preventDefault();
-      confirmRename();
-    } else if (isRenaming && event.key === 'Escape') {
-      event.preventDefault();
-      cancelRename();
+    if (isRenaming) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        confirmRename();
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        cancelRename();
+      }
+    } else {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        handleClick(new MouseEvent('click'));
+      } else if (event.key === 'F2') {
+        event.preventDefault();
+        dispatch('rename', { item });
+      }
     }
   }
   
@@ -101,9 +111,14 @@
     class="tree-item-content"
     class:selected={isSelected}
     style="padding-left: {level * 16 + 8}px"
+    role="treeitem"
+    tabindex={isSelected ? 0 : -1}
+    aria-expanded={item.isDirectory ? expanded : undefined}
+    aria-selected={isSelected}
     on:click={handleClick}
     on:dblclick={handleDoubleClick}
     on:contextmenu={handleContextMenu}
+    on:keydown={handleKeyDown}
   >
     {#if item.isDirectory}
       <span class="tree-arrow" class:expanded>

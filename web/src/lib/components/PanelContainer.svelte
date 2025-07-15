@@ -25,6 +25,13 @@
       toggleCollapse();
     }
   }
+  
+  function handleHeaderKeydown(e: KeyboardEvent) {
+    if (collapsible && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      toggleCollapse();
+    }
+  }
 </script>
 
 <div class="panel-container {className}" class:collapsed>
@@ -32,7 +39,11 @@
     <header 
       class="panel-header" 
       class:collapsible
+      role={collapsible ? 'button' : undefined}
+      tabindex={collapsible ? 0 : undefined}
+      aria-expanded={collapsible ? !collapsed : undefined}
       on:click={handleHeaderClick}
+      on:keydown={handleHeaderKeydown}
     >
       <div class="panel-title">
         {#if collapsible}

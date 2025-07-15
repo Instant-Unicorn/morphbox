@@ -85,6 +85,32 @@
     
     dispatch('dragend', { x: touch.clientX, y: touch.clientY });
   }
+  
+  function handleKeyDown(e: KeyboardEvent) {
+    if (disabled) return;
+    
+    const step = e.shiftKey ? 10 : 1;
+    let delta = 0;
+    
+    switch (e.key) {
+      case 'ArrowLeft':
+      case 'ArrowUp':
+        e.preventDefault();
+        delta = -step;
+        break;
+      case 'ArrowRight':
+      case 'ArrowDown':
+        e.preventDefault();
+        delta = step;
+        break;
+      default:
+        return;
+    }
+    
+    if (delta !== 0) {
+      dispatch('drag', { delta });
+    }
+  }
 </script>
 
 <div
@@ -96,9 +122,13 @@
   on:touchstart={handleTouchStart}
   on:touchmove={handleTouchMove}
   on:touchend={handleTouchEnd}
-  role="separator"
+  on:keydown={handleKeyDown}
+  role={disabled ? "presentation" : "separator"}
   aria-orientation={orientation}
   aria-disabled={disabled}
+  aria-valuenow={0}
+  aria-valuemin={-100}
+  aria-valuemax={100}
   tabindex={disabled ? -1 : 0}
 >
   <div class="handle-grip"></div>

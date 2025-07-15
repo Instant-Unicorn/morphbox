@@ -473,7 +473,7 @@
   {/if}
   
   {#if isInitializing || connectionStatus !== 'connected'}
-    <div class="loading-overlay" transition:fade={{ duration: 800 }}>
+    <div class="loading-overlay" transition:fade={{ duration: 400 }}>
       <img src="/wordlogo_sm.png" alt="MorphBox" class="loading-logo" />
     </div>
   {/if}

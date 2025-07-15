@@ -2,6 +2,7 @@
   import { onMount, onDestroy, createEventDispatcher } from 'svelte';
   import { browser } from '$app/environment';
   import { settings } from '$lib/panels/Settings';
+  import { fade } from 'svelte/transition';
   
   let Terminal: any;
   let FitAddon: any;
@@ -32,6 +33,7 @@
   let reconnectAttempts = 0;
   let isReconnecting = false;
   let connectionStatus: 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
+  let isInitializing = true;
   
   const dispatch = createEventDispatcher();
   
@@ -83,6 +85,11 @@
       isReconnecting = false;
       writeln('Connected to server');
       dispatch('connection', { connected: true });
+      
+      // Hide splash screen after connection
+      setTimeout(() => {
+        isInitializing = false;
+      }, 750);
     };
     
     ws.onmessage = (event) => {
@@ -401,6 +408,13 @@
       Reconnecting... (attempt {reconnectAttempts})
     </div>
   {/if}
+  
+  {#if isInitializing || connectionStatus !== 'connected'}
+    <div class="loading-overlay" transition:fade={{ duration: 400 }}>
+      <img src="/splashlogo.png" alt="MorphBox" class="loading-logo" />
+    </div>
+  {/if}
+  
   <div 
     bind:this={terminalContainer}
     class="terminal-container"
@@ -495,5 +509,25 @@
     :global(.xterm-helper-textarea) {
       font-size: 16px !important;
     }
+  }
+  
+  .loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #1e1e1e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  
+  .loading-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    opacity: 0.7;
   }
 </style>

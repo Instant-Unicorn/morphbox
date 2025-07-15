@@ -49,10 +49,17 @@ export function handleWebSocketConnection(
       currentSessionId = await stateManager.createSession(process.cwd(), 'claude');
       send('SESSION_CREATED', { sessionId: currentSessionId });
       
-      // Launch Claude immediately
-      currentAgentId = await agentManager.launchAgent('claude', {
+      // Get VM connection info from environment
+      const vmHost = process.env.MORPHBOX_VM_HOST || '127.0.0.1';
+      const vmPort = parseInt(process.env.MORPHBOX_VM_PORT || '22');
+      const vmUser = process.env.MORPHBOX_VM_USER || 'morphbox';
+      
+      // Launch SSH connection to VM
+      currentAgentId = await agentManager.launchAgent('ssh', {
         sessionId: currentSessionId,
-        workspacePath: process.cwd()
+        vmHost,
+        vmPort,
+        vmUser
       });
 
       // Set up agent event listeners
@@ -78,10 +85,10 @@ export function handleWebSocketConnection(
           agentManager.off('agent_error', handleError);
           agentManager.off('agent_exit', handleExit);
           
-          // Auto-restart Claude if it exits
+          // Auto-restart SSH connection if it exits
           setTimeout(() => {
             if (!currentAgentId && ws.readyState === 1) {
-              handleLaunchAgent({ type: 'claude' });
+              handleLaunchAgent({ type: 'ssh' });
             }
           }, 1000);
         }

@@ -1,9 +1,13 @@
 import { EventEmitter } from 'events';
 import * as pty from 'node-pty';
+import { SSHAgent } from './agents/ssh-agent';
 
 export interface AgentOptions {
   workspacePath?: string;
   sessionId: string;
+  vmHost?: string;
+  vmPort?: number;
+  vmUser?: string;
 }
 
 export interface Agent extends EventEmitter {
@@ -16,107 +20,22 @@ export interface Agent extends EventEmitter {
   stop(): Promise<void>;
 }
 
-class ClaudeAgent extends EventEmitter implements Agent {
-  id: string;
-  type: string = 'claude';
-  status: string = 'initialized';
-  startTime: number;
-  private ptyProcess: pty.IPty | null = null;
-  private options: AgentOptions;
-  private outputBuffer: string = '';
-
-  constructor(id: string, options: AgentOptions) {
-    super();
-    this.id = id;
-    this.options = options;
-    this.startTime = Date.now();
-  }
-
-  async initialize(): Promise<void> {
-    const { workspacePath, sessionId } = this.options;
-
-    // Spawn Claude CLI process in interactive mode
-    // The claude command doesn't take --session or --workspace arguments
-    const args: string[] = [];
-
-    try {
-      this.ptyProcess = pty.spawn('claude', args, {
-        name: 'xterm-color',
-        cols: 80,
-        rows: 30,
-        cwd: workspacePath || process.cwd(),
-        env: {
-          ...process.env,
-          CLAUDE_SESSION_ID: sessionId,
-          CLAUDE_WORKSPACE: workspacePath,
-          TERM: 'xterm-color'
-        } as any
-      });
-
-      // Set up event handlers immediately
-      // Handle output from PTY
-      this.ptyProcess.onData((data) => {
-        this.outputBuffer += data;
-        
-        
-        // Emit output for real-time streaming
-        this.emit('output', data);
-      });
-
-      // Handle process exit
-      this.ptyProcess.onExit(({ exitCode, signal }) => {
-        console.log('Claude exited with code:', exitCode);
-        this.status = 'stopped';
-        this.emit('exit', exitCode || 0);
-      });
-
-      this.status = 'running';
-      
-      // Auto-trust the folder by sending "1" after a short delay
-      setTimeout(() => {
-        if (this.ptyProcess) {
-          this.ptyProcess.write('1\r');
-        }
-      }, 500);
-
-    } catch (error) {
-      this.status = 'error';
-      throw error;
-    }
-  }
-
-  async sendInput(input: string): Promise<void> {
-    if (this.ptyProcess) {
-      // Send raw input directly without adding anything
-      this.ptyProcess.write(input);
-    } else {
-      throw new Error('Agent process not running');
-    }
-  }
-
-  async stop(): Promise<void> {
-    if (this.ptyProcess) {
-      this.ptyProcess.kill();
-      this.ptyProcess = null;
-      this.status = 'stopped';
-    }
-  }
-}
+// Removed local ClaudeAgent - now using SSH connection to VM
 
 export class AgentManager extends EventEmitter {
   private agents: Map<string, Agent> = new Map();
-  private agentTypes: Map<string, typeof ClaudeAgent> = new Map();
+  private agentTypes: Map<string, any> = new Map();
 
   async initialize(): Promise<void> {
     // Register available agent types
-    this.registerAgentType('claude', ClaudeAgent);
+    this.registerAgentType('ssh', SSHAgent);
     
     // Future agent types can be registered here
     // this.registerAgentType('openai', OpenAIAgent);
     // this.registerAgentType('ollama', OllamaAgent);
   }
 
-  registerAgentType(name: string, AgentClass: typeof ClaudeAgent): void {
+  registerAgentType(name: string, AgentClass: any): void {
     this.agentTypes.set(name, AgentClass);
     console.log(`Registered agent type: ${name}`);
   }

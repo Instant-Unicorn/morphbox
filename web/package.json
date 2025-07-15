@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "vite dev --port 8008 --host",
-    "dev:ws": "tsx src/lib/server/websocket-server.ts",
+    "dev:ws": "dotenv -e .env.local -- tsx src/lib/server/websocket-server.ts",
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -16,6 +16,7 @@
     "@sveltejs/vite-plugin-svelte": "^3.1.2",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.11.5",
+    "dotenv-cli": "^8.0.0",
     "svelte": "^4.2.20",
     "svelte-check": "^3.6.0",
     "tslib": "^2.4.1",

@@ -127,7 +127,7 @@ function createPanelRegistry() {
           isCustom: false
         },
         {
-          id: 'file-explorer',
+          id: 'fileExplorer',
           name: 'File Explorer',
           description: 'Browse and manage files',
           path: '$lib/panels/FileExplorer/FileExplorer.svelte',
@@ -136,10 +136,10 @@ function createPanelRegistry() {
           isCustom: false
         },
         {
-          id: 'code-editor',
+          id: 'codeEditor',
           name: 'Code Editor',
           description: 'Edit code with syntax highlighting',
-          path: '$lib/panels/CodeEditor/CodeEditorPanel.svelte',
+          path: '$lib/panels/CodeEditor/CodeEditor.svelte',
           features: ['fileSystem', 'stateManagement'],
           createdAt: new Date(),
           isCustom: false

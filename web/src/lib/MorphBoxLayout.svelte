@@ -9,6 +9,7 @@
   import FileExplorer from '$lib/panels/FileExplorer/FileExplorer.svelte';
   import CodeEditor from '$lib/panels/CodeEditor/CodeEditor.svelte';
   import Settings from '$lib/panels/Settings/Settings.svelte';
+  import BasePanel from '$lib/panels/BasePanel.svelte';
   import { settings, applyTheme } from '$lib/panels/Settings/settings-store';
   
   let terminal: Terminal;
@@ -167,17 +168,43 @@
                     <div class="loading">Loading terminal...</div>
                   {/if}
                 </div>
-              {:else if panelComponents[panel.type] && !panel.minimized}
-                <!-- Other panels -->
-                <div class="panel-wrapper" class:active={$activePanel?.id === panel.id}>
-                  <PanelContainer 
-                    title={panel.title} 
-                    closable={!panel.persistent} 
-                    on:close={() => panelStore.removePanel(panel.id)}
-                  >
-                    <svelte:component this={panelComponents[panel.type]} {...panel.content} />
-                  </PanelContainer>
-                </div>
+              {/if}
+            {/each}
+            
+            <!-- Floating panels (non-terminal) -->
+            {#each $panels.filter(p => p.type !== 'terminal' && panelComponents[p.type]) as panel (panel.id)}
+              {#if !panel.minimized}
+                <BasePanel
+                  config={{
+                    title: panel.title,
+                    icon: null,
+                    movable: true,
+                    resizable: true,
+                    closable: !panel.persistent,
+                    minimizable: true,
+                    maximizable: true,
+                    minWidth: 300,
+                    minHeight: 200
+                  }}
+                  state={{
+                    x: panel.position.x,
+                    y: panel.position.y,
+                    width: panel.size.width,
+                    height: panel.size.height,
+                    zIndex: panel.zIndex || 10,
+                    isMinimized: panel.minimized || false,
+                    isMaximized: panel.maximized || false
+                  }}
+                  onClose={() => panelStore.removePanel(panel.id)}
+                  onMinimize={() => panelStore.updatePanel(panel.id, { minimized: true })}
+                  onMaximize={() => panelStore.updatePanel(panel.id, { maximized: true })}
+                  onRestore={() => panelStore.updatePanel(panel.id, { maximized: false })}
+                  onFocus={() => panelStore.setActivePanel(panel.id)}
+                  onMove={(x, y) => panelStore.updatePanel(panel.id, { position: { x, y } })}
+                  onResize={(width, height) => panelStore.updatePanel(panel.id, { size: { width, height } })}
+                >
+                  <svelte:component this={panelComponents[panel.type]} {...panel.content} />
+                </BasePanel>
               {/if}
             {/each}
           </div>
@@ -202,17 +229,43 @@
                 <div class="loading">Loading terminal...</div>
               {/if}
             </div>
-          {:else if panelComponents[panel.type] && !panel.minimized}
-            <!-- Other panels -->
-            <div class="panel-wrapper" class:active={$activePanel?.id === panel.id}>
-              <PanelContainer 
-                title={panel.title} 
-                closable={!panel.persistent} 
-                on:close={() => panelStore.removePanel(panel.id)}
-              >
-                <svelte:component this={panelComponents[panel.type]} {...panel.content} />
-              </PanelContainer>
-            </div>
+          {/if}
+        {/each}
+        
+        <!-- Floating panels (non-terminal) -->
+        {#each $panels.filter(p => p.type !== 'terminal' && panelComponents[p.type]) as panel (panel.id)}
+          {#if !panel.minimized}
+            <BasePanel
+              config={{
+                title: panel.title,
+                icon: null,
+                movable: true,
+                resizable: true,
+                closable: !panel.persistent,
+                minimizable: true,
+                maximizable: true,
+                minWidth: 300,
+                minHeight: 200
+              }}
+              state={{
+                x: panel.position.x,
+                y: panel.position.y,
+                width: panel.size.width,
+                height: panel.size.height,
+                zIndex: panel.zIndex || 10,
+                isMinimized: panel.minimized || false,
+                isMaximized: panel.maximized || false
+              }}
+              onClose={() => panelStore.removePanel(panel.id)}
+              onMinimize={() => panelStore.updatePanel(panel.id, { minimized: true })}
+              onMaximize={() => panelStore.updatePanel(panel.id, { maximized: true })}
+              onRestore={() => panelStore.updatePanel(panel.id, { maximized: false })}
+              onFocus={() => panelStore.setActivePanel(panel.id)}
+              onMove={(x, y) => panelStore.updatePanel(panel.id, { position: { x, y } })}
+              onResize={(width, height) => panelStore.updatePanel(panel.id, { size: { width, height } })}
+            >
+              <svelte:component this={panelComponents[panel.type]} {...panel.content} />
+            </BasePanel>
           {/if}
         {/each}
       </div>
@@ -278,21 +331,27 @@
     display: none;
   }
 
-  .panel-wrapper {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 2;
-    display: none;
+
+  /* BasePanel Dark Theme Variables */
+  :global(.panel) {
+    --panel-bg: #2d2d30;
+    --panel-border: #3e3e42;
+    --panel-radius: 4px;
+    --panel-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --panel-shadow-hover: 0 6px 20px rgba(0, 0, 0, 0.5);
+    --panel-header-bg: #323233;
+    --panel-title-color: #cccccc;
+    --panel-control-color: #858585;
+    --panel-control-hover-bg: rgba(255, 255, 255, 0.1);
+    --panel-control-active-bg: rgba(255, 255, 255, 0.2);
+    --panel-close-hover-bg: #f14c4c;
+    --panel-resize-color: #858585;
   }
-
-  .panel-wrapper.active {
-    display: block;
+  
+  :global(.panel-content) {
+    padding: 0; /* Remove default padding for our panels */
   }
-
-
+  
   /* Loading State */
   .loading {
     display: flex;

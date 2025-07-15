@@ -46,7 +46,7 @@
       applyTheme($settings.theme, $settings.customTheme);
     });
     
-    // Initialize default panels
+    // Initialize default panels (without clearing - we'll do that differently)
     panelStore.initializeDefaults();
     
     // Get terminal panel reference
@@ -134,27 +134,10 @@
 </script>
 
 <div class="morphbox-container">
-  <!-- Header/Toolbar -->
-  <header class="morphbox-header">
-    <div class="header-left">
-      <h1>MorphBox</h1>
-      <span class="version">v2.0</span>
-    </div>
-    <div class="header-center">
-      <span class="connection-status" class:connected={isConnected}>
-        {isConnected ? '● Connected' : '○ Disconnected'}
-      </span>
-    </div>
-    <div class="header-right">
-      <button class="btn btn-sm" on:click={toggleFileExplorer}>
-        Files
-      </button>
-      <PanelManager on:action={handlePanelAction} />
-      <button class="btn btn-sm" on:click={openSettings}>
-        Settings
-      </button>
-    </div>
-  </header>
+  <!-- Minimal Header with just Panel Manager -->
+  <div class="panel-manager-container">
+    <PanelManager on:action={handlePanelAction} />
+  </div>
 
   <!-- Main Content Area -->
   <div class="morphbox-main">
@@ -236,19 +219,6 @@
     {/if}
   </div>
 
-  <!-- Status Bar -->
-  <footer class="morphbox-status">
-    <div class="status-left">
-      <span class="status-item">Agent: {agentStatus}</span>
-      {#if sessionId}
-        <span class="status-item">Session: {sessionId}</span>
-      {/if}
-      <span class="status-item">Panels: {$visiblePanels.length}</span>
-    </div>
-    <div class="status-right">
-      <span class="status-item">{currentTime}</span>
-    </div>
-  </footer>
 </div>
 
 <style>
@@ -264,58 +234,12 @@
     overflow: hidden;
   }
 
-  /* Header Styles */
-  .morphbox-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 40px;
-    padding: 0 16px;
-    background-color: var(--bg-secondary, #2d2d30);
-    border-bottom: 1px solid var(--border-color, #3e3e42);
-    flex-shrink: 0;
-  }
-
-  .header-left, .header-center, .header-right {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .morphbox-header h1 {
-    font-size: 16px;
-    font-weight: 600;
-    margin: 0;
-    color: var(--text-secondary, #cccccc);
-  }
-
-  .version {
-    font-size: 12px;
-    color: var(--text-tertiary, #858585);
-  }
-
-  .connection-status {
-    font-size: 13px;
-    color: var(--text-tertiary, #858585);
-  }
-
-  .connection-status.connected {
-    color: var(--accent-color, #4ec9b0);
-  }
-
-  .btn {
-    background-color: var(--button-bg, #3c3c3c);
-    color: var(--button-text, #cccccc);
-    border: 1px solid var(--border-color, #3e3e42);
-    padding: 4px 12px;
-    border-radius: 4px;
-    font-size: 12px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-  }
-
-  .btn:hover {
-    background-color: var(--button-hover, #484848);
+  /* Panel Manager Container */
+  .panel-manager-container {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
   }
 
   /* Main Content Area */
@@ -368,28 +292,6 @@
     display: block;
   }
 
-  /* Status Bar */
-  .morphbox-status {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 22px;
-    padding: 0 16px;
-    background-color: var(--status-bg, #007acc);
-    color: var(--status-text, #ffffff);
-    font-size: 12px;
-    flex-shrink: 0;
-  }
-
-  .status-left, .status-right {
-    display: flex;
-    gap: 16px;
-  }
-
-  .status-item {
-    display: flex;
-    align-items: center;
-  }
 
   /* Loading State */
   .loading {
@@ -404,52 +306,9 @@
 
   /* Mobile Responsive Styles */
   @media (max-width: 768px) {
-    .morphbox-header {
-      height: 36px;
-      padding: 0 8px;
-    }
-
-    .morphbox-header h1 {
-      font-size: 14px;
-    }
-
-    .version {
-      display: none;
-    }
-
-    .header-center {
-      flex: 1;
-      justify-content: center;
-    }
-
-    .connection-status {
-      font-size: 12px;
-    }
-
-    .btn {
-      padding: 4px 8px;
-      font-size: 11px;
-    }
-
-    .morphbox-status {
-      height: 20px;
-      padding: 0 8px;
-      font-size: 11px;
-    }
-
-    .status-left, .status-right {
-      gap: 8px;
-    }
-
-    /* Hide some elements on very small screens */
-    @media (max-width: 400px) {
-      .status-item:nth-child(2) {
-        display: none;
-      }
-      
-      .header-right .btn:not(:first-child) {
-        display: none;
-      }
+    .panel-manager-container {
+      top: 5px;
+      right: 5px;
     }
   }
 

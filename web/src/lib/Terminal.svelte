@@ -29,6 +29,9 @@
   let ws: WebSocket | null = null;
   let inputBuffer = '';
   let settingsUnsubscribe: (() => void) | null = null;
+  let reconnectAttempts = 0;
+  let isReconnecting = false;
+  let connectionStatus: 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
   
   const dispatch = createEventDispatcher();
   
@@ -50,6 +53,21 @@
     }
   }
   
+  function reconnectWithBackoff() {
+    const maxDelay = 30000; // Max 30 seconds
+    const baseDelay = 1000; // Start with 1 second
+    const delay = Math.min(baseDelay * Math.pow(2, reconnectAttempts), maxDelay);
+    
+    writeln(`\r\nReconnecting in ${delay / 1000} seconds... (attempt ${reconnectAttempts + 1})`);
+    
+    setTimeout(() => {
+      if (!ws || ws.readyState === WebSocket.CLOSED) {
+        reconnectAttempts++;
+        connectWebSocket();
+      }
+    }, delay);
+  }
+  
   function connectWebSocket() {
     if (ws) {
       ws.close();
@@ -60,6 +78,9 @@
     
     ws.onopen = () => {
       console.log('WebSocket connected');
+      connectionStatus = 'connected';
+      reconnectAttempts = 0;
+      isReconnecting = false;
       writeln('Connected to server');
       dispatch('connection', { connected: true });
     };
@@ -122,18 +143,16 @@
     
     ws.onclose = (event) => {
       console.log('WebSocket closed:', event.code, event.reason);
+      connectionStatus = 'disconnected';
       writeln(`\r\nDisconnected from server (code: ${event.code})`);
       dispatch('connection', { connected: false });
       dispatch('agent', { status: 'No agent' });
       
-      // Only reconnect if it wasn't a normal closure
-      if (event.code !== 1000 && event.code !== 1001) {
-        setTimeout(() => {
-          if (!ws || ws.readyState === WebSocket.CLOSED) {
-            writeln('\r\nAttempting to reconnect...');
-            connectWebSocket();
-          }
-        }, 3000);
+      // Only reconnect if it wasn't a normal closure and we're not already reconnecting
+      if (event.code !== 1000 && event.code !== 1001 && !isReconnecting) {
+        isReconnecting = true;
+        connectionStatus = 'reconnecting';
+        reconnectWithBackoff();
       }
     };
   }
@@ -376,6 +395,12 @@
 </script>
 
 <div class="terminal-outer-container">
+  {#if connectionStatus === 'reconnecting'}
+    <div class="connection-status reconnecting">
+      <span class="status-icon">⟳</span>
+      Reconnecting... (attempt {reconnectAttempts})
+    </div>
+  {/if}
   <div 
     bind:this={terminalContainer}
     class="terminal-container"
@@ -394,6 +419,35 @@
     width: 100%;
     height: 100%;
     background-color: #1e1e1e;
+  }
+  
+  .connection-status {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .connection-status.reconnecting {
+    background: rgba(255, 152, 0, 0.9);
+  }
+  
+  .status-icon {
+    display: inline-block;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
   
   :global(.terminal-wrapper .xterm) {

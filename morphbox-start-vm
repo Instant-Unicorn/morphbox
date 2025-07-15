@@ -23,10 +23,17 @@ if ! command -v limactl > /dev/null; then
     error "Lima is not installed. Please run install.sh first"
 fi
 
+# Check if KVM is available
+VM_CONFIG="$SCRIPT_DIR/claude-vm.yaml"
+if [[ ! -e /dev/kvm ]]; then
+    warn "KVM not available, using emulation mode (will be slower)"
+    VM_CONFIG="$SCRIPT_DIR/claude-vm-no-kvm.yaml"
+fi
+
 # Check if VM exists
 if ! limactl list | grep -q "^${VM_NAME}"; then
     info "Creating MorphBox VM..."
-    limactl create --name="${VM_NAME}" "$SCRIPT_DIR/claude-vm.yaml" || error "Failed to create VM"
+    limactl create --name="${VM_NAME}" "$VM_CONFIG" || error "Failed to create VM"
 fi
 
 # Check VM status

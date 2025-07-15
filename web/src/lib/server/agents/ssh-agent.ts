@@ -24,11 +24,12 @@ export class SSHAgent extends EventEmitter implements Agent {
       throw new Error('SSH connection requires vmHost, vmPort, and vmUser');
     }
 
-    // SSH arguments
+    // SSH arguments with password support
     const args = [
       '-p', vmPort.toString(),
       '-o', 'StrictHostKeyChecking=no',
       '-o', 'UserKnownHostsFile=/dev/null',
+      '-o', 'PreferredAuthentications=password,publickey',
       '-t',  // Force TTY allocation
       `${vmUser}@${vmHost}`,
       // Run Claude in the VM
@@ -60,6 +61,13 @@ export class SSHAgent extends EventEmitter implements Agent {
       });
 
       this.status = 'running';
+      
+      // Auto-enter password for Docker container
+      setTimeout(() => {
+        if (this.ptyProcess) {
+          this.ptyProcess.write('morphbox\r');
+        }
+      }, 1000);
 
     } catch (error) {
       this.status = 'error';

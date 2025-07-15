@@ -40,9 +40,6 @@ class ClaudeAgent extends EventEmitter implements Agent {
     const args: string[] = [];
 
     try {
-      console.log('Spawning claude process with args:', args);
-      console.log('Working directory:', workspacePath || process.cwd());
-      
       this.ptyProcess = pty.spawn('claude', args, {
         name: 'xterm-color',
         cols: 80,
@@ -61,8 +58,6 @@ class ClaudeAgent extends EventEmitter implements Agent {
       this.ptyProcess.onData((data) => {
         this.outputBuffer += data;
         
-        // Debug log
-        console.log('Claude output:', data);
         
         // Emit output for real-time streaming
         this.emit('output', data);
@@ -77,8 +72,12 @@ class ClaudeAgent extends EventEmitter implements Agent {
 
       this.status = 'running';
       
-      // Wait a bit for Claude to initialize
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Auto-trust the folder by sending "1" after a short delay
+      setTimeout(() => {
+        if (this.ptyProcess) {
+          this.ptyProcess.write('1\r');
+        }
+      }, 500);
 
     } catch (error) {
       this.status = 'error';
@@ -88,7 +87,8 @@ class ClaudeAgent extends EventEmitter implements Agent {
 
   async sendInput(input: string): Promise<void> {
     if (this.ptyProcess) {
-      this.ptyProcess.write(input + '\r');
+      // Send raw input directly without adding anything
+      this.ptyProcess.write(input);
     } else {
       throw new Error('Agent process not running');
     }

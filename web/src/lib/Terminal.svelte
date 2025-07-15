@@ -206,35 +206,14 @@
     };
     window.addEventListener('resize', handleResize);
     
-    // Handle terminal input with line buffering
+    // Handle terminal input - send directly to Claude without buffering
     terminal.onData((data: string) => {
-      // Handle special characters
-      if (data === '\r' || data === '\n') {
-        // Enter pressed - send the complete line
-        terminal.write('\r\n');
-        if (ws && ws.readyState === WebSocket.OPEN && inputBuffer.length > 0) {
-          const message = JSON.stringify({
-            type: 'SEND_INPUT',
-            payload: { input: inputBuffer }
-          });
-          ws.send(message);
-          inputBuffer = '';
-        }
-      } else if (data === '\x7f' || data === '\b') {
-        // Backspace
-        if (inputBuffer.length > 0) {
-          inputBuffer = inputBuffer.slice(0, -1);
-          // Move cursor back, write space, move cursor back again
-          terminal.write('\b \b');
-        }
-      } else if (data === '\x03') {
-        // Ctrl+C
-        inputBuffer = '';
-        terminal.write('^C\r\n');
-      } else if (data.charCodeAt(0) >= 32) {
-        // Regular printable character - echo it
-        inputBuffer += data;
-        terminal.write(data);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        const message = JSON.stringify({
+          type: 'SEND_INPUT',
+          payload: { input: data }
+        });
+        ws.send(message);
       }
     });
     

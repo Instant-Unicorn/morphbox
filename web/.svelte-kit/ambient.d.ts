@@ -29,6 +29,7 @@ declare module '$env/static/private' {
 	export const MORPHBOX_VM_HOST: string;
 	export const MORPHBOX_VM_PORT: string;
 	export const MORPHBOX_VM_USER: string;
+	export const ZELLIJ_SESSION_NAME: string;
 	export const LESSOPEN: string;
 	export const USER: string;
 	export const SSH_CLIENT: string;
@@ -60,8 +61,10 @@ declare module '$env/static/private' {
 	export const npm_package_name: string;
 	export const XDG_RUNTIME_DIR: string;
 	export const LANG: string;
+	export const ZELLIJ_PANE_ID: string;
 	export const LS_COLORS: string;
 	export const npm_lifecycle_script: string;
+	export const ZELLIJ: string;
 	export const SHELL: string;
 	export const npm_package_version: string;
 	export const npm_lifecycle_event: string;
@@ -112,6 +115,7 @@ declare module '$env/dynamic/private' {
 		MORPHBOX_VM_HOST: string;
 		MORPHBOX_VM_PORT: string;
 		MORPHBOX_VM_USER: string;
+		ZELLIJ_SESSION_NAME: string;
 		LESSOPEN: string;
 		USER: string;
 		SSH_CLIENT: string;
@@ -143,8 +147,10 @@ declare module '$env/dynamic/private' {
 		npm_package_name: string;
 		XDG_RUNTIME_DIR: string;
 		LANG: string;
+		ZELLIJ_PANE_ID: string;
 		LS_COLORS: string;
 		npm_lifecycle_script: string;
+		ZELLIJ: string;
 		SHELL: string;
 		npm_package_version: string;
 		npm_lifecycle_event: string;

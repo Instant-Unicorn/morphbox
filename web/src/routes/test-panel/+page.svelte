@@ -39,6 +39,10 @@
     Toggle CodeEditor
   </button>
   
+  <button on:click={() => { localStorage.clear(); location.reload(); }} style="background: #d73a49;">
+    Clear All Panels & Reload
+  </button>
+  
   {#if showFileExplorer}
     <BasePanel
       config={{

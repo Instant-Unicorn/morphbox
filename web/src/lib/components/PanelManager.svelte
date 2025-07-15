@@ -27,9 +27,16 @@
   function openPanel(panelId: string) {
     const definition = panelRegistry.get(panelId);
     if (definition) {
+      // Check if panel already exists (except for terminal which can have multiple)
+      const existingPanel = $panels.find(p => p.type === definition.id);
+      if (existingPanel && definition.id !== 'terminal') {
+        // Focus existing panel instead of creating new one
+        panelStore.setActivePanel(existingPanel.id);
+        return;
+      }
+      
       panelStore.addPanel(definition.id, {
-        title: definition.name,
-        type: definition.id
+        title: definition.name
       });
     }
   }

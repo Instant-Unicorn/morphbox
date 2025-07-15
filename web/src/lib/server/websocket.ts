@@ -55,6 +55,7 @@ export function handleWebSocketConnection(
       const vmUser = process.env.MORPHBOX_VM_USER || 'morphbox';
       
       // Launch SSH connection to VM
+      console.log('Launching SSH agent with config:', { vmHost, vmPort, vmUser });
       currentAgentId = await agentManager.launchAgent('ssh', {
         sessionId: currentSessionId,
         vmHost,
@@ -102,7 +103,13 @@ export function handleWebSocketConnection(
       await sendCurrentState();
     } catch (error) {
       console.error('Failed to launch Claude:', error);
-      sendError('Failed to launch Claude: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      let errorMessage = 'Unknown error';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        // Clean up any Node.js-specific error details that might contain 'require'
+        errorMessage = errorMessage.replace(/require\s+is\s+not\s+defined/gi, 'Module loading error');
+      }
+      sendError('Failed to launch Claude: ' + errorMessage);
     }
   }, 100);
 

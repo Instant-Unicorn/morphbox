@@ -409,12 +409,6 @@
     </div>
   {/if}
   
-  {#if isInitializing || connectionStatus !== 'connected'}
-    <div class="loading-overlay" transition:fade={{ duration: 400 }}>
-      <img src="/splashlogo.png" alt="MorphBox" class="loading-logo" />
-    </div>
-  {/if}
-  
   <div 
     bind:this={terminalContainer}
     class="terminal-container"
@@ -509,28 +503,5 @@
     :global(.xterm-helper-textarea) {
       font-size: 16px !important;
     }
-  }
-  
-  .loading-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: #1e1e1e;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 99999;
-  }
-  
-  .loading-logo {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-    opacity: 1;
   }
 </style>

@@ -122,6 +122,9 @@
   }
   
   onMount(() => {
+    console.log('BasePanel mounted:', config.title);
+    console.log('Panel dimensions:', state.width, 'x', state.height);
+    
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
@@ -284,7 +287,8 @@
   .panel-content {
     flex: 1;
     overflow: auto;
-    padding: 16px;
+    padding: var(--panel-content-padding, 16px);
+    min-height: 0; /* Fix flexbox height issues */
   }
   
   .panel-resize-handle {

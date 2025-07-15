@@ -119,6 +119,11 @@
       }
       
       dispatch('connection', { connected: true });
+      
+      // Hide splash screen after connection
+      setTimeout(() => {
+        isInitializing = false;
+      }, 750);
     };
     
     ws.onmessage = (event) => {
@@ -472,11 +477,6 @@
     </div>
   {/if}
   
-  {#if isInitializing || connectionStatus !== 'connected'}
-    <div class="loading-overlay" transition:fade={{ duration: 400 }}>
-      <img src="/wordlogo_sm.png" alt="MorphBox" class="loading-logo" />
-    </div>
-  {/if}
   
   <div 
     bind:this={terminalContainer}
@@ -503,25 +503,6 @@
     opacity: 0.2;
   }
   
-  .loading-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
-    z-index: 10;
-  }
-  
-  .loading-logo {
-    width: 100%;
-    height: 100%;
-    object-fit: fill;
-    opacity: 0.7;
-  }
   
   .connection-status {
     position: absolute;

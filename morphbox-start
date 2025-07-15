@@ -163,9 +163,6 @@ info "Press Ctrl+C to stop all services"
 # Cleanup function
 cleanup() {
     echo ""
-    warn "Shutting down MorphBox in 5 seconds..."
-    warn "Save any work in progress!"
-    sleep 5
     info "Stopping MorphBox..."
     kill $WS_PID 2>/dev/null || true
     kill $WEB_PID 2>/dev/null || true

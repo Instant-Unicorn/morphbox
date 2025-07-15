@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { panels } from '$lib/stores/panels';
+  import { panels, panelStore } from '$lib/stores/panels';
   import { panelRegistry, builtinPanels, customPanels } from '$lib/panels/registry';
   import CreatePanelWizard from './CreatePanelWizard.svelte';
   import { exportPanelCode, deleteGeneratedPanel } from '$lib/panels/generator';
@@ -27,9 +27,16 @@
   function openPanel(panelId: string) {
     const definition = panelRegistry.get(panelId);
     if (definition) {
-      panels.addPanel(definition.id, {
-        title: definition.name,
-        type: definition.id
+      // Check if panel already exists (except for terminal which can have multiple)
+      const existingPanel = $panels.find(p => p.type === definition.id);
+      if (existingPanel && definition.id !== 'terminal') {
+        // Focus existing panel instead of creating new one
+        panelStore.setActivePanel(existingPanel.id);
+        return;
+      }
+      
+      panelStore.addPanel(definition.id, {
+        title: definition.name
       });
     }
   }

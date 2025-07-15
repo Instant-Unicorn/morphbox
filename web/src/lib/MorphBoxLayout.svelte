@@ -9,10 +9,13 @@
   import FileExplorer from '$lib/panels/FileExplorer/FileExplorer.svelte';
   import CodeEditor from '$lib/panels/CodeEditor/CodeEditor.svelte';
   import Settings from '$lib/panels/Settings/Settings.svelte';
+  import BasePanel from '$lib/panels/BasePanel.svelte';
   import { settings, applyTheme } from '$lib/panels/Settings/settings-store';
+  import { fade } from 'svelte/transition';
   
   let terminal: Terminal;
   let mounted = false;
+  let showLoadingOverlay = true;
   
   // Use the same host as the current page
   $: websocketUrl = browser ? `ws://${window.location.hostname}:8009` : '';
@@ -31,14 +34,22 @@
   const panelComponents = {
     terminal: Terminal,
     fileExplorer: FileExplorer,
+    'file-explorer': FileExplorer,  // Support both naming conventions
     codeEditor: CodeEditor,
+    'code-editor': CodeEditor,      // Support both naming conventions
     settings: Settings
   };
+  
   
   // Initialize default panels
   onMount(() => {
     mounted = true;
     console.log('MorphBoxLayout mounted');
+    
+    // Hide loading overlay after a short delay
+    setTimeout(() => {
+      showLoadingOverlay = false;
+    }, 1500);
     
     // Load settings and apply theme
     settings.load();
@@ -49,15 +60,20 @@
     // Initialize default panels (without clearing - we'll do that differently)
     panelStore.initializeDefaults();
     
-    // Get terminal panel reference
-    const terminalPanels = $panels.filter(p => p.type === 'terminal');
-    if (terminalPanels.length > 0) {
-      terminalPanel = terminalPanels[0];
-    } else {
-      // Create terminal if it doesn't exist
-      panelStore.addPanel('terminal', { persistent: true });
-      terminalPanel = $panels.find(p => p.type === 'terminal')!;
-    }
+    // Wait a tick for store to update, then check for terminal
+    setTimeout(() => {
+      const terminalPanels = $panels.filter(p => p.type === 'terminal');
+      if (terminalPanels.length > 0) {
+        terminalPanel = terminalPanels[0];
+      } else {
+        // Create terminal if it doesn't exist
+        panelStore.addPanel('terminal', { persistent: true });
+        // Find it after adding
+        setTimeout(() => {
+          terminalPanel = $panels.find(p => p.type === 'terminal')!;
+        }, 0);
+      }
+    }, 0);
     
     const interval = setInterval(() => {
       currentTime = new Date().toLocaleTimeString();
@@ -137,6 +153,13 @@
   <!-- Minimal Header with just Panel Manager -->
   <div class="panel-manager-container">
     <PanelManager on:action={handlePanelAction} />
+    <!-- Temporary clear button -->
+    <button 
+      on:click={() => { localStorage.clear(); location.reload(); }} 
+      style="position: fixed; top: 50px; right: 10px; padding: 5px 10px; background: #d73a49; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; z-index: 1001;"
+    >
+      Clear Storage
+    </button>
   </div>
 
   <!-- Main Content Area -->
@@ -154,7 +177,7 @@
             {#each $panels as panel (panel.id)}
               {#if panel.type === 'terminal'}
                 <!-- Terminal is always visible in main area -->
-                <div class="terminal-wrapper" class:hidden={$activePanel?.id !== panel.id && $panels.filter(p => !p.minimized && p.type !== 'terminal').length > 0}>
+                <div class="terminal-wrapper">
                   {#if browser}
                     <Terminal 
                       bind:this={terminal} 
@@ -167,17 +190,45 @@
                     <div class="loading">Loading terminal...</div>
                   {/if}
                 </div>
-              {:else if panelComponents[panel.type] && !panel.minimized}
-                <!-- Other panels -->
-                <div class="panel-wrapper" class:active={$activePanel?.id === panel.id}>
-                  <PanelContainer 
-                    title={panel.title} 
-                    closable={!panel.persistent} 
-                    on:close={() => panelStore.removePanel(panel.id)}
-                  >
-                    <svelte:component this={panelComponents[panel.type]} {...panel.content} />
-                  </PanelContainer>
-                </div>
+              {/if}
+            {/each}
+            
+            <!-- Floating panels (non-terminal) -->
+            {#each $panels.filter(p => p.type !== 'terminal') as panel (panel.id)}
+              {#if panelComponents[panel.type]}
+              {#if !panel.minimized}
+                <BasePanel
+                  config={{
+                    title: panel.title,
+                    icon: null,
+                    movable: true,
+                    resizable: true,
+                    closable: !panel.persistent,
+                    minimizable: true,
+                    maximizable: true,
+                    minWidth: 300,
+                    minHeight: 200
+                  }}
+                  state={{
+                    x: panel.position.x,
+                    y: panel.position.y,
+                    width: panel.size.width,
+                    height: panel.size.height,
+                    zIndex: panel.zIndex || 10,
+                    isMinimized: panel.minimized || false,
+                    isMaximized: panel.maximized || false
+                  }}
+                  onClose={() => panelStore.removePanel(panel.id)}
+                  onMinimize={() => panelStore.updatePanel(panel.id, { minimized: true })}
+                  onMaximize={() => panelStore.updatePanel(panel.id, { maximized: true })}
+                  onRestore={() => panelStore.updatePanel(panel.id, { maximized: false })}
+                  onFocus={() => panelStore.setActivePanel(panel.id)}
+                  onMove={(x, y) => panelStore.updatePanel(panel.id, { position: { x, y } })}
+                  onResize={(width, height) => panelStore.updatePanel(panel.id, { size: { width, height } })}
+                >
+                  <svelte:component this={panelComponents[panel.type]} {...panel.content} />
+                </BasePanel>
+              {/if}
               {/if}
             {/each}
           </div>
@@ -189,7 +240,7 @@
         {#each $panels as panel (panel.id)}
           {#if panel.type === 'terminal'}
             <!-- Terminal is always visible -->
-            <div class="terminal-wrapper" class:hidden={$activePanel?.id !== panel.id && $panels.filter(p => !p.minimized && p.type !== 'terminal').length > 0}>
+            <div class="terminal-wrapper">
               {#if browser}
                 <Terminal 
                   bind:this={terminal} 
@@ -202,17 +253,45 @@
                 <div class="loading">Loading terminal...</div>
               {/if}
             </div>
-          {:else if panelComponents[panel.type] && !panel.minimized}
-            <!-- Other panels -->
-            <div class="panel-wrapper" class:active={$activePanel?.id === panel.id}>
-              <PanelContainer 
-                title={panel.title} 
-                closable={!panel.persistent} 
-                on:close={() => panelStore.removePanel(panel.id)}
-              >
-                <svelte:component this={panelComponents[panel.type]} {...panel.content} />
-              </PanelContainer>
-            </div>
+          {/if}
+        {/each}
+        
+        <!-- Floating panels (non-terminal) -->
+        {#each $panels.filter(p => p.type !== 'terminal') as panel (panel.id)}
+          {#if panelComponents[panel.type]}
+          {#if !panel.minimized}
+            <BasePanel
+              config={{
+                title: panel.title,
+                icon: null,
+                movable: true,
+                resizable: true,
+                closable: !panel.persistent,
+                minimizable: true,
+                maximizable: true,
+                minWidth: 300,
+                minHeight: 200
+              }}
+              state={{
+                x: panel.position.x,
+                y: panel.position.y,
+                width: panel.size.width,
+                height: panel.size.height,
+                zIndex: panel.zIndex || 10,
+                isMinimized: panel.minimized || false,
+                isMaximized: panel.maximized || false
+              }}
+              onClose={() => panelStore.removePanel(panel.id)}
+              onMinimize={() => panelStore.updatePanel(panel.id, { minimized: true })}
+              onMaximize={() => panelStore.updatePanel(panel.id, { maximized: true })}
+              onRestore={() => panelStore.updatePanel(panel.id, { maximized: false })}
+              onFocus={() => panelStore.setActivePanel(panel.id)}
+              onMove={(x, y) => panelStore.updatePanel(panel.id, { position: { x, y } })}
+              onResize={(width, height) => panelStore.updatePanel(panel.id, { size: { width, height } })}
+            >
+              <svelte:component this={panelComponents[panel.type]} {...panel.content} />
+            </BasePanel>
+          {/if}
           {/if}
         {/each}
       </div>
@@ -220,6 +299,13 @@
   </div>
 
 </div>
+
+<!-- Global loading overlay - rendered outside all containers -->
+{#if showLoadingOverlay}
+  <div class="global-loading-overlay" transition:fade={{ duration: 400 }}>
+    <img src="/splashlogo.png" alt="MorphBox" class="loading-logo" />
+  </div>
+{/if}
 
 <style>
   .morphbox-container {
@@ -274,25 +360,33 @@
     z-index: 1;
   }
 
-  .terminal-wrapper.hidden {
-    display: none;
+
+
+  /* BasePanel Dark Theme Variables */
+  :global(.panel) {
+    --panel-bg: #2d2d30;
+    --panel-border: #3e3e42;
+    --panel-radius: 4px;
+    --panel-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --panel-shadow-hover: 0 6px 20px rgba(0, 0, 0, 0.5);
+    --panel-header-bg: #323233;
+    --panel-title-color: #cccccc;
+    --panel-control-color: #858585;
+    --panel-control-hover-bg: rgba(255, 255, 255, 0.1);
+    --panel-control-active-bg: rgba(255, 255, 255, 0.2);
+    --panel-close-hover-bg: #f14c4c;
+    --panel-resize-color: #858585;
+    --panel-content-padding: 0; /* No padding for code/file panels */
+    z-index: 100; /* Ensure panels are above terminal */
   }
-
-  .panel-wrapper {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 2;
-    display: none;
+  
+  :global(.panel-content) {
+    padding: 0; /* Remove default padding for our panels */
+    height: 100%;
+    display: flex;
+    flex-direction: column;
   }
-
-  .panel-wrapper.active {
-    display: block;
-  }
-
-
+  
   /* Loading State */
   .loading {
     display: flex;
@@ -321,5 +415,28 @@
       right: 0;
       bottom: 0;
     }
+  }
+  
+  /* Global loading overlay - above everything */
+  .global-loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #1e1e1e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2147483647; /* Maximum z-index value */
+    pointer-events: all;
+  }
+  
+  .loading-logo {
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain;
+    object-position: center;
+    opacity: 1;
   }
 </style>

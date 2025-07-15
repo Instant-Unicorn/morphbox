@@ -164,7 +164,7 @@
             {#each $panels as panel (panel.id)}
               {#if panel.type === 'terminal'}
                 <!-- Terminal is always visible in main area -->
-                <div class="terminal-wrapper" class:hidden={$activePanel?.id !== panel.id && $panels.filter(p => !p.minimized && p.type !== 'terminal').length > 0}>
+                <div class="terminal-wrapper">
                   {#if browser}
                     <Terminal 
                       bind:this={terminal} 
@@ -227,7 +227,7 @@
         {#each $panels as panel (panel.id)}
           {#if panel.type === 'terminal'}
             <!-- Terminal is always visible -->
-            <div class="terminal-wrapper" class:hidden={$activePanel?.id !== panel.id && $panels.filter(p => !p.minimized && p.type !== 'terminal').length > 0}>
+            <div class="terminal-wrapper">
               {#if browser}
                 <Terminal 
                   bind:this={terminal} 
@@ -340,9 +340,6 @@
     z-index: 1;
   }
 
-  .terminal-wrapper.hidden {
-    display: none;
-  }
 
 
   /* BasePanel Dark Theme Variables */
@@ -360,6 +357,7 @@
     --panel-close-hover-bg: #f14c4c;
     --panel-resize-color: #858585;
     --panel-content-padding: 0; /* No padding for code/file panels */
+    z-index: 100; /* Ensure panels are above terminal */
   }
   
   :global(.panel-content) {

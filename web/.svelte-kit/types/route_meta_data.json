@@ -44,8 +44,14 @@
 	],
 	"/code-editor-demo": [],
 	"/command-palette-demo": [],
+	"/docs": [],
+	"/docs/[...slug]": [
+		"src/routes/docs/[...slug]/+page.server.ts"
+	],
 	"/file-explorer-demo": [],
 	"/layout-test": [],
 	"/panel-menu-demo": [],
+	"/panel-test": [],
+	"/test-panel": [],
 	"/test": []
 }

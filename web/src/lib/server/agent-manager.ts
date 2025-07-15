@@ -4,7 +4,8 @@ import { SSHAgent } from './agents/ssh-agent';
 
 export interface AgentOptions {
   workspacePath?: string;
-  sessionId: string;
+  sessionId: string;  // WebSocket session ID
+  terminalSessionId?: string;  // Terminal session ID for persistence
   vmHost?: string;
   vmPort?: number;
   vmUser?: string;
@@ -68,6 +69,10 @@ export class AgentManager extends EventEmitter {
 
       agent.on('exit', (code: number | null) => {
         this.handleAgentExit(agentId, code);
+      });
+
+      agent.on('sessionId', (sessionId: string) => {
+        this.emit('agent_sessionId', { agentId, sessionId });
       });
 
       return agentId;

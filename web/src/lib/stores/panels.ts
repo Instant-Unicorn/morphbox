@@ -97,10 +97,13 @@ function saveStateToSessionStorage(state: PanelState): void {
     // Create serializable state (remove websocket connections for serialization)
     const serializableState = {
       ...state,
-      panels: state.panels.map(panel => ({
-        ...panel,
-        websocketConnections: undefined // Remove non-serializable websocket connections
-      })),
+      // Filter out FileExplorer panels before saving
+      panels: state.panels
+        .filter(panel => panel.type !== 'fileExplorer')
+        .map(panel => ({
+          ...panel,
+          websocketConnections: undefined // Remove non-serializable websocket connections
+        })),
       lastSavedAt: Date.now()
     };
     
@@ -544,6 +547,18 @@ function createPanelStore() {
         sessionStorage.removeItem(SESSION_STORAGE_KEY);
         sessionStorage.removeItem(CRITICAL_STATE_KEY);
         sessionStorage.removeItem(HOT_RELOAD_MARKER);
+        
+        // Reset to just Terminal panel
+        set({
+          panels: [],
+          layout: 'floating',
+          activePanel: null
+        });
+        
+        // Initialize with defaults after clearing
+        setTimeout(() => {
+          panelStore.initializeDefaults();
+        }, 100);
       }
     },
 

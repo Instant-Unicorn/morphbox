@@ -21,6 +21,11 @@ export function handleWebSocketConnection(
   const { agentManager, stateManager } = context;
   let currentSessionId: string | null = null;
   let currentAgentId: string | null = null;
+  let terminalSessionId: string | null = null;
+  
+  // Extract terminal session ID from query params if provided
+  const url = new URL(request.url || '', `http://${request.headers.host}`);
+  const providedTerminalSessionId = url.searchParams.get('terminalSessionId');
 
   console.log('New WebSocket connection established');
   console.log('WebSocket readyState:', ws.readyState);
@@ -42,6 +47,7 @@ export function handleWebSocketConnection(
 
   // Launch Claude automatically on connection
   setTimeout(async () => {
+    console.log('Launching Claude for WebSocket connection');
     send('CONNECTED', { message: 'Welcome to MorphBox' });
     
     try {
@@ -58,10 +64,12 @@ export function handleWebSocketConnection(
       console.log('Launching SSH agent with config:', { vmHost, vmPort, vmUser });
       currentAgentId = await agentManager.launchAgent('ssh', {
         sessionId: currentSessionId,
+        terminalSessionId: providedTerminalSessionId || undefined,
         vmHost,
         vmPort,
         vmUser
       });
+      console.log('SSH agent launched with ID:', currentAgentId);
 
       // Set up agent event listeners
       const handleOutput = (data: { agentId: string; data: string }) => {
@@ -85,6 +93,7 @@ export function handleWebSocketConnection(
           agentManager.off('agent_output', handleOutput);
           agentManager.off('agent_error', handleError);
           agentManager.off('agent_exit', handleExit);
+          agentManager.off('agent_sessionId', handleSessionId);
           
           // Auto-restart SSH connection if it exits
           setTimeout(() => {
@@ -95,9 +104,17 @@ export function handleWebSocketConnection(
         }
       };
 
+      const handleSessionId = (data: { agentId: string; sessionId: string }) => {
+        if (data.agentId === currentAgentId) {
+          terminalSessionId = data.sessionId;
+          send('TERMINAL_SESSION_ID', { sessionId: data.sessionId });
+        }
+      };
+
       agentManager.on('agent_output', handleOutput);
       agentManager.on('agent_error', handleError);
       agentManager.on('agent_exit', handleExit);
+      agentManager.on('agent_sessionId', handleSessionId);
 
       send('AGENT_LAUNCHED', { agentId: currentAgentId });
       await sendCurrentState();
@@ -264,6 +281,7 @@ export function handleWebSocketConnection(
       agentManager.on('agent_output', handleOutput);
       agentManager.on('agent_error', handleError);
       agentManager.on('agent_exit', handleExit);
+      agentManager.on('agent_sessionId', handleSessionId);
 
       send('AGENT_LAUNCHED', { agentId: currentAgentId });
       await sendCurrentState();

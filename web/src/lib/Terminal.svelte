@@ -33,7 +33,9 @@
   let reconnectAttempts = 0;
   let isReconnecting = false;
   let connectionStatus: 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
+  let terminalSessionId: string | null = null;
   let isInitializing = true;
+  let hideLogoTimeout: number | null = null;
   
   const dispatch = createEventDispatcher();
   
@@ -53,6 +55,14 @@
     if (terminal) {
       terminal.clear();
     }
+  }
+  
+  export function clearSession() {
+    terminalSessionId = null;
+    if (browser) {
+      sessionStorage.removeItem('morphbox-terminal-session');
+    }
+    writeln('\r\n🔄 Session cleared. Next connection will start fresh.');
   }
   
   function reconnectWithBackoff() {
@@ -75,15 +85,39 @@
       ws.close();
     }
     
-    console.log('Connecting to WebSocket:', websocketUrl);
-    ws = new WebSocket(websocketUrl);
+    // Include terminal session ID if we have one
+    let url = websocketUrl;
+    if (terminalSessionId && browser) {
+      const urlObj = new URL(websocketUrl);
+      urlObj.searchParams.set('terminalSessionId', terminalSessionId);
+      url = urlObj.toString();
+    }
+    
+    console.log('Connecting to WebSocket:', url);
+    ws = new WebSocket(url);
+    
+    // Set timeout for connection
+    const connectionTimeout = setTimeout(() => {
+      if (ws.readyState !== WebSocket.OPEN) {
+        writeln('\r\n❌ WebSocket connection timeout. Please check if the WebSocket server is running on port 8009.');
+        console.error('WebSocket connection timeout');
+      }
+    }, 5000);
     
     ws.onopen = () => {
+      clearTimeout(connectionTimeout);
       console.log('WebSocket connected');
       connectionStatus = 'connected';
       reconnectAttempts = 0;
       isReconnecting = false;
-      writeln('Connected to server');
+      // Don't immediately hide - wait for agent launch or output
+      
+      if (terminalSessionId) {
+        writeln('\r\n🔄 Reconnecting to existing session...');
+      } else {
+        writeln('\r\n✅ Connected to server');
+      }
+      
       dispatch('connection', { connected: true });
       
       // Hide splash screen after connection
@@ -105,16 +139,43 @@
             dispatch('session', { sessionId: message.payload?.sessionId });
             break;
           case 'AGENT_LAUNCHED':
+            // Delay hiding the logo
+            if (hideLogoTimeout) clearTimeout(hideLogoTimeout);
+            hideLogoTimeout = setTimeout(() => {
+              isInitializing = false;
+            }, 750);
             dispatch('agent', { 
               status: 'Active', 
               agentId: message.payload?.agentId 
             });
+            break;
+          case 'TERMINAL_SESSION_ID':
+            if (message.payload?.sessionId) {
+              const isNewSession = terminalSessionId !== message.payload.sessionId;
+              terminalSessionId = message.payload.sessionId;
+              // Store in sessionStorage for persistence
+              if (browser) {
+                sessionStorage.setItem('morphbox-terminal-session', terminalSessionId);
+              }
+              if (isNewSession) {
+                writeln(`\r\n✨ New session created: ${terminalSessionId.substring(0, 8)}...`);
+              } else {
+                writeln(`\r\n✅ Session restored: ${terminalSessionId.substring(0, 8)}...`);
+              }
+            }
             break;
           case 'AGENT_EXIT':
             dispatch('agent', { status: 'No agent' });
             break;
           case 'OUTPUT':
             if (message.payload?.data) {
+              // Delay hiding the logo on first output
+              if (isInitializing) {
+                if (hideLogoTimeout) clearTimeout(hideLogoTimeout);
+                hideLogoTimeout = setTimeout(() => {
+                  isInitializing = false;
+                }, 750);
+              }
               write(message.payload.data);
             }
             break;
@@ -271,6 +332,13 @@
   onMount(async () => {
     if (!browser) return;
     
+    // Load terminal session ID from sessionStorage if available
+    const savedSessionId = sessionStorage.getItem('morphbox-terminal-session');
+    if (savedSessionId) {
+      terminalSessionId = savedSessionId;
+      console.log('Restored terminal session ID:', terminalSessionId);
+    }
+    
     // Wait for modules to load
     let attempts = 0;
     while ((!Terminal || !FitAddon || !WebLinksAddon) && attempts < 50) {
@@ -409,9 +477,16 @@
     </div>
   {/if}
   
+  {#if isInitializing || connectionStatus !== 'connected'}
+    <div class="loading-overlay" transition:fade={{ duration: 400 }}>
+      <img src="/wordlogo_sm.png" alt="MorphBox" class="loading-logo" />
+    </div>
+  {/if}
+  
   <div 
     bind:this={terminalContainer}
     class="terminal-container"
+    class:loading={isInitializing || connectionStatus !== 'connected'}
   />
 </div>
 
@@ -427,6 +502,30 @@
     width: 100%;
     height: 100%;
     background-color: #1e1e1e;
+  }
+  
+  .terminal-container.loading {
+    opacity: 0.2;
+  }
+  
+  .loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 10;
+  }
+  
+  .loading-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    opacity: 0.7;
   }
   
   .connection-status {

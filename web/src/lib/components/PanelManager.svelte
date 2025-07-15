@@ -383,13 +383,13 @@
   }
   
   .manager-footer a {
-    color: #0e639c;
+    color: #007acc;
     text-decoration: none;
     transition: color 0.2s;
   }
   
   .manager-footer a:hover {
-    color: #1177bb;
+    color: #0098ff;
     text-decoration: underline;
   }
   

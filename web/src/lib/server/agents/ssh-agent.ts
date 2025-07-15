@@ -24,21 +24,17 @@ export class SSHAgent extends EventEmitter implements Agent {
       throw new Error('SSH connection requires vmHost, vmPort, and vmUser');
     }
 
-    // SSH arguments with password support
+    // Use docker exec instead of SSH for reliability
     const args = [
-      '-p', vmPort.toString(),
-      '-o', 'StrictHostKeyChecking=no',
-      '-o', 'UserKnownHostsFile=/dev/null',
-      '-o', 'PreferredAuthentications=password,publickey',
-      '-o', 'SendEnv=TERM COLORTERM',
-      '-t',  // Force TTY allocation
-      `${vmUser}@${vmHost}`,
-      // Run Claude in the VM with proper terminal
-      'bash -i -c "claude --dangerously-skip-permissions"'
+      'exec',
+      '-it',
+      'morphbox-vm',
+      'su', '-', vmUser, '-c',
+      'cd /workspace && claude --dangerously-skip-permissions'
     ];
 
     try {
-      this.ptyProcess = pty.spawn('ssh', args, {
+      this.ptyProcess = pty.spawn('docker', args, {
         name: 'xterm-256color',
         cols: 80,
         rows: 30,
@@ -62,13 +58,6 @@ export class SSHAgent extends EventEmitter implements Agent {
       });
 
       this.status = 'running';
-      
-      // Auto-enter password for Docker container
-      setTimeout(() => {
-        if (this.ptyProcess) {
-          this.ptyProcess.write('morphbox\r');
-        }
-      }, 1000);
 
     } catch (error) {
       this.status = 'error';

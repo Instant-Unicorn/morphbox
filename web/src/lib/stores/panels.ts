@@ -550,13 +550,48 @@ function createPanelStore() {
 }
 
 // Create and export the store
-export const panels = createPanelStore();
+export const panelStore = createPanelStore();
+
+// Create derived stores for easier access
+export const panels = derived(panelStore, $store => $store.panels);
+export const activePanel = derived(panelStore, $store => 
+  $store.panels.find(p => p.id === $store.activePanel) || null
+);
+export const panelsByType = derived(panelStore, $store => {
+  const byType: Record<string, Panel[]> = {};
+  $store.panels.forEach(panel => {
+    if (!byType[panel.type]) byType[panel.type] = [];
+    byType[panel.type].push(panel);
+  });
+  return byType;
+});
+export const visiblePanels = derived(panelStore, $store => 
+  $store.panels.filter(p => !p.minimized)
+);
+
+// Export storage utilities for external use
+export const storageKeys = {
+  SESSION_STORAGE_KEY,
+  CRITICAL_STATE_KEY,
+  HOT_RELOAD_MARKER
+};
+
+export const panelStateUtils = {
+  saveStateToSessionStorage,
+  loadStateFromSessionStorage,
+  loadCriticalState,
+  clearHotReloadMarker,
+  preserveWebSocketConnection,
+  restoreWebSocketConnection,
+  createPanelSnapshot,
+  restorePanelSnapshot
+};
 
 // Setup beforeunload event handling for critical state preservation
 if (browser) {
   // Save critical state before page unload
   const handleBeforeUnload = () => {
-    const state = get(panels);
+    const state = get(panelStore);
     
     // Save critical state immediately before unload
     try {
@@ -585,14 +620,14 @@ if (browser) {
     hot.on('vite:beforeUpdate', () => {
       // Mark that a hot reload is happening
       sessionStorage.setItem(HOT_RELOAD_MARKER, Date.now().toString());
-      panels.saveState();
+      panelStore.saveState();
     });
     
     hot.on('vite:afterUpdate', () => {
       // Attempt to recover state after hot reload
       setTimeout(() => {
-        if (panels.isRecoveringFromHotReload()) {
-          panels.recoverFromHotReload();
+        if (panelStore.isRecoveringFromHotReload()) {
+          panelStore.recoverFromHotReload();
         }
       }, 100);
     });
@@ -604,31 +639,8 @@ if (browser) {
   };
   
   // Export cleanup function for potential manual cleanup
-  (panels as any).cleanup = cleanup;
+  (panelStore as any).cleanup = cleanup;
 }
-
-// Derived stores for easier access
-export const activePanel = derived(
-  panels,
-  $panels => $panels.panels.find(p => p.id === $panels.activePanel) || null
-);
-
-export const panelsByType = derived(
-  panels,
-  $panels => {
-    const grouped: Record<string, Panel[]> = {};
-    $panels.panels.forEach(panel => {
-      if (!grouped[panel.type]) grouped[panel.type] = [];
-      grouped[panel.type].push(panel);
-    });
-    return grouped;
-  }
-);
-
-export const visiblePanels = derived(
-  panels,
-  $panels => $panels.panels.filter(p => !p.minimized)
-);
 
 // Layout-specific helpers
 export const layoutConfig = {
@@ -682,21 +694,3 @@ export function calculateSplitSizes(panels: Panel[], direction: 'horizontal' | '
   }));
 }
 
-// Export utility functions for external use
-export const panelStateUtils = {
-  saveStateToSessionStorage,
-  loadStateFromSessionStorage,
-  loadCriticalState,
-  clearHotReloadMarker,
-  preserveWebSocketConnection,
-  restoreWebSocketConnection,
-  createPanelSnapshot,
-  restorePanelSnapshot
-};
-
-// Export session storage keys for external access if needed
-export const storageKeys = {
-  SESSION_STORAGE_KEY,
-  CRITICAL_STATE_KEY,
-  HOT_RELOAD_MARKER
-};

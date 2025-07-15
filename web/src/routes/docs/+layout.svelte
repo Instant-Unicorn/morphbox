@@ -194,9 +194,14 @@
 </div>
 
 <style>
+  :global(body:has(.docs-container)) {
+    overflow: auto !important;
+  }
+
   .docs-container {
     display: flex;
-    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
     background-color: var(--bg-primary, #1e1e1e);
     color: var(--text-primary, #d4d4d4);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -396,6 +401,8 @@
     padding: 40px;
     margin-left: 280px;
     max-width: calc(100% - 280px);
+    overflow-y: auto;
+    height: 100vh;
   }
 
   /* Mobile styles */

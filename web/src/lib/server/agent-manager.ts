@@ -1,5 +1,5 @@
-import { spawn, type ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
+import * as pty from 'node-pty';
 
 export interface AgentOptions {
   workspacePath?: string;
@@ -21,7 +21,7 @@ class ClaudeAgent extends EventEmitter implements Agent {
   type: string = 'claude';
   status: string = 'initialized';
   startTime: number;
-  private process: ChildProcess | null = null;
+  private ptyProcess: pty.IPty | null = null;
   private options: AgentOptions;
   private outputBuffer: string = '';
 
@@ -43,46 +43,36 @@ class ClaudeAgent extends EventEmitter implements Agent {
       console.log('Spawning claude process with args:', args);
       console.log('Working directory:', workspacePath || process.cwd());
       
-      this.process = spawn('claude', args, {
+      this.ptyProcess = pty.spawn('claude', args, {
+        name: 'xterm-color',
+        cols: 80,
+        rows: 30,
         cwd: workspacePath || process.cwd(),
         env: {
           ...process.env,
           CLAUDE_SESSION_ID: sessionId,
-          CLAUDE_WORKSPACE: workspacePath
-        },
-        stdio: ['pipe', 'pipe', 'pipe']
+          CLAUDE_WORKSPACE: workspacePath,
+          TERM: 'xterm-color'
+        } as any
       });
 
       // Set up event handlers immediately
-      // Handle stdout
-      this.process.stdout?.on('data', (data) => {
-        const output = data.toString();
-        this.outputBuffer += output;
+      // Handle output from PTY
+      this.ptyProcess.onData((data) => {
+        this.outputBuffer += data;
         
         // Debug log
-        console.log('Claude stdout:', output);
+        console.log('Claude output:', data);
         
         // Emit output for real-time streaming
-        this.emit('output', output);
-      });
-
-      // Handle stderr
-      this.process.stderr?.on('data', (data) => {
-        const error = data.toString();
-        console.log('Claude stderr:', error);
-        this.emit('error', error);
+        this.emit('output', data);
       });
 
       // Handle process exit
-      this.process.on('exit', (code, signal) => {
+      this.ptyProcess.onExit(({ exitCode, signal }) => {
+        console.log('Claude exited with code:', exitCode);
         this.status = 'stopped';
-        this.emit('exit', code || 0);
-      });
-
-      this.process.on('error', (error) => {
-        console.error('Claude process error:', error);
-        this.status = 'error';
-        this.emit('error', error.message);
+        this.emit('exit', exitCode || 0);
       });
 
       this.status = 'running';
@@ -97,17 +87,17 @@ class ClaudeAgent extends EventEmitter implements Agent {
   }
 
   async sendInput(input: string): Promise<void> {
-    if (this.process && this.process.stdin) {
-      this.process.stdin.write(input + '\n');
+    if (this.ptyProcess) {
+      this.ptyProcess.write(input + '\r');
     } else {
       throw new Error('Agent process not running');
     }
   }
 
   async stop(): Promise<void> {
-    if (this.process) {
-      this.process.kill('SIGTERM');
-      this.process = null;
+    if (this.ptyProcess) {
+      this.ptyProcess.kill();
+      this.ptyProcess = null;
       this.status = 'stopped';
     }
   }

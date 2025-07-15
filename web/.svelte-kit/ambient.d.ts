@@ -26,10 +26,13 @@
  * ```
  */
 declare module '$env/static/private' {
+	export const ZELLIJ_SESSION_NAME: string;
 	export const LESSOPEN: string;
 	export const USER: string;
 	export const SSH_CLIENT: string;
+	export const CLAUDE_CODE_ENTRYPOINT: string;
 	export const npm_config_user_agent: string;
+	export const GIT_EDITOR: string;
 	export const XDG_SESSION_TYPE: string;
 	export const npm_node_execpath: string;
 	export const SHLVL: string;
@@ -50,19 +53,24 @@ declare module '$env/static/private' {
 	export const XDG_SESSION_CLASS: string;
 	export const TERM: string;
 	export const XDG_SESSION_ID: string;
+	export const OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: string;
 	export const npm_config_cache: string;
 	export const npm_config_node_gyp: string;
 	export const PATH: string;
 	export const NODE: string;
 	export const npm_package_name: string;
+	export const COREPACK_ENABLE_AUTO_PIN: string;
 	export const XDG_RUNTIME_DIR: string;
 	export const LANG: string;
+	export const ZELLIJ_PANE_ID: string;
 	export const LS_COLORS: string;
 	export const npm_lifecycle_script: string;
+	export const ZELLIJ: string;
 	export const SHELL: string;
 	export const npm_package_version: string;
 	export const npm_lifecycle_event: string;
 	export const LESSCLOSE: string;
+	export const CLAUDECODE: string;
 	export const npm_config_globalconfig: string;
 	export const npm_config_init_module: string;
 	export const PWD: string;
@@ -106,10 +114,13 @@ declare module '$env/static/public' {
  */
 declare module '$env/dynamic/private' {
 	export const env: {
+		ZELLIJ_SESSION_NAME: string;
 		LESSOPEN: string;
 		USER: string;
 		SSH_CLIENT: string;
+		CLAUDE_CODE_ENTRYPOINT: string;
 		npm_config_user_agent: string;
+		GIT_EDITOR: string;
 		XDG_SESSION_TYPE: string;
 		npm_node_execpath: string;
 		SHLVL: string;
@@ -130,19 +141,24 @@ declare module '$env/dynamic/private' {
 		XDG_SESSION_CLASS: string;
 		TERM: string;
 		XDG_SESSION_ID: string;
+		OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: string;
 		npm_config_cache: string;
 		npm_config_node_gyp: string;
 		PATH: string;
 		NODE: string;
 		npm_package_name: string;
+		COREPACK_ENABLE_AUTO_PIN: string;
 		XDG_RUNTIME_DIR: string;
 		LANG: string;
+		ZELLIJ_PANE_ID: string;
 		LS_COLORS: string;
 		npm_lifecycle_script: string;
+		ZELLIJ: string;
 		SHELL: string;
 		npm_package_version: string;
 		npm_lifecycle_event: string;
 		LESSCLOSE: string;
+		CLAUDECODE: string;
 		npm_config_globalconfig: string;
 		npm_config_init_module: string;
 		PWD: string;

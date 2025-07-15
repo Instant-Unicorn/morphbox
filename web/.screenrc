@@ -25,5 +25,12 @@ defwritelock off
 # Prevent screen from catching Ctrl+S
 bind s
 
-# Set status line
-hardstatus alwayslastline "%{= kw}%-w%{= BW}%n %t%{-}%+w %-= morphbox"
+# Disable status line completely
+hardstatus off
+
+# Disable all messages
+msgwait 0
+msgminwait 0
+
+# Disable activity monitoring
+monitor off

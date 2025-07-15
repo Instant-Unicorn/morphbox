@@ -1,15 +1,15 @@
 import { EventEmitter } from 'events';
-import * as pty from 'node-pty';
+import pty from 'node-pty';
 import type { Agent, AgentOptions } from '../agent-manager';
-import { screenManager } from '../screen-manager';
+// import { screenManager } from '../screen-manager';
 
 export class SSHAgent extends EventEmitter implements Agent {
   id: string;
   type: string = 'ssh';
   status: string = 'initialized';
   startTime: number;
-  private ptyProcess: pty.IPty | null = null;
-  private screenPty: pty.IPty | null = null;
+  private ptyProcess: InstanceType<typeof pty.spawn> | null = null;
+  private screenPty: InstanceType<typeof pty.spawn> | null = null;
   private sessionId: string | null = null;
   private options: AgentOptions;
 
@@ -57,22 +57,13 @@ export class SSHAgent extends EventEmitter implements Agent {
     };
 
     try {
+      // For now, use direct PTY without screen to avoid UI issues
+      this.ptyProcess = pty.spawn('docker', args, ptyOptions);
+      
       // Generate session ID if not provided
       if (!this.sessionId) {
         this.sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       }
-      
-      // Use screen manager for persistent sessions
-      this.screenPty = screenManager.attachOrCreateSession(
-        this.sessionId,
-        {
-          command: 'docker',
-          args,
-          options: ptyOptions
-        }
-      );
-
-      this.ptyProcess = this.screenPty;
 
       // Emit the session ID so the client can store it
       this.emit('sessionId', this.sessionId);
@@ -106,19 +97,15 @@ export class SSHAgent extends EventEmitter implements Agent {
   }
 
   async stop(): Promise<void> {
-    // Detach from screen session instead of killing it
-    if (this.sessionId) {
-      screenManager.detachSession(this.sessionId);
-      
-      if (this.ptyProcess) {
-        this.ptyProcess.removeAllListeners();
-        this.ptyProcess = null;
-      }
-      
+    // Clean up PTY process
+    if (this.ptyProcess) {
+      this.ptyProcess.removeAllListeners();
+      this.ptyProcess.kill();
+      this.ptyProcess = null;
       this.screenPty = null;
       this.status = 'stopped';
       
-      console.log(`[SSHAgent] Detached from screen session ${this.sessionId}`);
+      console.log(`[SSHAgent] Stopped session ${this.sessionId}`);
     }
   }
 

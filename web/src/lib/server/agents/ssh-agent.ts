@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import * as pty from 'node-pty';
 import type { Agent, AgentOptions } from '../agent-manager';
+import { getSessionManager, type SessionInfo } from '../session-manager';
 
 export class SSHAgent extends EventEmitter implements Agent {
   id: string;
@@ -8,6 +9,8 @@ export class SSHAgent extends EventEmitter implements Agent {
   status: string = 'initialized';
   startTime: number;
   private ptyProcess: pty.IPty | null = null;
+  private sessionInfo: SessionInfo | null = null;
+  private sessionId: string | null = null;
   private options: AgentOptions;
 
   constructor(id: string, options: AgentOptions) {
@@ -15,6 +18,15 @@ export class SSHAgent extends EventEmitter implements Agent {
     this.id = id;
     this.options = options;
     this.startTime = Date.now();
+    
+    // Check if a terminal session ID was provided for persistence
+    if (options.terminalSessionId) {
+      this.sessionId = options.terminalSessionId;
+    }
+  }
+
+  setSessionId(sessionId: string | null): void {
+    this.sessionId = sessionId;
   }
 
   async initialize(): Promise<void> {
@@ -33,17 +45,42 @@ export class SSHAgent extends EventEmitter implements Agent {
       'cd /workspace && claude --dangerously-skip-permissions'
     ];
 
+    const ptyOptions = {
+      name: 'xterm-256color',
+      cols: 80,
+      rows: 30,
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        TERM: 'xterm-256color'
+      } as any
+    };
+
     try {
-      this.ptyProcess = pty.spawn('docker', args, {
-        name: 'xterm-256color',
-        cols: 80,
-        rows: 30,
-        cwd: process.cwd(),
-        env: {
-          ...process.env,
-          TERM: 'xterm-256color'
-        } as any
-      });
+      // Get the session manager
+      const sessionManager = getSessionManager();
+      
+      // Try to attach to existing session or create new one
+      this.sessionInfo = sessionManager.attachOrCreateSession(
+        this.sessionId,
+        {
+          command: 'docker',
+          args,
+          options: ptyOptions,
+          metadata: {
+            agentId: this.id,
+            vmUser,
+            createdAt: new Date()
+          }
+        }
+      );
+
+      // Update our references
+      this.sessionId = this.sessionInfo.id;
+      this.ptyProcess = this.sessionInfo.pty;
+
+      // Emit the session ID so the client can store it
+      this.emit('sessionId', this.sessionId);
 
       // Handle output from PTY
       this.ptyProcess.onData((data) => {
@@ -74,10 +111,16 @@ export class SSHAgent extends EventEmitter implements Agent {
   }
 
   async stop(): Promise<void> {
+    // Don't kill the PTY process - just disconnect from it
+    // The session manager will handle cleanup based on timeout
     if (this.ptyProcess) {
-      this.ptyProcess.kill();
+      // Remove our event listeners
+      this.ptyProcess.removeAllListeners();
       this.ptyProcess = null;
+      this.sessionInfo = null;
       this.status = 'stopped';
+      
+      console.log(`[SSHAgent] Disconnected from session ${this.sessionId}, but keeping it alive`);
     }
   }
 

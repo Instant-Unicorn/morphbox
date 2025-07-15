@@ -32,6 +32,7 @@
   let reconnectAttempts = 0;
   let isReconnecting = false;
   let connectionStatus: 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
+  let terminalSessionId: string | null = null;
   
   const dispatch = createEventDispatcher();
   
@@ -51,6 +52,14 @@
     if (terminal) {
       terminal.clear();
     }
+  }
+  
+  export function clearSession() {
+    terminalSessionId = null;
+    if (browser) {
+      sessionStorage.removeItem('morphbox-terminal-session');
+    }
+    writeln('\r\n🔄 Session cleared. Next connection will start fresh.');
   }
   
   function reconnectWithBackoff() {
@@ -73,15 +82,29 @@
       ws.close();
     }
     
-    console.log('Connecting to WebSocket:', websocketUrl);
-    ws = new WebSocket(websocketUrl);
+    // Include terminal session ID if we have one
+    let url = websocketUrl;
+    if (terminalSessionId && browser) {
+      const urlObj = new URL(websocketUrl);
+      urlObj.searchParams.set('terminalSessionId', terminalSessionId);
+      url = urlObj.toString();
+    }
+    
+    console.log('Connecting to WebSocket:', url);
+    ws = new WebSocket(url);
     
     ws.onopen = () => {
       console.log('WebSocket connected');
       connectionStatus = 'connected';
       reconnectAttempts = 0;
       isReconnecting = false;
-      writeln('Connected to server');
+      
+      if (terminalSessionId) {
+        writeln('\r\n🔄 Reconnecting to existing session...');
+      } else {
+        writeln('\r\n✅ Connected to server');
+      }
+      
       dispatch('connection', { connected: true });
     };
     
@@ -102,6 +125,21 @@
               status: 'Active', 
               agentId: message.payload?.agentId 
             });
+            break;
+          case 'TERMINAL_SESSION_ID':
+            if (message.payload?.sessionId) {
+              const isNewSession = terminalSessionId !== message.payload.sessionId;
+              terminalSessionId = message.payload.sessionId;
+              // Store in sessionStorage for persistence
+              if (browser) {
+                sessionStorage.setItem('morphbox-terminal-session', terminalSessionId);
+              }
+              if (isNewSession) {
+                writeln(`\r\n✨ New session created: ${terminalSessionId.substring(0, 8)}...`);
+              } else {
+                writeln(`\r\n✅ Session restored: ${terminalSessionId.substring(0, 8)}...`);
+              }
+            }
             break;
           case 'AGENT_EXIT':
             dispatch('agent', { status: 'No agent' });
@@ -263,6 +301,13 @@
   
   onMount(async () => {
     if (!browser) return;
+    
+    // Load terminal session ID from sessionStorage if available
+    const savedSessionId = sessionStorage.getItem('morphbox-terminal-session');
+    if (savedSessionId) {
+      terminalSessionId = savedSessionId;
+      console.log('Restored terminal session ID:', terminalSessionId);
+    }
     
     // Wait for modules to load
     let attempts = 0;

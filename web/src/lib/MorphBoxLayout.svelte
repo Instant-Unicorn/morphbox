@@ -2,7 +2,7 @@
   import Terminal from '$lib/Terminal.svelte';
   import { browser } from '$app/environment';
   import { onMount } from 'svelte';
-  import { panels, activePanel, type Panel } from '$lib/stores/panels';
+  import { panels, activePanel, panelStore, visiblePanels, type Panel } from '$lib/stores/panels';
   import SplitPane from '$lib/components/SplitPane.svelte';
   import PanelContainer from '$lib/components/PanelContainer.svelte';
   import PanelManager from '$lib/components/PanelManager.svelte';
@@ -47,7 +47,7 @@
     });
     
     // Initialize default panels
-    panels.initializeDefaults();
+    panelStore.initializeDefaults();
     
     // Get terminal panel reference
     const terminalPanels = $panels.filter(p => p.type === 'terminal');
@@ -55,7 +55,7 @@
       terminalPanel = terminalPanels[0];
     } else {
       // Create terminal if it doesn't exist
-      panels.addPanel('terminal', { persistent: true });
+      panelStore.addPanel('terminal', { persistent: true });
       terminalPanel = $panels.find(p => p.type === 'terminal')!;
     }
     
@@ -88,10 +88,10 @@
     // Check if editor panel exists
     const existingEditor = $panels.find(p => p.type === 'codeEditor');
     if (existingEditor) {
-      panels.setActivePanel(existingEditor.id);
+      panelStore.setActivePanel(existingEditor.id);
     } else {
       // Create new editor panel
-      panels.addPanel('codeEditor', {
+      panelStore.addPanel('codeEditor', {
         title: 'Code Editor',
         content: { file }
       });
@@ -107,11 +107,11 @@
         // Panel creation is handled by the wizard
         break;
       case 'add':
-        panels.addPanel(panelType, panelData);
+        panelStore.addPanel(panelType, panelData);
         break;
       case 'remove':
         if (panelData?.id) {
-          panels.removePanel(panelData.id);
+          panelStore.removePanel(panelData.id);
         }
         break;
     }
@@ -126,9 +126,9 @@
   function openSettings() {
     const settingsPanel = $panels.find(p => p.type === 'settings');
     if (settingsPanel) {
-      panels.setActivePanel(settingsPanel.id);
+      panelStore.setActivePanel(settingsPanel.id);
     } else {
-      panels.addPanel('settings');
+      panelStore.addPanel('settings');
     }
   }
 </script>
@@ -190,7 +190,7 @@
                   <PanelContainer 
                     title={panel.title} 
                     closable={!panel.persistent} 
-                    on:close={() => panels.removePanel(panel.id)}
+                    on:close={() => panelStore.removePanel(panel.id)}
                   >
                     <svelte:component this={panelComponents[panel.type]} {...panel.content} />
                   </PanelContainer>
@@ -225,7 +225,7 @@
               <PanelContainer 
                 title={panel.title} 
                 closable={!panel.persistent} 
-                on:close={() => panels.removePanel(panel.id)}
+                on:close={() => panelStore.removePanel(panel.id)}
               >
                 <svelte:component this={panelComponents[panel.type]} {...panel.content} />
               </PanelContainer>
@@ -243,7 +243,7 @@
       {#if sessionId}
         <span class="status-item">Session: {sessionId}</span>
       {/if}
-      <span class="status-item">Panels: {$panels.filter(p => !p.minimized).length}</span>
+      <span class="status-item">Panels: {$visiblePanels.length}</span>
     </div>
     <div class="status-right">
       <span class="status-item">{currentTime}</span>

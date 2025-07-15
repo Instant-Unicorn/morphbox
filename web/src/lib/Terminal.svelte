@@ -138,7 +138,7 @@
             if (hideLogoTimeout) clearTimeout(hideLogoTimeout);
             hideLogoTimeout = setTimeout(() => {
               isInitializing = false;
-            }, 1500);
+            }, 750);
             dispatch('agent', { 
               status: 'Active', 
               agentId: message.payload?.agentId 
@@ -169,7 +169,7 @@
                 if (hideLogoTimeout) clearTimeout(hideLogoTimeout);
                 hideLogoTimeout = setTimeout(() => {
                   isInitializing = false;
-                }, 1500);
+                }, 750);
               }
               write(message.payload.data);
             }

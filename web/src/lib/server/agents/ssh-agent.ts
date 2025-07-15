@@ -24,7 +24,7 @@ export class SSHAgent extends EventEmitter implements Agent {
       throw new Error('SSH connection requires vmHost, vmPort, and vmUser');
     }
 
-    // Use docker exec instead of SSH for reliability
+    // Use docker exec without tmux for now
     const args = [
       'exec',
       '-it',
@@ -85,5 +85,25 @@ export class SSHAgent extends EventEmitter implements Agent {
     if (this.ptyProcess) {
       this.ptyProcess.resize(cols, rows);
     }
+  }
+  
+  static async listSessions(): Promise<string[]> {
+    return new Promise((resolve, reject) => {
+      const { exec } = require('child_process');
+      exec('docker exec morphbox-vm tmux list-sessions 2>/dev/null', (error: any, stdout: string) => {
+        if (error || !stdout) {
+          resolve([]);
+          return;
+        }
+        
+        const sessions = stdout
+          .trim()
+          .split('\n')
+          .filter(line => line.includes('morphbox-'))
+          .map(line => line.split(':')[0]);
+        
+        resolve(sessions);
+      });
+    });
   }
 }

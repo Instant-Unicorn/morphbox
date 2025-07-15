@@ -236,6 +236,16 @@ export function restorePanelSnapshot(snapshotData: string): PanelState | null {
 function createPanelStore() {
   // Try to restore state from sessionStorage first
   const restoredState = loadStateFromSessionStorage();
+  
+  // Filter out FileExplorer panels if they exist in restored state
+  if (restoredState && restoredState.panels) {
+    restoredState.panels = restoredState.panels.filter(p => p.type !== 'fileExplorer');
+    if (restoredState.panels.length === 0) {
+      // If no panels left after filtering, set to null to use defaults
+      restoredState.panels = [];
+    }
+  }
+  
   const initialState: PanelState = restoredState || {
     panels: [],
     layout: 'floating',
@@ -436,11 +446,6 @@ function createPanelStore() {
         if (state.panels.length > 0) return state;
 
         const defaultPanels: Panel[] = [
-          {
-            ...defaultPanelConfigs.fileExplorer,
-            id: generateId(),
-            position: { x: 20, y: 20 }
-          } as Panel,
           {
             ...defaultPanelConfigs.terminal,
             id: generateId(),

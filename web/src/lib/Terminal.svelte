@@ -243,7 +243,7 @@
     
     // Initial message
     writeln('MorphBox Terminal v2.0.0');
-    writeln('Connecting to server...\r\n');
+    writeln('Launching Claude...');
     
     // Cleanup function
     return () => {

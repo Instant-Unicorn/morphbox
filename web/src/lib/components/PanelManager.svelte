@@ -54,7 +54,7 @@
 
 <!-- Panel Manager Button (can be placed in header) -->
 <button class="manager-button" on:click={toggleManager} title="Panel Manager">
-  <img src="/favicon.png" alt="MorphBox" width="20" height="20" />
+  <img src="/favicon.png" alt="MorphBox" width="40" height="40" />
 </button>
 
 <!-- Panel Manager Dropdown -->

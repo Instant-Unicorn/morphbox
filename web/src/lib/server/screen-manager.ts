@@ -1,4 +1,4 @@
-import { spawn, execSync } from 'child_process';
+import { execSync } from 'child_process';
 import type { IPty } from 'node-pty';
 import pty from 'node-pty';
 
@@ -82,7 +82,8 @@ class ScreenManager {
       // Attach to existing screen session
       console.log(`Attaching to existing screen session: ${screenName}`);
       
-      ptyProcess = pty.spawn('screen', ['-x', screenName], {
+      // Use -r -x to resume the session
+      ptyProcess = pty.spawn('screen', ['-r', '-x', screenName], {
         name: 'xterm-256color',
         cols: config.options.cols || 80,
         rows: config.options.rows || 24,
@@ -100,7 +101,14 @@ class ScreenManager {
       // Create a wrapper script to ensure proper environment
       const wrapperCommand = `${config.command} ${config.args.join(' ')}`;
       
-      ptyProcess = pty.spawn('screen', ['-S', screenName, '-t', 'morphbox', 'bash', '-c', wrapperCommand], {
+      // Start screen with command directly
+      // -q: quiet startup
+      // -S: session name
+      // -t: window title
+      // The command arguments are passed directly to screen
+      const screenArgs = ['-q', '-S', screenName, '-t', 'morphbox', config.command, ...config.args];
+      
+      ptyProcess = pty.spawn('screen', screenArgs, {
         name: 'xterm-256color',
         cols: config.options.cols || 80,
         rows: config.options.rows || 24,

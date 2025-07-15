@@ -4,7 +4,7 @@ import { WebSocketServer } from 'ws';
 import { handleWebSocketConnection } from '$lib/server/websocket';
 import { AgentManager } from '$lib/server/agent-manager';
 import { StateManager } from '$lib/server/state-manager';
-import { screenManager } from '$lib/server/screen-manager';
+// import { screenManager } from '$lib/server/screen-manager';
 
 // Initialize managers
 export const agentManager = new AgentManager();
@@ -18,7 +18,7 @@ if (!building) {
       await stateManager.initialize();
       
       // Start screen cleanup timer (clean up sessions older than 24 hours)
-      screenManager.startCleanupTimer();
+      // screenManager.startCleanupTimer();
       
       console.log('🚀 Server managers initialized');
     } catch (error) {

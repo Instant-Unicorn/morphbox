@@ -44,7 +44,7 @@ else
     docker run -d \
         --name "$CONTAINER_NAME" \
         -p 2222:22 \
-        -v "$HOME:/workspace" \
+        -v "$PWD:/workspace" \
         "$IMAGE_NAME" || error "Failed to create container"
 fi
 

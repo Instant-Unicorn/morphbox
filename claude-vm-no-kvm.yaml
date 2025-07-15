@@ -15,7 +15,7 @@ images:
 
 # Mounts - only mount current directory as /workspace
 mounts:
-  - location: "~"
+  - location: "."
     mountPoint: "/workspace"
     writable: true
 

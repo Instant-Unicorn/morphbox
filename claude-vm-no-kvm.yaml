@@ -1,0 +1,117 @@
+# MorphBox Lima VM Configuration
+# Version without KVM acceleration for systems without virtualization support
+
+# VM configuration
+cpus: 2  # Reduced for better performance without KVM
+memory: "2GiB"  # Reduced memory for emulation
+disk: "20GiB"
+
+# Use Ubuntu 22.04 for stability
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.img"
+    arch: "x86_64"
+  - location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+
+# Mounts - only mount current directory as /workspace
+mounts:
+  - location: "~"
+    mountPoint: "/workspace"
+    writable: true
+
+# Disable unnecessary mounts for security
+mountType: "9p"
+
+# Force QEMU without KVM
+vmType: "qemu"
+
+# Provision script
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux
+      
+      # Update package lists
+      apt-get update
+      
+      # Install essential tools
+      apt-get install -y \
+        curl \
+        git \
+        build-essential \
+        python3 \
+        python3-pip \
+        python3-venv \
+        nodejs \
+        npm \
+        iptables \
+        dnsutils \
+        ca-certificates
+      
+      # Install Node.js 20 (LTS)
+      curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+      apt-get install -y nodejs
+      
+      # Update npm
+      npm install -g npm@latest
+      
+      # Install Claude Code CLI
+      npm install -g claude-code
+      
+      # Install Python packages
+      pip3 install --upgrade pip
+      pip3 install requests numpy pandas jupyter
+      
+      # Create workspace directory
+      mkdir -p /workspace
+      chmod 777 /workspace
+      
+      # Configure system for fast startup
+      # Disable unnecessary services
+      systemctl disable apt-daily.service
+      systemctl disable apt-daily.timer
+      systemctl disable apt-daily-upgrade.timer
+      systemctl disable apt-daily-upgrade.service
+      
+      # Set up basic firewall rules (will be configured by firewall.sh)
+      iptables -P INPUT ACCEPT
+      iptables -P FORWARD ACCEPT
+      iptables -P OUTPUT ACCEPT
+      
+      # Create morphbox user
+      useradd -m -s /bin/bash morphbox || true
+      usermod -aG sudo morphbox
+      echo "morphbox ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/morphbox
+      
+      # Set default directory
+      echo "cd /workspace" >> /home/morphbox/.bashrc
+      echo "cd /workspace" >> /root/.bashrc
+      
+      # Add welcome message
+      cat > /etc/motd << 'MOTD_EOF'
+       __  __                 _     ____            
+      |  \/  | ___  _ __ _ __| |__ | __ )  _____  __
+      | |\/| |/ _ \| '__| '_ \ '_ \|  _ \ / _ \ \/ /
+      | |  | | (_) | |  | |_) | | | | |_) | (_) >  < 
+      |_|  |_|\___/|_|  | .__/|_| |_|____/ \___/_/\_\
+                        |_|                           
+      
+      Welcome to MorphBox - Safe AI Sandbox Environment
+      Type 'exit' to leave the sandbox
+      
+      MOTD_EOF
+
+# SSH configuration (for Lima)
+ssh:
+  localPort: 0
+  loadDotSSHPubKeys: false
+
+# Optimize for fast startup
+firmware:
+  legacyBIOS: true  # Faster boot than UEFI
+
+# Environment variables
+env:
+  MORPHBOX: "true"
+  WORKSPACE: "/workspace"

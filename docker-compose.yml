@@ -1,0 +1,33 @@
+services:
+  morphbox-vm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: morphbox-vm
+    hostname: morphbox-vm
+    ports:
+      - "2222:22"  # SSH port mapping
+    volumes:
+      # Persist Claude authentication data
+      - claude-config:/home/morphbox/.config/claude-code
+      # Persist workspace data
+      - ./workspace:/workspace
+      # Persist bash history and other user data
+      - claude-home:/home/morphbox
+    environment:
+      - TERM=xterm-256color
+      - COLORTERM=truecolor
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    restart: unless-stopped
+    networks:
+      - morphbox-network
+
+networks:
+  morphbox-network:
+    driver: bridge
+
+volumes:
+  claude-config:
+    driver: local
+  claude-home:
+    driver: local

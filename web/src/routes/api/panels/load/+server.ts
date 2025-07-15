@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import Database from 'better-sqlite3';
-import { readFileSync, existsSync, readdirSync } from 'fs';
+import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 
 const dbPath = './data/morphbox.db';
@@ -28,7 +28,7 @@ export const GET: RequestHandler = async ({ url }) => {
         .filter(f => f.endsWith('.json'))
         .map(filename => {
           const filepath = join(configDir, filename);
-          const stats = require('fs').statSync(filepath);
+          const stats = statSync(filepath);
           return {
             filename,
             filepath,

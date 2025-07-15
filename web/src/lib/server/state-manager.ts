@@ -19,8 +19,11 @@ export class StateManager {
     const dataDir = dirname(this.dbPath);
     await mkdir(dataDir, { recursive: true });
 
-    // Open database connection
-    this.db = new Database(this.dbPath);
+    // Open database connection with explicit read-write mode
+    this.db = new Database(this.dbPath, { 
+      readonly: false,
+      fileMustExist: false 
+    });
 
     // Create tables if they don't exist
     await this.createTables();
@@ -85,10 +88,18 @@ export class StateManager {
     
     const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     
-    const stmt = this.db.prepare(
-      `INSERT INTO sessions (id, workspace_path, agent_type) VALUES (?, ?, ?)`
-    );
-    stmt.run(sessionId, workspacePath, agentType);
+    try {
+      const stmt = this.db.prepare(
+        `INSERT INTO sessions (id, workspace_path, agent_type) VALUES (?, ?, ?)`
+      );
+      stmt.run(sessionId, workspacePath, agentType);
+    } catch (error) {
+      console.error('Database write error:', error);
+      if (error instanceof Error && error.message.includes('readonly')) {
+        throw new Error(`Database is read-only. Check file permissions for: ${this.dbPath}`);
+      }
+      throw error;
+    }
 
     return sessionId;
   }

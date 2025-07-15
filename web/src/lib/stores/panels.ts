@@ -316,6 +316,7 @@ function createPanelStore() {
           ...config
         };
 
+
         return {
           ...state,
           panels: [...state.panels, newPanel],

@@ -36,6 +36,10 @@
     settings: Settings
   };
   
+  // Debug logging
+  $: console.log('Current panels:', $panels);
+  $: console.log('Panel components:', panelComponents);
+  
   // Initialize default panels
   onMount(() => {
     mounted = true;
@@ -50,15 +54,20 @@
     // Initialize default panels (without clearing - we'll do that differently)
     panelStore.initializeDefaults();
     
-    // Get terminal panel reference
-    const terminalPanels = $panels.filter(p => p.type === 'terminal');
-    if (terminalPanels.length > 0) {
-      terminalPanel = terminalPanels[0];
-    } else {
-      // Create terminal if it doesn't exist
-      panelStore.addPanel('terminal', { persistent: true });
-      terminalPanel = $panels.find(p => p.type === 'terminal')!;
-    }
+    // Wait a tick for store to update, then check for terminal
+    setTimeout(() => {
+      const terminalPanels = $panels.filter(p => p.type === 'terminal');
+      if (terminalPanels.length > 0) {
+        terminalPanel = terminalPanels[0];
+      } else {
+        // Create terminal if it doesn't exist
+        panelStore.addPanel('terminal', { persistent: true });
+        // Find it after adding
+        setTimeout(() => {
+          terminalPanel = $panels.find(p => p.type === 'terminal')!;
+        }, 0);
+      }
+    }, 0);
     
     const interval = setInterval(() => {
       currentTime = new Date().toLocaleTimeString();
@@ -172,7 +181,8 @@
             {/each}
             
             <!-- Floating panels (non-terminal) -->
-            {#each $panels.filter(p => p.type !== 'terminal' && panelComponents[p.type]) as panel (panel.id)}
+            {#each $panels.filter(p => p.type !== 'terminal') as panel (panel.id)}
+              {#if panelComponents[panel.type]}
               {#if !panel.minimized}
                 <BasePanel
                   config={{
@@ -206,6 +216,7 @@
                   <svelte:component this={panelComponents[panel.type]} {...panel.content} />
                 </BasePanel>
               {/if}
+              {/if}
             {/each}
           </div>
         </div>
@@ -233,7 +244,8 @@
         {/each}
         
         <!-- Floating panels (non-terminal) -->
-        {#each $panels.filter(p => p.type !== 'terminal' && panelComponents[p.type]) as panel (panel.id)}
+        {#each $panels.filter(p => p.type !== 'terminal') as panel (panel.id)}
+          {#if panelComponents[panel.type]}
           {#if !panel.minimized}
             <BasePanel
               config={{
@@ -266,6 +278,7 @@
             >
               <svelte:component this={panelComponents[panel.type]} {...panel.content} />
             </BasePanel>
+          {/if}
           {/if}
         {/each}
       </div>

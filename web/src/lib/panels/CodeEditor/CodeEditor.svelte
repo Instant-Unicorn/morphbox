@@ -208,7 +208,14 @@
     if (!browser || !containerEl) return;
 
     try {
+      console.log('Initializing Monaco Editor...');
       monaco = await loadMonaco();
+      
+      if (!monaco) {
+        throw new Error('Monaco failed to load');
+      }
+      
+      console.log('Monaco loaded successfully');
       
       // Configure Monaco
       monaco.editor.defineTheme('custom-dark', {
@@ -306,7 +313,13 @@
     on:tabClose={(e) => closeTab(e.detail.tabId)}
   />
   
-  <div class="editor-container" bind:this={containerEl}></div>
+  <div class="editor-container" bind:this={containerEl}>
+    {#if !editorInstance && browser}
+      <div class="editor-loading">
+        <p>Loading editor...</p>
+      </div>
+    {/if}
+  </div>
 </div>
 
 <style>
@@ -316,11 +329,15 @@
     height: 100%;
     width: 100%;
     background-color: #1e1e1e;
+    min-height: 0; /* Fix flexbox height issues */
+    position: relative;
   }
 
   .editor-container {
     flex: 1;
     overflow: hidden;
+    min-height: 0; /* Fix flexbox height issues */
+    position: relative;
   }
 
   :global(.monaco-editor) {
@@ -329,5 +346,14 @@
 
   :global(.monaco-editor .margin) {
     background-color: #1e1e1e !important;
+  }
+
+  .editor-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #cccccc;
+    font-size: 14px;
   }
 </style>

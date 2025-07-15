@@ -103,6 +103,17 @@ fi
 pkill -f "tsx.*websocket-server" 2>/dev/null || true
 pkill -f "vite dev" 2>/dev/null || true
 
+# Start Docker container if not running
+info "Checking Docker container..."
+if ! docker ps | grep -q morphbox-vm; then
+    info "Starting MorphBox VM container..."
+    cd "$SCRIPT_DIR"
+    docker compose up -d
+    sleep 2
+else
+    info "MorphBox VM container already running"
+fi
+
 # Get local IP for external mode
 if [[ "$ACCESS_MODE" == "external" ]]; then
     LOCAL_IP=$(hostname -I | awk '{print $1}')
@@ -160,6 +171,21 @@ cleanup() {
     kill $WEB_PID 2>/dev/null || true
     pkill -f "tsx.*websocket-server" 2>/dev/null || true
     pkill -f "vite dev" 2>/dev/null || true
+    
+    # Ask about stopping Docker container
+    if docker ps | grep -q morphbox-vm; then
+        echo ""
+        read -t 5 -p "Stop Docker container too? (y/N) " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            info "Stopping Docker container..."
+            cd "$SCRIPT_DIR"
+            docker compose down
+        else
+            info "Docker container left running"
+        fi
+    fi
+    
     info "MorphBox stopped"
     exit 0
 }

@@ -24,16 +24,13 @@ export class SSHAgent extends EventEmitter implements Agent {
       throw new Error('SSH connection requires vmHost, vmPort, and vmUser');
     }
 
-    // Use docker exec with tmux for session persistence
-    const sessionName = `morphbox-${this.id}`;
-    const tmuxCommand = `cd /workspace && tmux new-session -A -s ${sessionName} claude --dangerously-skip-permissions`;
-    
+    // Use docker exec without tmux for now
     const args = [
       'exec',
       '-it',
       'morphbox-vm',
       'su', '-', vmUser, '-c',
-      tmuxCommand
+      'cd /workspace && claude --dangerously-skip-permissions'
     ];
 
     try {

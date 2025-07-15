@@ -346,10 +346,14 @@
     --panel-control-active-bg: rgba(255, 255, 255, 0.2);
     --panel-close-hover-bg: #f14c4c;
     --panel-resize-color: #858585;
+    --panel-content-padding: 0; /* No padding for code/file panels */
   }
   
   :global(.panel-content) {
     padding: 0; /* Remove default padding for our panels */
+    height: 100%;
+    display: flex;
+    flex-direction: column;
   }
   
   /* Loading State */

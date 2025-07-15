@@ -207,12 +207,14 @@
 <style>
   .file-explorer {
     height: 100%;
+    width: 100%;
     display: flex;
     flex-direction: column;
     background-color: #252526;
     color: #cccccc;
     user-select: none;
     position: relative;
+    min-height: 0; /* Fix flexbox height issues */
   }
   
   .file-explorer-header {
@@ -252,6 +254,7 @@
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
+    min-height: 0; /* Fix flexbox height issues */
   }
   
   .file-tree {

@@ -11,9 +11,11 @@
   import Settings from '$lib/panels/Settings/Settings.svelte';
   import BasePanel from '$lib/panels/BasePanel.svelte';
   import { settings, applyTheme } from '$lib/panels/Settings/settings-store';
+  import { fade } from 'svelte/transition';
   
   let terminal: Terminal;
   let mounted = false;
+  let showLoadingOverlay = true;
   
   // Use the same host as the current page
   $: websocketUrl = browser ? `ws://${window.location.hostname}:8009` : '';
@@ -43,6 +45,11 @@
   onMount(() => {
     mounted = true;
     console.log('MorphBoxLayout mounted');
+    
+    // Hide loading overlay after a short delay
+    setTimeout(() => {
+      showLoadingOverlay = false;
+    }, 1500);
     
     // Load settings and apply theme
     settings.load();
@@ -293,6 +300,13 @@
 
 </div>
 
+<!-- Global loading overlay - rendered outside all containers -->
+{#if showLoadingOverlay}
+  <div class="global-loading-overlay" transition:fade={{ duration: 400 }}>
+    <img src="/splashlogo.png" alt="MorphBox" class="loading-logo" />
+  </div>
+{/if}
+
 <style>
   .morphbox-container {
     display: flex;
@@ -401,5 +415,28 @@
       right: 0;
       bottom: 0;
     }
+  }
+  
+  /* Global loading overlay - above everything */
+  .global-loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #1e1e1e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2147483647; /* Maximum z-index value */
+    pointer-events: all;
+  }
+  
+  .loading-logo {
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain;
+    object-position: center;
+    opacity: 1;
   }
 </style>

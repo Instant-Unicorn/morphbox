@@ -30,21 +30,22 @@ export class SSHAgent extends EventEmitter implements Agent {
       '-o', 'StrictHostKeyChecking=no',
       '-o', 'UserKnownHostsFile=/dev/null',
       '-o', 'PreferredAuthentications=password,publickey',
+      '-o', 'SendEnv=TERM COLORTERM',
       '-t',  // Force TTY allocation
       `${vmUser}@${vmHost}`,
-      // Run Claude in the VM
-      'claude --dangerously-skip-permissions'
+      // Run Claude in the VM with proper terminal
+      'bash -i -c "claude --dangerously-skip-permissions"'
     ];
 
     try {
       this.ptyProcess = pty.spawn('ssh', args, {
-        name: 'xterm-color',
+        name: 'xterm-256color',
         cols: 80,
         rows: 30,
         cwd: process.cwd(),
         env: {
           ...process.env,
-          TERM: 'xterm-color'
+          TERM: 'xterm-256color'
         } as any
       });
 
@@ -88,6 +89,12 @@ export class SSHAgent extends EventEmitter implements Agent {
       this.ptyProcess.kill();
       this.ptyProcess = null;
       this.status = 'stopped';
+    }
+  }
+
+  async resize(cols: number, rows: number): Promise<void> {
+    if (this.ptyProcess) {
+      this.ptyProcess.resize(cols, rows);
     }
   }
 }

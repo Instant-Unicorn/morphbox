@@ -18,6 +18,7 @@ export interface Agent extends EventEmitter {
   initialize(): Promise<void>;
   sendInput(input: string): Promise<void>;
   stop(): Promise<void>;
+  resize?(cols: number, rows: number): Promise<void>;
 }
 
 // Removed local ClaudeAgent - now using SSH connection to VM
@@ -111,6 +112,10 @@ export class AgentManager extends EventEmitter {
       status: agent.status,
       startTime: agent.startTime
     }));
+  }
+
+  getAgent(agentId: string): Agent | undefined {
+    return this.agents.get(agentId);
   }
 
   private handleAgentExit(agentId: string, code: number): void {

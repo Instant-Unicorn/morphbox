@@ -136,6 +136,26 @@
     };
   }
   
+  // Detect if we're on a mobile device
+  function isMobile() {
+    return window.innerWidth <= 768 || ('ontouchstart' in window);
+  }
+  
+  // Calculate appropriate font size and dimensions for mobile
+  function getTerminalOptions() {
+    const mobile = isMobile();
+    const fontSize = mobile ? 12 : 14;
+    const cols = mobile ? Math.floor((window.innerWidth - 20) / 7) : 80;
+    const rows = mobile ? Math.floor((window.innerHeight - 100) / 20) : 30;
+    
+    return {
+      fontSize,
+      cols,
+      rows,
+      allowProposedApi: true
+    };
+  }
+  
   onMount(async () => {
     if (!browser) return;
     
@@ -150,6 +170,8 @@
       console.error('Failed to load xterm modules');
       return;
     }
+    
+    const termOptions = getTerminalOptions();
     
     // Create terminal instance
     terminal = new Terminal({
@@ -176,7 +198,7 @@
         brightCyan: '#29b8db',
         brightWhite: '#e5e5e5'
       },
-      fontSize: 14,
+      fontSize: termOptions.fontSize,
       fontFamily: '"Cascadia Code", "Fira Code", "Consolas", "Courier New", monospace',
       lineHeight: 1.2,
       letterSpacing: 0,
@@ -186,7 +208,13 @@
       cursorStyle: 'block',
       allowTransparency: false,
       tabStopWidth: 8,
-      screenReaderMode: false
+      screenReaderMode: false,
+      // Ensure proper terminal type for arrow keys
+      convertEol: true,
+      termName: 'xterm-256color',
+      // Set initial dimensions
+      cols: termOptions.cols,
+      rows: termOptions.rows
     });
     
     // Load addons
@@ -202,8 +230,40 @@
     
     // Handle window resize
     const handleResize = () => {
-      fitAddon.fit();
+      if (fitAddon && terminal) {
+        // On mobile, recalculate dimensions based on viewport
+        if (isMobile()) {
+          const termOptions = getTerminalOptions();
+          terminal.options.fontSize = termOptions.fontSize;
+          
+          // Use fit addon to automatically size to container
+          fitAddon.fit();
+          
+          // Send resize command to PTY
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            const dimensions = fitAddon.proposeDimensions();
+            if (dimensions) {
+              ws.send(JSON.stringify({
+                type: 'RESIZE',
+                payload: { 
+                  cols: dimensions.cols,
+                  rows: dimensions.rows
+                }
+              }));
+            }
+          }
+        } else {
+          fitAddon.fit();
+        }
+      }
     };
+    
+    // Use ResizeObserver for better responsiveness
+    const resizeObserver = new ResizeObserver(() => {
+      handleResize();
+    });
+    resizeObserver.observe(terminalContainer);
+    
     window.addEventListener('resize', handleResize);
     
     // Handle terminal input - send directly to Claude without buffering
@@ -227,6 +287,7 @@
     // Cleanup function
     return () => {
       window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
     };
   });
   
@@ -272,5 +333,39 @@
   
   :global(.xterm-screen) {
     margin: 0;
+  }
+  
+  /* Mobile-specific styles */
+  @media (max-width: 768px) {
+    :global(.terminal-wrapper .xterm) {
+      padding: 5px;
+    }
+    
+    .terminal-container {
+      /* Prevent iOS bounce scrolling */
+      -webkit-overflow-scrolling: touch;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+    
+    :global(.xterm-rows) {
+      /* Ensure text doesn't overflow on mobile */
+      overflow-x: hidden;
+    }
+    
+    :global(.xterm-cursor-layer) {
+      /* Make cursor more visible on mobile */
+      z-index: 10;
+    }
+  }
+  
+  /* Prevent zoom on input focus for iOS */
+  @media (hover: none) and (pointer: coarse) {
+    :global(.xterm-helper-textarea) {
+      font-size: 16px !important;
+    }
   }
 </style>

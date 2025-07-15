@@ -26,6 +26,9 @@
  * ```
  */
 declare module '$env/static/private' {
+	export const MORPHBOX_VM_HOST: string;
+	export const MORPHBOX_VM_PORT: string;
+	export const MORPHBOX_VM_USER: string;
 	export const LESSOPEN: string;
 	export const USER: string;
 	export const SSH_CLIENT: string;
@@ -106,6 +109,9 @@ declare module '$env/static/public' {
  */
 declare module '$env/dynamic/private' {
 	export const env: {
+		MORPHBOX_VM_HOST: string;
+		MORPHBOX_VM_PORT: string;
+		MORPHBOX_VM_USER: string;
 		LESSOPEN: string;
 		USER: string;
 		SSH_CLIENT: string;

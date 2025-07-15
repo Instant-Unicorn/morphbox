@@ -1,0 +1,85 @@
+import { EventEmitter } from 'events';
+import * as pty from 'node-pty';
+import type { Agent, AgentOptions } from '../agent-manager';
+
+export class SSHAgent extends EventEmitter implements Agent {
+  id: string;
+  type: string = 'ssh';
+  status: string = 'initialized';
+  startTime: number;
+  private ptyProcess: pty.IPty | null = null;
+  private options: AgentOptions;
+
+  constructor(id: string, options: AgentOptions) {
+    super();
+    this.id = id;
+    this.options = options;
+    this.startTime = Date.now();
+  }
+
+  async initialize(): Promise<void> {
+    const { vmHost, vmPort, vmUser } = this.options;
+
+    if (!vmHost || !vmPort || !vmUser) {
+      throw new Error('SSH connection requires vmHost, vmPort, and vmUser');
+    }
+
+    // SSH arguments
+    const args = [
+      '-p', vmPort.toString(),
+      '-o', 'StrictHostKeyChecking=no',
+      '-o', 'UserKnownHostsFile=/dev/null',
+      '-t',  // Force TTY allocation
+      `${vmUser}@${vmHost}`,
+      // Run Claude in the VM
+      'claude'
+    ];
+
+    try {
+      this.ptyProcess = pty.spawn('ssh', args, {
+        name: 'xterm-color',
+        cols: 80,
+        rows: 30,
+        cwd: process.cwd(),
+        env: {
+          ...process.env,
+          TERM: 'xterm-color'
+        } as any
+      });
+
+      // Handle output from PTY
+      this.ptyProcess.onData((data) => {
+        this.emit('output', data);
+      });
+
+      // Handle process exit
+      this.ptyProcess.onExit(({ exitCode }) => {
+        console.log('SSH session exited with code:', exitCode);
+        this.status = 'stopped';
+        this.emit('exit', exitCode || 0);
+      });
+
+      this.status = 'running';
+
+    } catch (error) {
+      this.status = 'error';
+      throw error;
+    }
+  }
+
+  async sendInput(input: string): Promise<void> {
+    if (this.ptyProcess) {
+      this.ptyProcess.write(input);
+    } else {
+      throw new Error('SSH process not running');
+    }
+  }
+
+  async stop(): Promise<void> {
+    if (this.ptyProcess) {
+      this.ptyProcess.kill();
+      this.ptyProcess = null;
+      this.status = 'stopped';
+    }
+  }
+}

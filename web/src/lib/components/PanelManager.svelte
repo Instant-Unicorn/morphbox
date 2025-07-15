@@ -54,9 +54,7 @@
 
 <!-- Panel Manager Button (can be placed in header) -->
 <button class="manager-button" on:click={toggleManager} title="Panel Manager">
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-    <path d="M2 2h5v5H2V2zm7 0h5v5H9V2zM2 9h5v5H2V9zm7 0h5v5H9V9z"/>
-  </svg>
+  <img src="/favicon.png" alt="MorphBox" width="20" height="20" />
 </button>
 
 <!-- Panel Manager Dropdown -->
@@ -157,6 +155,10 @@
     display: flex;
     align-items: center;
     transition: background-color 0.2s;
+  }
+  
+  .manager-button img {
+    display: block;
   }
   
   .manager-button:hover {

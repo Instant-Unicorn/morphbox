@@ -3,6 +3,7 @@ import * as pty from 'node-pty';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import type { Agent, AgentOptions } from '../agent-manager';
+// import { tmuxContainerManager } from '../tmux-container-manager';
 
 const execAsync = promisify(exec);
 
@@ -11,7 +12,8 @@ export class SSHAgent extends EventEmitter implements Agent {
   type: string = 'ssh';
   status: string = 'initialized';
   startTime: number;
-  private ptyProcess: pty.IPty | null = null;
+  private ptyProcess: InstanceType<typeof pty.spawn> | null = null;
+  private sessionId: string | null = null;
   private options: AgentOptions;
   private claudePid: number | null = null;
   private containerClaudePid: string | null = null;
@@ -21,6 +23,15 @@ export class SSHAgent extends EventEmitter implements Agent {
     this.id = id;
     this.options = options;
     this.startTime = Date.now();
+    
+    // Check if a terminal session ID was provided for persistence
+    if (options.terminalSessionId) {
+      this.sessionId = options.terminalSessionId;
+    }
+  }
+
+  setSessionId(sessionId: string | null): void {
+    this.sessionId = sessionId;
   }
 
   async initialize(): Promise<void> {
@@ -54,17 +65,31 @@ export class SSHAgent extends EventEmitter implements Agent {
       'cd /workspace && claude --dangerously-skip-permissions --continue'
     ];
 
+    const ptyOptions = {
+      name: 'xterm-256color',
+      cols: 80,
+      rows: 30,
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        TERM: 'xterm-256color'
+      } as any
+    };
+
     try {
-      this.ptyProcess = pty.spawn('docker', args, {
-        name: 'xterm-256color',
-        cols: 80,
-        rows: 30,
-        cwd: process.cwd(),
-        env: {
-          ...process.env,
-          TERM: 'xterm-256color'
-        } as any
-      });
+      // For now, disable tmux to fix visual issues
+      this.ptyProcess = pty.spawn('docker', args, ptyOptions);
+      
+      // Generate session ID if not provided
+      if (!this.sessionId) {
+        this.sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      }
+
+      // Emit the session ID so the client can store it
+      this.emit('sessionId', this.sessionId);
+
+      // Emit the session ID immediately
+      this.emit('sessionId', this.sessionId);
 
       // Store the PTY process PID
       this.claudePid = this.ptyProcess.pid;
@@ -115,6 +140,7 @@ export class SSHAgent extends EventEmitter implements Agent {
     // Then kill the PTY process
     if (this.ptyProcess) {
       console.log('Killing PTY process...');
+      this.ptyProcess.removeAllListeners();
       this.ptyProcess.kill();
       this.ptyProcess = null;
     }
@@ -122,6 +148,7 @@ export class SSHAgent extends EventEmitter implements Agent {
     this.status = 'stopped';
     this.containerClaudePid = null;
     this.claudePid = null;
+    console.log(`[SSHAgent] Stopped session ${this.sessionId}`);
   }
 
   private async killContainerProcess(pid: string): Promise<void> {

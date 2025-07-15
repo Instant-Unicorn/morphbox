@@ -39,6 +39,9 @@
 	"/api/panels/templates": [
 		"src/routes/api/panels/templates/+server.ts"
 	],
+	"/api/sessions": [
+		"src/routes/api/sessions/+server.ts"
+	],
 	"/api/ws": [
 		"src/routes/api/ws/+server.ts"
 	],

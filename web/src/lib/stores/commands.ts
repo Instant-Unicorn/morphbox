@@ -1,5 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
-import { panels } from './panels';
+import { panelStore as panels } from './panels';
 import { panelRegistry } from '../panels/registry';
 
 export interface Command {
@@ -351,6 +351,15 @@ function createCommandStore() {
           keywords: ['load', 'config', 'configuration', 'restore'],
           action: () => panels.loadConfiguration(),
           icon: '📥'
+        },
+        {
+          id: 'config.clear',
+          title: 'Clear Panel State',
+          description: 'Clear all panels and reset to default terminal',
+          category: 'Configuration',
+          keywords: ['clear', 'reset', 'panels', 'state', 'default'],
+          action: () => panels.clearState(),
+          icon: '🔄'
         },
         // Help commands
         {

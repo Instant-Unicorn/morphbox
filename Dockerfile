@@ -24,7 +24,8 @@ RUN useradd -m -s /bin/bash morphbox && \
 # Setup SSH for container access
 RUN mkdir /var/run/sshd && \
     sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
-    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
+    echo "AcceptEnv TERM COLORTERM" >> /etc/ssh/sshd_config
 
 # Create workspace directory
 RUN mkdir -p /workspace && chown morphbox:morphbox /workspace
@@ -35,11 +36,17 @@ WORKDIR /workspace
 # Switch to morphbox user for security
 USER morphbox
 
-# Create directories for Claude configuration
-RUN mkdir -p ~/.config/claude-code
+# Create directories for Claude configuration and set terminal in profile
+RUN mkdir -p ~/.config/claude-code && \
+    echo 'export TERM=xterm-256color' >> ~/.bashrc && \
+    echo 'export COLORTERM=truecolor' >> ~/.bashrc
 
 # Switch back to root for SSH daemon
 USER root
+
+# Set proper terminal environment
+ENV TERM=xterm-256color
+ENV COLORTERM=truecolor
 
 EXPOSE 22
 

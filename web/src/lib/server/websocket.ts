@@ -136,6 +136,10 @@ export function handleWebSocketConnection(
           await handleCreateSnapshot(message.payload);
           break;
           
+        case 'RESIZE':
+          await handleResize(message.payload);
+          break;
+          
         default:
           sendError(`Unknown message type: ${message.type}`);
       }
@@ -322,6 +326,31 @@ export function handleWebSocketConnection(
       send('SNAPSHOT_CREATED', { snapshotId });
     } catch (error) {
       sendError('Failed to create snapshot');
+    }
+  }
+
+  async function handleResize(payload: any) {
+    const { cols, rows } = payload;
+    
+    if (!currentAgentId) {
+      // No active agent, nothing to resize
+      return;
+    }
+
+    if (!cols || !rows) {
+      sendError('Missing required fields: cols, rows');
+      return;
+    }
+
+    try {
+      // Get the active agent and resize its PTY
+      const agent = agentManager.getAgent(currentAgentId);
+      if (agent && agent.resize) {
+        await agent.resize(cols, rows);
+      }
+    } catch (error) {
+      console.error('Failed to resize terminal:', error);
+      // Don't send error to user as resize is a background operation
     }
   }
 }

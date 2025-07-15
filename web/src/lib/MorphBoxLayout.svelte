@@ -218,4 +218,66 @@
     font-family: "Cascadia Code", "Fira Code", monospace;
     font-size: 16px;
   }
+
+  /* Mobile Responsive Styles */
+  @media (max-width: 768px) {
+    .morphbox-header {
+      height: 36px;
+      padding: 0 8px;
+    }
+
+    .morphbox-header h1 {
+      font-size: 14px;
+    }
+
+    .version {
+      display: none; /* Hide version on mobile to save space */
+    }
+
+    .header-center {
+      flex: 1;
+      justify-content: center;
+    }
+
+    .connection-status {
+      font-size: 12px;
+    }
+
+    .btn {
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+
+    .morphbox-status {
+      height: 20px;
+      padding: 0 8px;
+      font-size: 11px;
+    }
+
+    .status-left, .status-right {
+      gap: 8px;
+    }
+
+    /* Hide session ID on very small screens */
+    @media (max-width: 400px) {
+      .status-item:nth-child(2) {
+        display: none;
+      }
+      
+      .header-right {
+        display: none; /* Hide settings button on very small screens */
+      }
+    }
+  }
+
+  /* Prevent iOS rubber band scrolling */
+  @supports (-webkit-touch-callout: none) {
+    .morphbox-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+  }
 </style>

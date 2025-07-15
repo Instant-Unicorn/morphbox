@@ -47,7 +47,7 @@ export class SSHAgent extends EventEmitter implements Agent {
       '-it',
       'morphbox-vm',
       'su', '-', vmUser, '-c',
-      'cd /workspace && claude --dangerously-skip-permissions'
+      'cd /workspace && claude --dangerously-skip-permissions --continue'
     ];
 
     try {
@@ -163,7 +163,7 @@ export class SSHAgent extends EventEmitter implements Agent {
   static async getExistingClaudeProcesses(): Promise<Array<{pid: string, cmd: string}>> {
     return new Promise((resolve) => {
       const { exec } = require('child_process');
-      // Look for claude processes in the container
+      // Look for claude processes in the container (with or without --continue flag)
       exec('docker exec morphbox-vm ps aux | grep -E "claude.*dangerously-skip-permissions" | grep -v grep', 
         (error: any, stdout: string) => {
           if (error || !stdout) {

@@ -33,6 +33,7 @@
   let isReconnecting = false;
   let connectionStatus: 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
   let terminalSessionId: string | null = null;
+  let isInitializing = true;
   
   const dispatch = createEventDispatcher();
   
@@ -107,6 +108,7 @@
       connectionStatus = 'connected';
       reconnectAttempts = 0;
       isReconnecting = false;
+      isInitializing = false;
       
       if (terminalSessionId) {
         writeln('\r\n🔄 Reconnecting to existing session...');
@@ -130,6 +132,7 @@
             dispatch('session', { sessionId: message.payload?.sessionId });
             break;
           case 'AGENT_LAUNCHED':
+            isInitializing = false;
             dispatch('agent', { 
               status: 'Active', 
               agentId: message.payload?.agentId 
@@ -155,6 +158,7 @@
             break;
           case 'OUTPUT':
             if (message.payload?.data) {
+              isInitializing = false;
               write(message.payload.data);
             }
             break;
@@ -455,9 +459,17 @@
       Reconnecting... (attempt {reconnectAttempts})
     </div>
   {/if}
+  
+  {#if isInitializing || connectionStatus !== 'connected'}
+    <div class="loading-overlay">
+      <img src="/wordlogo_sm.png" alt="MorphBox" class="loading-logo" />
+    </div>
+  {/if}
+  
   <div 
     bind:this={terminalContainer}
     class="terminal-container"
+    class:loading={isInitializing || connectionStatus !== 'connected'}
   />
 </div>
 
@@ -473,6 +485,39 @@
     width: 100%;
     height: 100%;
     background-color: #1e1e1e;
+  }
+  
+  .terminal-container.loading {
+    opacity: 0.3;
+  }
+  
+  .loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 10;
+  }
+  
+  .loading-logo {
+    max-width: 300px;
+    max-height: 150px;
+    opacity: 0.15;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 0.15;
+    }
+    50% {
+      opacity: 0.25;
+    }
   }
   
   .connection-status {

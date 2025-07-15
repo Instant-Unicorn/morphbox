@@ -40,21 +40,27 @@ class ClaudeAgent extends EventEmitter implements Agent {
     const args: string[] = [];
 
     try {
+      console.log('Spawning claude process with args:', args);
+      console.log('Working directory:', workspacePath || process.cwd());
+      
       this.process = spawn('claude', args, {
         cwd: workspacePath || process.cwd(),
         env: {
           ...process.env,
           CLAUDE_SESSION_ID: sessionId,
           CLAUDE_WORKSPACE: workspacePath
-        }
+        },
+        shell: true
       });
 
-      this.status = 'running';
-
+      // Set up event handlers immediately
       // Handle stdout
       this.process.stdout?.on('data', (data) => {
         const output = data.toString();
         this.outputBuffer += output;
+        
+        // Debug log
+        console.log('Claude stdout:', output);
         
         // Emit output for real-time streaming
         this.emit('output', output);
@@ -63,6 +69,7 @@ class ClaudeAgent extends EventEmitter implements Agent {
       // Handle stderr
       this.process.stderr?.on('data', (data) => {
         const error = data.toString();
+        console.log('Claude stderr:', error);
         this.emit('error', error);
       });
 
@@ -73,9 +80,15 @@ class ClaudeAgent extends EventEmitter implements Agent {
       });
 
       this.process.on('error', (error) => {
+        console.error('Claude process error:', error);
         this.status = 'error';
         this.emit('error', error.message);
       });
+
+      this.status = 'running';
+      
+      // Wait a bit for Claude to initialize
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
     } catch (error) {
       this.status = 'error';

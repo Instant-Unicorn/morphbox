@@ -261,19 +261,28 @@
   });
 </script>
 
-<div 
-  bind:this={terminalContainer}
-  class="terminal-container"
-/>
+<div class="terminal-outer-container">
+  <div 
+    bind:this={terminalContainer}
+    class="terminal-container"
+  />
+</div>
 
 <style>
+  .terminal-outer-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+  
   .terminal-container {
     width: 100%;
     height: 100%;
     background-color: #1e1e1e;
   }
   
-  :global(.xterm) {
+  :global(.terminal-wrapper .xterm) {
     padding: 10px;
     height: 100%;
   }

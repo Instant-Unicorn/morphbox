@@ -4,6 +4,7 @@
   import { onMount } from 'svelte';
   
   let terminal: Terminal;
+  let mounted = false;
   
   // Use the same host as the current page
   $: websocketUrl = browser ? `ws://${window.location.hostname}:8009` : '';
@@ -16,6 +17,9 @@
   
   // Update time every second
   onMount(() => {
+    mounted = true;
+    console.log('MorphBoxLayout mounted');
+    
     const interval = setInterval(() => {
       currentTime = new Date().toLocaleTimeString();
     }, 1000);
@@ -100,6 +104,8 @@
     background-color: #1e1e1e;
     color: #d4d4d4;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    position: relative;
+    overflow: hidden;
   }
 
   /* Header Styles */
@@ -176,6 +182,7 @@
     flex: 1;
     position: relative;
     overflow: hidden;
+    min-height: 0; /* Important for flexbox */
   }
 
   /* Status Bar */

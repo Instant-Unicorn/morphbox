@@ -50,7 +50,7 @@ class ClaudeAgent extends EventEmitter implements Agent {
           CLAUDE_SESSION_ID: sessionId,
           CLAUDE_WORKSPACE: workspacePath
         },
-        shell: true
+        stdio: ['pipe', 'pipe', 'pipe']
       });
 
       // Set up event handlers immediately

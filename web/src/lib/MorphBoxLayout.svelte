@@ -38,9 +38,6 @@
     settings: Settings
   };
   
-  // Debug logging
-  $: console.log('Current panels:', $panels);
-  $: console.log('Panel components:', panelComponents);
   
   // Initialize default panels
   onMount(() => {

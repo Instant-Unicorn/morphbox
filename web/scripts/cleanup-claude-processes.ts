@@ -7,6 +7,7 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import * as readline from 'readline';
 
 const execAsync = promisify(exec);
 
@@ -71,15 +72,15 @@ async function main() {
   
   // Ask for confirmation if running interactively
   if (process.stdin.isTTY) {
-    const readline = require('readline').createInterface({
+    const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout
     });
     
     const answer = await new Promise<string>(resolve => {
-      readline.question('Kill all Claude processes? (y/N): ', resolve);
+      rl.question('Kill all Claude processes? (y/N): ', resolve);
     });
-    readline.close();
+    rl.close();
     
     if (answer.toLowerCase() !== 'y') {
       console.log('Aborted.');

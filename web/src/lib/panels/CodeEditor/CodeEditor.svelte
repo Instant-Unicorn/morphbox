@@ -122,7 +122,7 @@
   // Find and replace
   export function openFindReplace() {
     if (editorInstance) {
-      editorInstance.trigger('', 'actions.find');
+      editorInstance.trigger('', 'actions.find', null);
     }
   }
 
@@ -255,16 +255,18 @@
       });
 
       // Register keyboard shortcuts
-      editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-        saveCurrentFile();
-      });
+      if (editorInstance) {
+        editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+          saveCurrentFile();
+        });
 
-      editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () => {
-        openFindReplace();
-      });
+        editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () => {
+          openFindReplace();
+        });
 
-      // Listen for content changes
-      editorInstance.onDidChangeModelContent(handleContentChange);
+        // Listen for content changes
+        editorInstance.onDidChangeModelContent(handleContentChange);
+      }
 
       // Handle resize
       const resizeObserver = new ResizeObserver(() => {

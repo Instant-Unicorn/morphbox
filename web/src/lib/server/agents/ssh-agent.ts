@@ -12,7 +12,7 @@ export class SSHAgent extends EventEmitter implements Agent {
   type: string = 'ssh';
   status: string = 'initialized';
   startTime: number;
-  private ptyProcess: InstanceType<typeof pty.spawn> | null = null;
+  private ptyProcess: pty.IPty | null = null;
   private sessionId: string | null = null;
   private options: AgentOptions;
   private claudePid: number | null = null;
@@ -94,15 +94,15 @@ export class SSHAgent extends EventEmitter implements Agent {
       this.claudePid = this.ptyProcess.pid;
 
       // Handle output from PTY
-      this.ptyProcess.onData((data) => {
+      this.ptyProcess.onData((data: string) => {
         this.emit('output', data);
       });
 
       // Handle process exit
-      this.ptyProcess.onExit(({ exitCode }) => {
+      this.ptyProcess.onExit(({ exitCode }: { exitCode: number | undefined }) => {
         console.log('SSH session exited with code:', exitCode);
         this.status = 'stopped';
-        this.emit('exit', exitCode || 0);
+        this.emit('exit', exitCode ?? 0);
       });
 
       this.status = 'running';
@@ -139,7 +139,6 @@ export class SSHAgent extends EventEmitter implements Agent {
     // Then kill the PTY process
     if (this.ptyProcess) {
       console.log('Killing PTY process...');
-      this.ptyProcess.removeAllListeners();
       this.ptyProcess.kill();
       this.ptyProcess = null;
     }
@@ -152,7 +151,7 @@ export class SSHAgent extends EventEmitter implements Agent {
 
   private async killContainerProcess(pid: string): Promise<void> {
     return new Promise((resolve) => {
-      exec(`docker exec morphbox-vm kill -9 ${pid}`, (error: any) => {
+      exec(`docker exec morphbox-vm kill -9 ${pid}`, (error) => {
         if (error) {
           console.error(`Failed to kill process ${pid}:`, error.message);
         } else {
@@ -171,7 +170,7 @@ export class SSHAgent extends EventEmitter implements Agent {
   
   static async listSessions(): Promise<string[]> {
     return new Promise((resolve, reject) => {
-      exec('docker exec morphbox-vm tmux list-sessions 2>/dev/null', (error: any, stdout: string) => {
+      exec('docker exec morphbox-vm tmux list-sessions 2>/dev/null', (error, stdout) => {
         if (error || !stdout) {
           resolve([]);
           return;
@@ -192,7 +191,7 @@ export class SSHAgent extends EventEmitter implements Agent {
     return new Promise((resolve) => {
       // Look for claude processes in the container (with or without --continue flag)
       exec('docker exec morphbox-vm ps aux | grep -E "claude.*dangerously-skip-permissions" | grep -v grep', 
-        (error: any, stdout: string) => {
+        (error, stdout) => {
           if (error || !stdout) {
             resolve([]);
             return;

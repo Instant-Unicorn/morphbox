@@ -195,8 +195,15 @@
     <div
       class="panel-resize-handle"
       on:mousedown={startResizing}
+      on:keydown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          // Keyboard resize not implemented yet
+        }
+      }}
       role="separator"
       aria-label="Resize panel"
+      tabindex="0"
     />
   {/if}
 </div>

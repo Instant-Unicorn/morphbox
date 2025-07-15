@@ -157,9 +157,15 @@
       contextMenu = null;
     }
   }
+  
+  function handleGlobalKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape' && contextMenu) {
+      contextMenu = null;
+    }
+  }
 </script>
 
-<div class="file-explorer" on:click={handleGlobalClick}>
+<div class="file-explorer" role="region" aria-label="File Explorer" on:click={handleGlobalClick} on:keydown={handleGlobalKeydown}>
   <div class="file-explorer-header">
     <h3>Explorer</h3>
     <button 

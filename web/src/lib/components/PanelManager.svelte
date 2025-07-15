@@ -68,7 +68,7 @@
 
 <!-- Panel Manager Dropdown -->
 {#if showManager}
-  <div class="panel-manager" on:click|stopPropagation>
+  <div class="panel-manager" role="dialog" aria-label="Panel Manager" on:click|stopPropagation>
     <div class="manager-header">
       <h3>Panel Manager</h3>
       <button class="close-button" on:click={() => showManager = false}>×</button>

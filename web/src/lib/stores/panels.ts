@@ -137,7 +137,7 @@ function loadStateFromSessionStorage(): PanelState | null {
     
     // Check if this is a hot reload recovery
     const hotReloadMarker = sessionStorage.getItem(HOT_RELOAD_MARKER);
-    const isHotReload = hotReloadMarker && (Date.now() - parseInt(hotReloadMarker)) < 5000; // 5 second window
+    const isHotReload = hotReloadMarker ? (Date.now() - parseInt(hotReloadMarker)) < 5000 : false; // 5 second window
     
     return {
       ...state,
@@ -576,7 +576,7 @@ export const panelStore = createPanelStore();
 // Create derived stores for easier access
 export const panels = derived(panelStore, $store => $store.panels);
 export const activePanel = derived(panelStore, $store => 
-  $store.panels.find(p => p.id === $store.activePanel) || null
+  $store.panels.find(p => p.id === $store.activePanel) ?? null
 );
 export const panelsByType = derived(panelStore, $store => {
   const byType: Record<string, Panel[]> = {};

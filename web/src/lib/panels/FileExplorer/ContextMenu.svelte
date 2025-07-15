@@ -41,30 +41,70 @@
   function handleAction(action: ContextMenuAction) {
     dispatch('action', action);
   }
+  
+  function handleKeyDown(e: KeyboardEvent, action: ContextMenuAction) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleAction(action);
+    }
+  }
+  
+  function handleMenuKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      dispatch('close');
+    }
+  }
 </script>
 
 <div 
   class="context-menu" 
   bind:this={menuElement}
   style="left: {x}px; top: {y}px"
+  role="menu"
+  tabindex="-1"
   on:click|stopPropagation
+  on:keydown={handleMenuKeyDown}
 >
-  <div class="menu-item" on:click={() => handleAction('create-file')}>
+  <div 
+    class="menu-item" 
+    role="menuitem"
+    tabindex="0"
+    on:click={() => handleAction('create-file')}
+    on:keydown={(e) => handleKeyDown(e, 'create-file')}
+  >
     <span class="menu-icon">📄</span>
     New File
   </div>
-  <div class="menu-item" on:click={() => handleAction('create-folder')}>
+  <div 
+    class="menu-item" 
+    role="menuitem"
+    tabindex="0"
+    on:click={() => handleAction('create-folder')}
+    on:keydown={(e) => handleKeyDown(e, 'create-folder')}
+  >
     <span class="menu-icon">📁</span>
     New Folder
   </div>
   
   {#if item}
     <div class="menu-separator"></div>
-    <div class="menu-item" on:click={() => handleAction('rename')}>
+    <div 
+      class="menu-item" 
+      role="menuitem"
+      tabindex="0"
+      on:click={() => handleAction('rename')}
+      on:keydown={(e) => handleKeyDown(e, 'rename')}
+    >
       <span class="menu-icon">✏️</span>
       Rename
     </div>
-    <div class="menu-item danger" on:click={() => handleAction('delete')}>
+    <div 
+      class="menu-item danger" 
+      role="menuitem"
+      tabindex="0"
+      on:click={() => handleAction('delete')}
+      on:keydown={(e) => handleKeyDown(e, 'delete')}
+    >
       <span class="menu-icon">🗑️</span>
       Delete
     </div>

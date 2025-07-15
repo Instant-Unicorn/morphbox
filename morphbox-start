@@ -25,6 +25,7 @@ fi
 # Default to local only
 BIND_HOST="${MORPHBOX_HOST:-localhost}"
 ACCESS_MODE="${MORPHBOX_BIND_MODE:-local}"
+DEV_MODE=false
 
 # Apply bind mode
 if [[ "$ACCESS_MODE" == "external" ]]; then
@@ -44,6 +45,10 @@ while [[ $# -gt 0 ]]; do
             ACCESS_MODE="local"
             shift
             ;;
+        --dev)
+            DEV_MODE=true
+            shift
+            ;;
         --help)
             echo "MorphBox Launcher"
             echo ""
@@ -52,11 +57,13 @@ while [[ $# -gt 0 ]]; do
             echo "Options:"
             echo "  --local     Bind to localhost only (default)"
             echo "  --external  Bind to all interfaces (WARNING: exposes to network)"
+            echo "  --dev       Skip security warnings (development mode)"
             echo "  --help      Show this help message"
             echo ""
             echo "Examples:"
             echo "  $0              # Start locally (safe)"
             echo "  $0 --external   # Expose to network (use with caution)"
+            echo "  $0 --external --dev   # External mode without prompts"
             exit 0
             ;;
         *)
@@ -76,8 +83,8 @@ if [[ ! -d "$WEB_DIR/node_modules" ]]; then
     cd "$WEB_DIR" && npm install
 fi
 
-# Show security warning if external
-if [[ "$ACCESS_MODE" == "external" ]]; then
+# Show security warning if external (unless in dev mode)
+if [[ "$ACCESS_MODE" == "external" ]] && [[ "$DEV_MODE" != "true" ]]; then
     echo ""
     warn "⚠️  SECURITY WARNING ⚠️"
     warn "MorphBox will be accessible from external networks!"
@@ -125,6 +132,9 @@ sleep 3
 
 info "MorphBox is running!"
 echo ""
+if [[ "$DEV_MODE" == "true" ]]; then
+    info "Development mode enabled (warnings disabled)"
+fi
 if [[ "$ACCESS_MODE" == "external" ]]; then
     echo -e "${BLUE}External Access Enabled:${NC}"
     info "- Web interface: $WEB_URL"

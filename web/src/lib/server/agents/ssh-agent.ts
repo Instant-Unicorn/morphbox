@@ -36,13 +36,23 @@ export class SSHAgent extends EventEmitter implements Agent {
       throw new Error('SSH connection requires vmHost, vmPort, and vmUser');
     }
 
-    // Use docker exec without tmux for now
+    // Use docker exec with Claude's resume feature
+    let claudeCommand = 'cd /workspace && claude --dangerously-skip-permissions';
+    
+    // If we have a session ID, use Claude's --resume flag
+    if (this.sessionId && this.sessionId.startsWith('claude-')) {
+      // Extract the Claude session ID (remove our prefix)
+      const claudeSessionId = this.sessionId.replace('claude-', '');
+      claudeCommand = `cd /workspace && claude --dangerously-skip-permissions --resume ${claudeSessionId}`;
+      console.log(`Resuming Claude session: ${claudeSessionId}`);
+    }
+    
     const args = [
       'exec',
       '-it',
       'morphbox-vm',
       'su', '-', vmUser, '-c',
-      'cd /workspace && claude --dangerously-skip-permissions'
+      claudeCommand
     ];
 
     const ptyOptions = {
@@ -57,19 +67,26 @@ export class SSHAgent extends EventEmitter implements Agent {
     };
 
     try {
-      // For now, use direct PTY without screen to avoid UI issues
+      // Use direct PTY
       this.ptyProcess = pty.spawn('docker', args, ptyOptions);
       
-      // Generate session ID if not provided
-      if (!this.sessionId) {
-        this.sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      }
+      // We'll extract Claude's session ID from its output
 
       // Emit the session ID so the client can store it
       this.emit('sessionId', this.sessionId);
 
       // Handle output from PTY
       this.ptyProcess.onData((data) => {
+        // Look for Claude's session ID in the output
+        // Claude outputs something like "Session ID: abc123def456"
+        const sessionMatch = data.match(/Session ID: ([a-zA-Z0-9-]+)/i);
+        if (sessionMatch && sessionMatch[1]) {
+          const claudeSessionId = sessionMatch[1];
+          this.sessionId = `claude-${claudeSessionId}`;
+          console.log(`Detected Claude session ID: ${claudeSessionId}`);
+          this.emit('sessionId', this.sessionId);
+        }
+        
         this.emit('output', data);
       });
 
@@ -105,7 +122,7 @@ export class SSHAgent extends EventEmitter implements Agent {
       this.screenPty = null;
       this.status = 'stopped';
       
-      console.log(`[SSHAgent] Stopped session ${this.sessionId}`);
+      console.log(`[SSHAgent] Disconnected from session ${this.sessionId}`);
     }
   }
 

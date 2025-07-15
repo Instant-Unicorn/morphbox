@@ -1,0 +1,33 @@
+# MorphBox Docker Container - Optimized for speed
+FROM node:20-slim
+
+# Prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install only essential packages in one layer
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    openssh-server \
+    sudo \
+    python3-minimal \
+    && rm -rf /var/lib/apt/lists/* \
+    && npm install -g claude-code
+
+# Create morphbox user
+RUN useradd -m -s /bin/bash morphbox && \
+    echo 'morphbox:morphbox' | chpasswd && \
+    usermod -aG sudo morphbox && \
+    echo "morphbox ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/morphbox
+
+# Setup SSH
+RUN mkdir /var/run/sshd && \
+    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
+    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+# Create workspace
+RUN mkdir -p /workspace && chown morphbox:morphbox /workspace
+
+WORKDIR /workspace
+EXPOSE 22
+
+CMD ["/usr/sbin/sshd", "-D"]

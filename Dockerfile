@@ -1,57 +1,46 @@
-# MorphBox Docker Container
-FROM ubuntu:22.04
+# MorphBox Docker Container - Based on official Claude-Code devcontainer
+FROM node:20
 
-# Prevent interactive prompts
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Install dependencies (without nodejs/npm initially)
-RUN apt-get update && apt-get install -y \
-    curl \
+# Install minimal required packages (matching Claude-Code devcontainer)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
-    build-essential \
-    python3 \
-    python3-pip \
-    python3-venv \
     sudo \
     openssh-server \
+    iptables \
+    ipset \
+    iproute2 \
+    dnsutils \
     && rm -rf /var/lib/apt/lists/*
 
-# Remove any existing Node.js and install Node.js 20
-RUN apt-get update && \
-    apt-get remove -y nodejs npm libnode-dev && \
-    apt-get autoremove -y && \
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs && \
-    rm -rf /var/lib/apt/lists/*
+# Install Claude CLI (official package)
+RUN npm install -g @anthropic-ai/claude-code
 
-# Install Claude CLI
-RUN npm install -g claude-code
-
-# Create morphbox user
+# Create morphbox user with proper permissions
 RUN useradd -m -s /bin/bash morphbox && \
     echo 'morphbox:morphbox' | chpasswd && \
     usermod -aG sudo morphbox && \
     echo "morphbox ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/morphbox
 
-# Setup SSH
+# Setup SSH for container access
 RUN mkdir /var/run/sshd && \
     sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
     sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
 
-# Create workspace
+# Create workspace directory
 RUN mkdir -p /workspace && chown morphbox:morphbox /workspace
 
 # Set working directory
 WORKDIR /workspace
 
-# Switch to morphbox user
+# Switch to morphbox user for security
 USER morphbox
 
-# Set up SSH keys for passwordless login
-RUN mkdir -p ~/.ssh && chmod 700 ~/.ssh
+# Create directories for Claude configuration
+RUN mkdir -p ~/.config/claude-code
 
-# Entry point
+# Switch back to root for SSH daemon
 USER root
+
 EXPOSE 22
 
 CMD ["/usr/sbin/sshd", "-D"]

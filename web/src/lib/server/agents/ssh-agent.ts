@@ -33,7 +33,7 @@ export class SSHAgent extends EventEmitter implements Agent {
       '-t',  // Force TTY allocation
       `${vmUser}@${vmHost}`,
       // Run Claude in the VM
-      'claude'
+      'claude-code'
     ];
 
     try {

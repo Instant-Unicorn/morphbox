@@ -47,6 +47,7 @@ export function handleWebSocketConnection(
 
   // Launch Claude automatically on connection
   setTimeout(async () => {
+    console.log('Launching Claude for WebSocket connection');
     send('CONNECTED', { message: 'Welcome to MorphBox' });
     
     try {
@@ -60,6 +61,7 @@ export function handleWebSocketConnection(
       const vmUser = process.env.MORPHBOX_VM_USER || 'morphbox';
       
       // Launch SSH connection to VM
+      console.log('Launching SSH agent with params:', { vmHost, vmPort, vmUser });
       currentAgentId = await agentManager.launchAgent('ssh', {
         sessionId: currentSessionId,
         terminalSessionId: providedTerminalSessionId || undefined,
@@ -67,6 +69,7 @@ export function handleWebSocketConnection(
         vmPort,
         vmUser
       });
+      console.log('SSH agent launched with ID:', currentAgentId);
 
       // Set up agent event listeners
       const handleOutput = (data: { agentId: string; data: string }) => {

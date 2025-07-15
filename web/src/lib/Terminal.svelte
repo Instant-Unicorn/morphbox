@@ -93,7 +93,16 @@
     console.log('Connecting to WebSocket:', url);
     ws = new WebSocket(url);
     
+    // Set timeout for connection
+    const connectionTimeout = setTimeout(() => {
+      if (ws.readyState !== WebSocket.OPEN) {
+        writeln('\r\n❌ WebSocket connection timeout. Please check if the WebSocket server is running on port 8009.');
+        console.error('WebSocket connection timeout');
+      }
+    }, 5000);
+    
     ws.onopen = () => {
+      clearTimeout(connectionTimeout);
       console.log('WebSocket connected');
       connectionStatus = 'connected';
       reconnectAttempts = 0;

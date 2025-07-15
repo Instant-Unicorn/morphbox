@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import * as pty from 'node-pty';
 import type { Agent, AgentOptions } from '../agent-manager';
-import { getSessionManager, type SessionInfo } from '../session-manager';
+import { screenManager } from '../screen-manager';
 
 export class SSHAgent extends EventEmitter implements Agent {
   id: string;
@@ -9,7 +9,7 @@ export class SSHAgent extends EventEmitter implements Agent {
   status: string = 'initialized';
   startTime: number;
   private ptyProcess: pty.IPty | null = null;
-  private sessionInfo: SessionInfo | null = null;
+  private screenPty: pty.IPty | null = null;
   private sessionId: string | null = null;
   private options: AgentOptions;
 
@@ -57,27 +57,22 @@ export class SSHAgent extends EventEmitter implements Agent {
     };
 
     try {
-      // Get the session manager
-      const sessionManager = getSessionManager();
+      // Generate session ID if not provided
+      if (!this.sessionId) {
+        this.sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      }
       
-      // Try to attach to existing session or create new one
-      this.sessionInfo = sessionManager.attachOrCreateSession(
+      // Use screen manager for persistent sessions
+      this.screenPty = screenManager.attachOrCreateSession(
         this.sessionId,
         {
           command: 'docker',
           args,
-          options: ptyOptions,
-          metadata: {
-            agentId: this.id,
-            vmUser,
-            createdAt: new Date()
-          }
+          options: ptyOptions
         }
       );
 
-      // Update our references
-      this.sessionId = this.sessionInfo.id;
-      this.ptyProcess = this.sessionInfo.pty;
+      this.ptyProcess = this.screenPty;
 
       // Emit the session ID so the client can store it
       this.emit('sessionId', this.sessionId);
@@ -111,16 +106,19 @@ export class SSHAgent extends EventEmitter implements Agent {
   }
 
   async stop(): Promise<void> {
-    // Don't kill the PTY process - just disconnect from it
-    // The session manager will handle cleanup based on timeout
-    if (this.ptyProcess) {
-      // Remove our event listeners
-      this.ptyProcess.removeAllListeners();
-      this.ptyProcess = null;
-      this.sessionInfo = null;
+    // Detach from screen session instead of killing it
+    if (this.sessionId) {
+      screenManager.detachSession(this.sessionId);
+      
+      if (this.ptyProcess) {
+        this.ptyProcess.removeAllListeners();
+        this.ptyProcess = null;
+      }
+      
+      this.screenPty = null;
       this.status = 'stopped';
       
-      console.log(`[SSHAgent] Disconnected from session ${this.sessionId}, but keeping it alive`);
+      console.log(`[SSHAgent] Detached from screen session ${this.sessionId}`);
     }
   }
 
@@ -133,7 +131,7 @@ export class SSHAgent extends EventEmitter implements Agent {
   static async listSessions(): Promise<string[]> {
     return new Promise((resolve, reject) => {
       const { exec } = require('child_process');
-      exec('docker exec morphbox-vm tmux list-sessions 2>/dev/null', (error: any, stdout: string) => {
+      exec('screen -ls | grep morphbox-', (error: any, stdout: string) => {
         if (error || !stdout) {
           resolve([]);
           return;
@@ -142,8 +140,11 @@ export class SSHAgent extends EventEmitter implements Agent {
         const sessions = stdout
           .trim()
           .split('\n')
-          .filter(line => line.includes('morphbox-'))
-          .map(line => line.split(':')[0]);
+          .map(line => {
+            const match = line.match(/\d+\.morphbox-([a-zA-Z0-9-]+)/);
+            return match ? match[1] : null;
+          })
+          .filter(Boolean) as string[];
         
         resolve(sessions);
       });

@@ -1,8 +1,51 @@
 {
 	"/": [],
+	"/api/files": [
+		"src/routes/api/files/+server.ts"
+	],
+	"/api/files/create": [
+		"src/routes/api/files/create/+server.ts"
+	],
+	"/api/files/delete": [
+		"src/routes/api/files/delete/+server.ts"
+	],
+	"/api/files/list": [
+		"src/routes/api/files/list/+server.ts"
+	],
+	"/api/files/read": [
+		"src/routes/api/files/read/+server.ts"
+	],
+	"/api/files/rename": [
+		"src/routes/api/files/rename/+server.ts"
+	],
+	"/api/files/write": [
+		"src/routes/api/files/write/+server.ts"
+	],
+	"/api/panels": [
+		"src/routes/api/panels/+server.ts"
+	],
+	"/api/panels/create": [
+		"src/routes/api/panels/create/+server.ts"
+	],
+	"/api/panels/list": [
+		"src/routes/api/panels/list/+server.ts"
+	],
+	"/api/panels/load": [
+		"src/routes/api/panels/load/+server.ts"
+	],
+	"/api/panels/save": [
+		"src/routes/api/panels/save/+server.ts"
+	],
+	"/api/panels/templates": [
+		"src/routes/api/panels/templates/+server.ts"
+	],
 	"/api/ws": [
 		"src/routes/api/ws/+server.ts"
 	],
+	"/code-editor-demo": [],
+	"/command-palette-demo": [],
+	"/file-explorer-demo": [],
 	"/layout-test": [],
+	"/panel-menu-demo": [],
 	"/test": []
 }

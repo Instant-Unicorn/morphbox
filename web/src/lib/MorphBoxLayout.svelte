@@ -2,6 +2,14 @@
   import Terminal from '$lib/Terminal.svelte';
   import { browser } from '$app/environment';
   import { onMount } from 'svelte';
+  import { panels, activePanel, type Panel } from '$lib/stores/panels';
+  import SplitPane from '$lib/components/SplitPane.svelte';
+  import PanelContainer from '$lib/components/PanelContainer.svelte';
+  import PanelManager from '$lib/components/PanelManager.svelte';
+  import FileExplorer from '$lib/panels/FileExplorer/FileExplorer.svelte';
+  import CodeEditor from '$lib/panels/CodeEditor/CodeEditor.svelte';
+  import Settings from '$lib/panels/Settings/Settings.svelte';
+  import { settings, applyTheme } from '$lib/panels/Settings/settings-store';
   
   let terminal: Terminal;
   let mounted = false;
@@ -15,19 +23,53 @@
   let sessionId = '';
   let currentTime = new Date().toLocaleTimeString();
   
-  // Update time every second
+  // Panel management
+  let showFileExplorer = false;
+  let terminalPanel: Panel;
+  
+  // Dynamic component mapping
+  const panelComponents = {
+    terminal: Terminal,
+    fileExplorer: FileExplorer,
+    codeEditor: CodeEditor,
+    settings: Settings
+  };
+  
+  // Initialize default panels
   onMount(() => {
     mounted = true;
     console.log('MorphBoxLayout mounted');
+    
+    // Load settings and apply theme
+    settings.load();
+    const unsubscribe = settings.subscribe($settings => {
+      applyTheme($settings.theme, $settings.customTheme);
+    });
+    
+    // Initialize default panels
+    panels.initializeDefaults();
+    
+    // Get terminal panel reference
+    const terminalPanels = $panels.filter(p => p.type === 'terminal');
+    if (terminalPanels.length > 0) {
+      terminalPanel = terminalPanels[0];
+    } else {
+      // Create terminal if it doesn't exist
+      panels.addPanel('terminal', { persistent: true });
+      terminalPanel = $panels.find(p => p.type === 'terminal')!;
+    }
     
     const interval = setInterval(() => {
       currentTime = new Date().toLocaleTimeString();
     }, 1000);
     
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      unsubscribe();
+    };
   });
   
-  // Handle WebSocket events (to be implemented)
+  // Handle WebSocket events
   export function onConnectionChange(connected: boolean) {
     isConnected = connected;
   }
@@ -38,6 +80,56 @@
   
   export function onSessionChange(id: string) {
     sessionId = id;
+  }
+  
+  // Handle file open from explorer
+  function handleFileOpen(event: CustomEvent) {
+    const { file } = event.detail;
+    // Check if editor panel exists
+    const existingEditor = $panels.find(p => p.type === 'codeEditor');
+    if (existingEditor) {
+      panels.setActivePanel(existingEditor.id);
+    } else {
+      // Create new editor panel
+      panels.addPanel('codeEditor', {
+        title: 'Code Editor',
+        content: { file }
+      });
+    }
+  }
+  
+  // Handle panel actions from PanelManager
+  function handlePanelAction(event: CustomEvent) {
+    const { action, panelType, panelData } = event.detail;
+    
+    switch (action) {
+      case 'create':
+        // Panel creation is handled by the wizard
+        break;
+      case 'add':
+        panels.addPanel(panelType, panelData);
+        break;
+      case 'remove':
+        if (panelData?.id) {
+          panels.removePanel(panelData.id);
+        }
+        break;
+    }
+  }
+  
+  // Toggle file explorer
+  function toggleFileExplorer() {
+    showFileExplorer = !showFileExplorer;
+  }
+  
+  // Open settings panel
+  function openSettings() {
+    const settingsPanel = $panels.find(p => p.type === 'settings');
+    if (settingsPanel) {
+      panels.setActivePanel(settingsPanel.id);
+    } else {
+      panels.addPanel('settings');
+    }
   }
 </script>
 
@@ -54,31 +146,94 @@
       </span>
     </div>
     <div class="header-right">
-      <button class="btn btn-sm">Settings</button>
+      <button class="btn btn-sm" on:click={toggleFileExplorer}>
+        Files
+      </button>
+      <PanelManager on:action={handlePanelAction} />
+      <button class="btn btn-sm" on:click={openSettings}>
+        Settings
+      </button>
     </div>
   </header>
 
   <!-- Main Content Area -->
   <div class="morphbox-main">
-    <!-- Sidebar (future feature) -->
-    <!-- <aside class="morphbox-sidebar">
-      <h3>Files</h3>
-    </aside> -->
-    
-    <!-- Terminal Container -->
-    <div class="terminal-wrapper">
-      {#if browser}
-        <Terminal 
-          bind:this={terminal} 
-          {websocketUrl}
-          on:connection={(e) => isConnected = e.detail.connected}
-          on:agent={(e) => agentStatus = e.detail.status}
-          on:session={(e) => sessionId = e.detail.sessionId}
-        />
-      {:else}
-        <div class="loading">Loading terminal...</div>
-      {/if}
-    </div>
+    {#if showFileExplorer}
+      <SplitPane orientation="horizontal" initialSplit={20} minSize={200} maxSize={400}>
+        <div slot="first" class="file-explorer-container">
+          <PanelContainer title="Files" closable={true} on:close={() => showFileExplorer = false}>
+            <FileExplorer on:fileOpen={handleFileOpen} />
+          </PanelContainer>
+        </div>
+        <div slot="second" class="main-content">
+          <!-- Main content area with panels -->
+          <div class="panels-container">
+            {#each $panels as panel (panel.id)}
+              {#if panel.type === 'terminal'}
+                <!-- Terminal is always visible in main area -->
+                <div class="terminal-wrapper" class:hidden={$activePanel?.id !== panel.id && $panels.filter(p => !p.minimized && p.type !== 'terminal').length > 0}>
+                  {#if browser}
+                    <Terminal 
+                      bind:this={terminal} 
+                      {websocketUrl}
+                      on:connection={(e) => isConnected = e.detail.connected}
+                      on:agent={(e) => agentStatus = e.detail.status}
+                      on:session={(e) => sessionId = e.detail.sessionId}
+                    />
+                  {:else}
+                    <div class="loading">Loading terminal...</div>
+                  {/if}
+                </div>
+              {:else if panelComponents[panel.type] && !panel.minimized}
+                <!-- Other panels -->
+                <div class="panel-wrapper" class:active={$activePanel?.id === panel.id}>
+                  <PanelContainer 
+                    title={panel.title} 
+                    closable={!panel.persistent} 
+                    on:close={() => panels.removePanel(panel.id)}
+                  >
+                    <svelte:component this={panelComponents[panel.type]} {...panel.content} />
+                  </PanelContainer>
+                </div>
+              {/if}
+            {/each}
+          </div>
+        </div>
+      </SplitPane>
+    {:else}
+      <!-- No file explorer, full width content -->
+      <div class="panels-container">
+        {#each $panels as panel (panel.id)}
+          {#if panel.type === 'terminal'}
+            <!-- Terminal is always visible -->
+            <div class="terminal-wrapper" class:hidden={$activePanel?.id !== panel.id && $panels.filter(p => !p.minimized && p.type !== 'terminal').length > 0}>
+              {#if browser}
+                <Terminal 
+                  bind:this={terminal} 
+                  {websocketUrl}
+                  on:connection={(e) => isConnected = e.detail.connected}
+                  on:agent={(e) => agentStatus = e.detail.status}
+                  on:session={(e) => sessionId = e.detail.sessionId}
+                />
+              {:else}
+                <div class="loading">Loading terminal...</div>
+              {/if}
+            </div>
+          {:else if panelComponents[panel.type] && !panel.minimized}
+            <!-- Other panels -->
+            <div class="panel-wrapper" class:active={$activePanel?.id === panel.id}>
+              <PanelContainer 
+                title={panel.title} 
+                closable={!panel.persistent} 
+                on:close={() => panels.removePanel(panel.id)}
+              >
+                <svelte:component this={panelComponents[panel.type]} {...panel.content} />
+              </PanelContainer>
+            </div>
+          {/if}
+        {/each}
+      </div>
+    {/if}
   </div>
 
   <!-- Status Bar -->
@@ -88,6 +243,7 @@
       {#if sessionId}
         <span class="status-item">Session: {sessionId}</span>
       {/if}
+      <span class="status-item">Panels: {$panels.filter(p => !p.minimized).length}</span>
     </div>
     <div class="status-right">
       <span class="status-item">{currentTime}</span>
@@ -101,8 +257,8 @@
     flex-direction: column;
     height: 100vh;
     width: 100vw;
-    background-color: #1e1e1e;
-    color: #d4d4d4;
+    background-color: var(--bg-primary, #1e1e1e);
+    color: var(--text-primary, #d4d4d4);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     position: relative;
     overflow: hidden;
@@ -115,8 +271,8 @@
     justify-content: space-between;
     height: 40px;
     padding: 0 16px;
-    background-color: #2d2d30;
-    border-bottom: 1px solid #3e3e42;
+    background-color: var(--bg-secondary, #2d2d30);
+    border-bottom: 1px solid var(--border-color, #3e3e42);
     flex-shrink: 0;
   }
 
@@ -130,27 +286,27 @@
     font-size: 16px;
     font-weight: 600;
     margin: 0;
-    color: #cccccc;
+    color: var(--text-secondary, #cccccc);
   }
 
   .version {
     font-size: 12px;
-    color: #858585;
+    color: var(--text-tertiary, #858585);
   }
 
   .connection-status {
     font-size: 13px;
-    color: #858585;
+    color: var(--text-tertiary, #858585);
   }
 
   .connection-status.connected {
-    color: #4ec9b0;
+    color: var(--accent-color, #4ec9b0);
   }
 
   .btn {
-    background-color: #3c3c3c;
-    color: #cccccc;
-    border: 1px solid #3e3e42;
+    background-color: var(--button-bg, #3c3c3c);
+    color: var(--button-text, #cccccc);
+    border: 1px solid var(--border-color, #3e3e42);
     padding: 4px 12px;
     border-radius: 4px;
     font-size: 12px;
@@ -159,7 +315,7 @@
   }
 
   .btn:hover {
-    background-color: #484848;
+    background-color: var(--button-hover, #484848);
   }
 
   /* Main Content Area */
@@ -169,20 +325,47 @@
     overflow: hidden;
   }
 
-  /* Sidebar styles - uncomment when implementing
-  .morphbox-sidebar {
-    width: 240px;
-    background-color: #252526;
-    border-right: 1px solid #3e3e42;
-    padding: 16px;
-    overflow-y: auto;
-  } */
+  .file-explorer-container {
+    height: 100%;
+    background-color: var(--bg-secondary, #252526);
+  }
+
+  .main-content {
+    height: 100%;
+    position: relative;
+  }
+
+  .panels-container {
+    position: relative;
+    height: 100%;
+    width: 100%;
+  }
 
   .terminal-wrapper {
-    flex: 1;
-    position: relative;
-    overflow: hidden;
-    min-height: 0; /* Important for flexbox */
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+  }
+
+  .terminal-wrapper.hidden {
+    display: none;
+  }
+
+  .panel-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    display: none;
+  }
+
+  .panel-wrapper.active {
+    display: block;
   }
 
   /* Status Bar */
@@ -192,8 +375,8 @@
     justify-content: space-between;
     height: 22px;
     padding: 0 16px;
-    background-color: #007acc;
-    color: #ffffff;
+    background-color: var(--status-bg, #007acc);
+    color: var(--status-text, #ffffff);
     font-size: 12px;
     flex-shrink: 0;
   }
@@ -214,7 +397,7 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: #d4d4d4;
+    color: var(--text-primary, #d4d4d4);
     font-family: "Cascadia Code", "Fira Code", monospace;
     font-size: 16px;
   }
@@ -231,7 +414,7 @@
     }
 
     .version {
-      display: none; /* Hide version on mobile to save space */
+      display: none;
     }
 
     .header-center {
@@ -258,14 +441,14 @@
       gap: 8px;
     }
 
-    /* Hide session ID on very small screens */
+    /* Hide some elements on very small screens */
     @media (max-width: 400px) {
       .status-item:nth-child(2) {
         display: none;
       }
       
-      .header-right {
-        display: none; /* Hide settings button on very small screens */
+      .header-right .btn:not(:first-child) {
+        display: none;
       }
     }
   }

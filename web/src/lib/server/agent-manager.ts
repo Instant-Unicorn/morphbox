@@ -58,15 +58,15 @@ export class AgentManager extends EventEmitter {
       console.log(`Launched ${type} agent: ${agentId}`);
       
       // Forward agent events
-      agent.on('output', (data) => {
+      agent.on('output', (data: any) => {
         this.emit('agent_output', { agentId, data });
       });
 
-      agent.on('error', (error) => {
+      agent.on('error', (error: any) => {
         this.emit('agent_error', { agentId, error });
       });
 
-      agent.on('exit', (code) => {
+      agent.on('exit', (code: number | null) => {
         this.handleAgentExit(agentId, code);
       });
 

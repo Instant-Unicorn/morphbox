@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy, createEventDispatcher } from 'svelte';
   import { browser } from '$app/environment';
+  import { settings } from '$lib/panels/Settings';
   
   let Terminal: any;
   let FitAddon: any;
@@ -27,6 +28,7 @@
   let fitAddon: FitAddon;
   let ws: WebSocket | null = null;
   let inputBuffer = '';
+  let settingsUnsubscribe: (() => void) | null = null;
   
   const dispatch = createEventDispatcher();
   
@@ -144,16 +146,100 @@
   // Calculate appropriate font size and dimensions for mobile
   function getTerminalOptions() {
     const mobile = isMobile();
-    const fontSize = mobile ? 12 : 14;
+    const currentSettings = $settings;
+    const fontSize = mobile ? 12 : (currentSettings?.terminal.fontSize || 14);
+    const fontFamily = currentSettings?.terminal.fontFamily || '"Cascadia Code", "Fira Code", monospace';
     const cols = mobile ? Math.floor((window.innerWidth - 20) / 7) : 80;
     const rows = mobile ? Math.floor((window.innerHeight - 100) / 20) : 30;
     
     return {
       fontSize,
+      fontFamily,
       cols,
       rows,
+      lineHeight: currentSettings?.terminal.lineHeight || 1.2,
+      cursorStyle: currentSettings?.terminal.cursorStyle || 'block',
+      cursorBlink: currentSettings?.terminal.cursorBlink ?? true,
       allowProposedApi: true
     };
+  }
+  
+  // Update terminal options when settings change
+  export function updateTerminalSettings() {
+    if (terminal && browser) {
+      const currentSettings = $settings;
+      terminal.options.fontSize = currentSettings.terminal.fontSize;
+      terminal.options.fontFamily = currentSettings.terminal.fontFamily;
+      terminal.options.lineHeight = currentSettings.terminal.lineHeight;
+      terminal.options.cursorStyle = currentSettings.terminal.cursorStyle;
+      terminal.options.cursorBlink = currentSettings.terminal.cursorBlink;
+      
+      // Update theme based on settings
+      if (currentSettings.theme === 'light') {
+        terminal.options.theme = {
+          background: '#ffffff',
+          foreground: '#333333',
+          cursor: '#333333',
+          cursorAccent: '#ffffff',
+          selectionBackground: '#add6ff',
+          black: '#000000',
+          red: '#cd3131',
+          green: '#00bc00',
+          yellow: '#949800',
+          blue: '#0451a5',
+          magenta: '#bc05bc',
+          cyan: '#0598bc',
+          white: '#555753',
+          brightBlack: '#555753',
+          brightRed: '#cd3131',
+          brightGreen: '#14ce14',
+          brightYellow: '#b5ba00',
+          brightBlue: '#0451a5',
+          brightMagenta: '#bc05bc',
+          brightCyan: '#0598bc',
+          brightWhite: '#a5a5a5'
+        };
+      } else if (currentSettings.theme === 'custom' && currentSettings.customTheme) {
+        // Apply custom theme colors
+        terminal.options.theme = {
+          ...terminal.options.theme,
+          background: currentSettings.customTheme.background,
+          foreground: currentSettings.customTheme.foreground,
+          cursor: currentSettings.customTheme.foreground,
+          cursorAccent: currentSettings.customTheme.background,
+          selectionBackground: currentSettings.customTheme.accent
+        };
+      } else {
+        // Default dark theme
+        terminal.options.theme = {
+          background: '#1e1e1e',
+          foreground: '#d4d4d4',
+          cursor: '#d4d4d4',
+          cursorAccent: '#1e1e1e',
+          selectionBackground: '#264f78',
+          black: '#000000',
+          red: '#cd3131',
+          green: '#0dbc79',
+          yellow: '#e5e510',
+          blue: '#2472c8',
+          magenta: '#bc3fbc',
+          cyan: '#11a8cd',
+          white: '#e5e5e5',
+          brightBlack: '#666666',
+          brightRed: '#f14c4c',
+          brightGreen: '#23d18b',
+          brightYellow: '#f5f543',
+          brightBlue: '#3b8eea',
+          brightMagenta: '#d670d6',
+          brightCyan: '#29b8db',
+          brightWhite: '#e5e5e5'
+        };
+      }
+      
+      if (fitAddon) {
+        fitAddon.fit();
+      }
+    }
   }
   
   onMount(async () => {
@@ -173,39 +259,16 @@
     
     const termOptions = getTerminalOptions();
     
-    // Create terminal instance
+    // Create terminal instance with settings
     terminal = new Terminal({
-      theme: {
-        background: '#1e1e1e',
-        foreground: '#d4d4d4',
-        cursor: '#d4d4d4',
-        cursorAccent: '#1e1e1e',
-        selectionBackground: '#264f78',
-        black: '#000000',
-        red: '#cd3131',
-        green: '#0dbc79',
-        yellow: '#e5e510',
-        blue: '#2472c8',
-        magenta: '#bc3fbc',
-        cyan: '#11a8cd',
-        white: '#e5e5e5',
-        brightBlack: '#666666',
-        brightRed: '#f14c4c',
-        brightGreen: '#23d18b',
-        brightYellow: '#f5f543',
-        brightBlue: '#3b8eea',
-        brightMagenta: '#d670d6',
-        brightCyan: '#29b8db',
-        brightWhite: '#e5e5e5'
-      },
       fontSize: termOptions.fontSize,
-      fontFamily: '"Cascadia Code", "Fira Code", "Consolas", "Courier New", monospace',
-      lineHeight: 1.2,
+      fontFamily: termOptions.fontFamily,
+      lineHeight: termOptions.lineHeight,
       letterSpacing: 0,
       scrollback: 10000,
       smoothScrollDuration: 100,
-      cursorBlink: true,
-      cursorStyle: 'block',
+      cursorBlink: termOptions.cursorBlink,
+      cursorStyle: termOptions.cursorStyle,
       allowTransparency: false,
       tabStopWidth: 8,
       screenReaderMode: false,
@@ -216,6 +279,9 @@
       cols: termOptions.cols,
       rows: termOptions.rows
     });
+    
+    // Apply initial theme
+    updateTerminalSettings();
     
     // Load addons
     fitAddon = new FitAddon();
@@ -284,10 +350,18 @@
     writeln('MorphBox Terminal v2.0.0');
     writeln('Launching Claude...');
     
+    // Subscribe to settings changes
+    settingsUnsubscribe = settings.subscribe(() => {
+      updateTerminalSettings();
+    });
+    
     // Cleanup function
     return () => {
       window.removeEventListener('resize', handleResize);
       resizeObserver.disconnect();
+      if (settingsUnsubscribe) {
+        settingsUnsubscribe();
+      }
     };
   });
   

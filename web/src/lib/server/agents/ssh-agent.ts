@@ -121,8 +121,8 @@ export class SSHAgent extends EventEmitter implements Agent {
   }
 
   private async killContainerProcess(pid: string): Promise<void> {
+    const { exec } = await import('child_process');
     return new Promise((resolve) => {
-      const { exec } = require('child_process');
       exec(`docker exec morphbox-vm kill -9 ${pid}`, (error: any) => {
         if (error) {
           console.error(`Failed to kill process ${pid}:`, error.message);
@@ -141,8 +141,8 @@ export class SSHAgent extends EventEmitter implements Agent {
   }
   
   static async listSessions(): Promise<string[]> {
+    const { exec } = await import('child_process');
     return new Promise((resolve, reject) => {
-      const { exec } = require('child_process');
       exec('docker exec morphbox-vm tmux list-sessions 2>/dev/null', (error: any, stdout: string) => {
         if (error || !stdout) {
           resolve([]);
@@ -161,8 +161,8 @@ export class SSHAgent extends EventEmitter implements Agent {
   }
 
   static async getExistingClaudeProcesses(): Promise<Array<{pid: string, cmd: string}>> {
+    const { exec } = await import('child_process');
     return new Promise((resolve) => {
-      const { exec } = require('child_process');
       // Look for claude processes in the container (with or without --continue flag)
       exec('docker exec morphbox-vm ps aux | grep -E "claude.*dangerously-skip-permissions" | grep -v grep', 
         (error: any, stdout: string) => {

@@ -32,7 +32,10 @@ npm run cleanup:claude:force
 
 ## Environment Variables
 
-- `MAX_CLAUDE_PROCESSES`: Maximum number of concurrent Claude processes allowed (default: 1)
+- `MAX_CLAUDE_PROCESSES`: Maximum number of concurrent Claude processes allowed (default: 10)
+  - Set this to control how many terminal windows can have active Claude instances
+  - When the limit is reached, the oldest process is killed to make room for new ones
+  - Example: `export MAX_CLAUDE_PROCESSES=5` to allow 5 concurrent terminals
 
 ## Docker Note
 The processes run inside the Docker container (`morphbox-vm`), not directly on the host system. This is why you see Docker using the memory - it's managing the containerized processes.

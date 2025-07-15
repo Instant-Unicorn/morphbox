@@ -4,7 +4,7 @@ FROM ubuntu:22.04
 # Prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install dependencies
+# Install dependencies (without nodejs/npm initially)
 RUN apt-get update && apt-get install -y \
     curl \
     git \
@@ -12,15 +12,17 @@ RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     python3-venv \
-    nodejs \
-    npm \
     sudo \
     openssh-server \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js 20
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs
+# Remove any existing Node.js and install Node.js 20
+RUN apt-get update && \
+    apt-get remove -y nodejs npm libnode-dev && \
+    apt-get autoremove -y && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install Claude CLI
 RUN npm install -g claude-code

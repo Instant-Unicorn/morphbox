@@ -28,25 +28,17 @@ export class SSHAgent extends EventEmitter implements Agent {
 
     // Check for existing Claude processes first
     const existingProcesses = await SSHAgent.getExistingClaudeProcesses();
-    const maxProcesses = parseInt(process.env.MAX_CLAUDE_PROCESSES || '1');
+    const maxProcesses = parseInt(process.env.MAX_CLAUDE_PROCESSES || '10'); // Default to 10 for multiple terminals
     
     if (existingProcesses.length >= maxProcesses) {
-      console.log(`Found ${existingProcesses.length} existing Claude process(es). Maximum is ${maxProcesses}. Killing all first.`);
-      // Kill existing processes
-      for (const process of existingProcesses) {
-        await this.killContainerProcess(process.pid);
-      }
-      // Wait a bit for processes to die
+      console.log(`Found ${existingProcesses.length} existing Claude process(es). At limit of ${maxProcesses}.`);
+      // Kill the oldest process to make room for the new one
+      console.log(`Killing oldest process: ${existingProcesses[0].pid}`);
+      await this.killContainerProcess(existingProcesses[0].pid);
+      // Wait a bit for process to die
       await new Promise(resolve => setTimeout(resolve, 500));
     } else if (existingProcesses.length > 0) {
       console.log(`Found ${existingProcesses.length} existing Claude process(es). Maximum allowed is ${maxProcesses}.`);
-      // Only kill if we're at the limit
-      if (existingProcesses.length === maxProcesses) {
-        // Kill the oldest one (first in list)
-        console.log(`At process limit. Killing oldest process: ${existingProcesses[0].pid}`);
-        await this.killContainerProcess(existingProcesses[0].pid);
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
     }
 
     // Use docker exec without tmux for now

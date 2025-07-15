@@ -135,6 +135,10 @@
         </div>
       </div>
     </div>
+    
+    <div class="manager-footer">
+      <span>MorphBox by <a href="https://iu.dev" target="_blank" rel="noopener noreferrer">IU.dev</a></span>
+    </div>
   </div>
 {/if}
 
@@ -361,6 +365,25 @@
     color: #858585;
     font-size: 13px;
     margin: 20px 0;
+  }
+  
+  .manager-footer {
+    padding: 12px 16px;
+    border-top: 1px solid #3e3e42;
+    text-align: center;
+    font-size: 12px;
+    color: #858585;
+  }
+  
+  .manager-footer a {
+    color: #007acc;
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  
+  .manager-footer a:hover {
+    color: #0098ff;
+    text-decoration: underline;
   }
   
   /* Mobile responsive */

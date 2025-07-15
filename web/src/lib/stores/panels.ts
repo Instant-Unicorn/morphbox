@@ -313,6 +313,8 @@ function createPanelStore() {
           ...config
         };
 
+        console.log('Adding panel:', newPanel);
+
         return {
           ...state,
           panels: [...state.panels, newPanel],

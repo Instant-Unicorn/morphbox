@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { panels } from '$lib/stores/panels';
+  import { panels, panelStore } from '$lib/stores/panels';
   import { panelRegistry, builtinPanels, customPanels } from '$lib/panels/registry';
   import CreatePanelWizard from './CreatePanelWizard.svelte';
   import { exportPanelCode, deleteGeneratedPanel } from '$lib/panels/generator';
@@ -27,7 +27,7 @@
   function openPanel(panelId: string) {
     const definition = panelRegistry.get(panelId);
     if (definition) {
-      panels.addPanel(definition.id, {
+      panelStore.addPanel(definition.id, {
         title: definition.name,
         type: definition.id
       });

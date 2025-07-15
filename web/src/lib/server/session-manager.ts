@@ -5,9 +5,12 @@
  * WebSocket reconnection without losing terminal context.
  */
 
-import { spawn, IPty } from 'node-pty';
+import pty from 'node-pty';
 import { EventEmitter } from 'events';
 import crypto from 'crypto';
+
+const { spawn } = pty;
+type IPty = pty.IPty;
 
 export interface SessionInfo {
   id: string;

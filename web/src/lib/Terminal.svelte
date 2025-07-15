@@ -2,6 +2,7 @@
   import { onMount, onDestroy, createEventDispatcher } from 'svelte';
   import { browser } from '$app/environment';
   import { settings } from '$lib/panels/Settings';
+  import { fade } from 'svelte/transition';
   
   let Terminal: any;
   let FitAddon: any;
@@ -34,6 +35,7 @@
   let connectionStatus: 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
   let terminalSessionId: string | null = null;
   let isInitializing = true;
+  let hideLogoTimeout: number | null = null;
   
   const dispatch = createEventDispatcher();
   
@@ -108,7 +110,7 @@
       connectionStatus = 'connected';
       reconnectAttempts = 0;
       isReconnecting = false;
-      isInitializing = false;
+      // Don't immediately hide - wait for agent launch or output
       
       if (terminalSessionId) {
         writeln('\r\n🔄 Reconnecting to existing session...');
@@ -132,7 +134,11 @@
             dispatch('session', { sessionId: message.payload?.sessionId });
             break;
           case 'AGENT_LAUNCHED':
-            isInitializing = false;
+            // Delay hiding the logo
+            if (hideLogoTimeout) clearTimeout(hideLogoTimeout);
+            hideLogoTimeout = setTimeout(() => {
+              isInitializing = false;
+            }, 1500);
             dispatch('agent', { 
               status: 'Active', 
               agentId: message.payload?.agentId 
@@ -158,7 +164,13 @@
             break;
           case 'OUTPUT':
             if (message.payload?.data) {
-              isInitializing = false;
+              // Delay hiding the logo on first output
+              if (isInitializing) {
+                if (hideLogoTimeout) clearTimeout(hideLogoTimeout);
+                hideLogoTimeout = setTimeout(() => {
+                  isInitializing = false;
+                }, 1500);
+              }
               write(message.payload.data);
             }
             break;
@@ -461,7 +473,7 @@
   {/if}
   
   {#if isInitializing || connectionStatus !== 'connected'}
-    <div class="loading-overlay">
+    <div class="loading-overlay" transition:fade={{ duration: 800 }}>
       <img src="/wordlogo_sm.png" alt="MorphBox" class="loading-logo" />
     </div>
   {/if}
@@ -507,7 +519,7 @@
   .loading-logo {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: fill;
     opacity: 0.7;
   }
   

@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import pty from 'node-pty';
 import type { Agent, AgentOptions } from '../agent-manager';
-// import { screenManager } from '../screen-manager';
+import { tmuxContainerManager } from '../tmux-container-manager';
 
 export class SSHAgent extends EventEmitter implements Agent {
   id: string;
@@ -9,7 +9,6 @@ export class SSHAgent extends EventEmitter implements Agent {
   status: string = 'initialized';
   startTime: number;
   private ptyProcess: InstanceType<typeof pty.spawn> | null = null;
-  private screenPty: InstanceType<typeof pty.spawn> | null = null;
   private sessionId: string | null = null;
   private options: AgentOptions;
 
@@ -36,16 +35,8 @@ export class SSHAgent extends EventEmitter implements Agent {
       throw new Error('SSH connection requires vmHost, vmPort, and vmUser');
     }
 
-    // Use docker exec with Claude's resume feature
-    let claudeCommand = 'cd /workspace && claude --dangerously-skip-permissions';
-    
-    // If we have a session ID, use Claude's --resume flag
-    if (this.sessionId && this.sessionId.startsWith('claude-')) {
-      // Extract the Claude session ID (remove our prefix)
-      const claudeSessionId = this.sessionId.replace('claude-', '');
-      claudeCommand = `cd /workspace && claude --dangerously-skip-permissions --resume ${claudeSessionId}`;
-      console.log(`Resuming Claude session: ${claudeSessionId}`);
-    }
+    // Command to run inside tmux
+    const claudeCommand = 'cd /workspace && claude --dangerously-skip-permissions';
     
     const args = [
       'exec',
@@ -67,26 +58,29 @@ export class SSHAgent extends EventEmitter implements Agent {
     };
 
     try {
-      // Use direct PTY
-      this.ptyProcess = pty.spawn('docker', args, ptyOptions);
+      // Generate session ID if not provided
+      if (!this.sessionId) {
+        this.sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      }
       
-      // We'll extract Claude's session ID from its output
+      // Use tmux container manager for persistent sessions
+      this.ptyProcess = tmuxContainerManager.attachOrCreateSession(
+        this.sessionId,
+        {
+          command: 'docker',
+          args,
+          options: ptyOptions
+        }
+      );
 
       // Emit the session ID so the client can store it
       this.emit('sessionId', this.sessionId);
 
+      // Emit the session ID immediately
+      this.emit('sessionId', this.sessionId);
+
       // Handle output from PTY
       this.ptyProcess.onData((data) => {
-        // Look for Claude's session ID in the output
-        // Claude outputs something like "Session ID: abc123def456"
-        const sessionMatch = data.match(/Session ID: ([a-zA-Z0-9-]+)/i);
-        if (sessionMatch && sessionMatch[1]) {
-          const claudeSessionId = sessionMatch[1];
-          this.sessionId = `claude-${claudeSessionId}`;
-          console.log(`Detected Claude session ID: ${claudeSessionId}`);
-          this.emit('sessionId', this.sessionId);
-        }
-        
         this.emit('output', data);
       });
 
@@ -114,15 +108,18 @@ export class SSHAgent extends EventEmitter implements Agent {
   }
 
   async stop(): Promise<void> {
-    // Clean up PTY process
-    if (this.ptyProcess) {
-      this.ptyProcess.removeAllListeners();
-      this.ptyProcess.kill();
-      this.ptyProcess = null;
-      this.screenPty = null;
+    // Detach from tmux session instead of killing it
+    if (this.sessionId) {
+      tmuxContainerManager.detachSession(this.sessionId);
+      
+      if (this.ptyProcess) {
+        this.ptyProcess.removeAllListeners();
+        this.ptyProcess = null;
+      }
+      
       this.status = 'stopped';
       
-      console.log(`[SSHAgent] Disconnected from session ${this.sessionId}`);
+      console.log(`[SSHAgent] Detached from tmux session ${this.sessionId}`);
     }
   }
 

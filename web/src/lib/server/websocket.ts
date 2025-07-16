@@ -23,9 +23,10 @@ export function handleWebSocketConnection(
   let currentAgentId: string | null = null;
   let terminalSessionId: string | null = null;
   
-  // Extract terminal session ID from query params if provided
+  // Extract terminal session ID and autoLaunchClaude from query params if provided
   const url = new URL(request.url || '', `http://${request.headers.host}`);
   const providedTerminalSessionId = url.searchParams.get('terminalSessionId');
+  const autoLaunchClaude = url.searchParams.get('autoLaunchClaude') === 'true';
 
   console.log('New WebSocket connection established');
   console.log('WebSocket readyState:', ws.readyState);
@@ -45,12 +46,15 @@ export function handleWebSocketConnection(
     console.error('WebSocket error:', error);
   });
 
-  // Launch Claude automatically on connection
-  setTimeout(async () => {
-    console.log('Launching Claude for WebSocket connection');
-    send('CONNECTED', { message: 'Welcome to MorphBox' });
-    
-    try {
+  // Send welcome message
+  send('CONNECTED', { message: 'Welcome to MorphBox Terminal' });
+  
+  // Launch agent automatically based on type
+  if (autoLaunchClaude) {
+    setTimeout(async () => {
+      console.log('Auto-launching Claude for WebSocket connection');
+      
+      try {
       // Create session
       currentSessionId = await stateManager.createSession(process.cwd(), 'claude');
       send('SESSION_CREATED', { sessionId: currentSessionId });
@@ -129,6 +133,59 @@ export function handleWebSocketConnection(
       sendError('Failed to launch Claude: ' + errorMessage);
     }
   }, 100);
+  } else {
+    // Launch bash automatically for regular terminals
+    setTimeout(async () => {
+      console.log('Auto-launching bash for terminal connection');
+      
+      try {
+        // Create session
+        currentSessionId = await stateManager.createSession(process.cwd(), 'bash');
+        send('SESSION_CREATED', { sessionId: currentSessionId });
+        
+        // Launch bash agent
+        currentAgentId = await agentManager.launchAgent('bash', {
+          sessionId: currentSessionId,
+          workspacePath: process.cwd()
+        });
+        
+        // Set up agent event listeners
+        const handleOutput = (data: { agentId: string; data: string }) => {
+          if (data.agentId === currentAgentId) {
+            send('OUTPUT', { data: data.data });
+          }
+        };
+
+        const handleError = (data: { agentId: string; error: string }) => {
+          if (data.agentId === currentAgentId) {
+            send('ERROR', { message: data.error });
+          }
+        };
+
+        const handleExit = (data: { agentId: string; code: number }) => {
+          if (data.agentId === currentAgentId) {
+            send('AGENT_EXIT', { code: data.code });
+            currentAgentId = null;
+            
+            // Clean up listeners
+            agentManager.off('agent_output', handleOutput);
+            agentManager.off('agent_error', handleError);
+            agentManager.off('agent_exit', handleExit);
+          }
+        };
+
+        agentManager.on('agent_output', handleOutput);
+        agentManager.on('agent_error', handleError);
+        agentManager.on('agent_exit', handleExit);
+
+        send('AGENT_LAUNCHED', { agentId: currentAgentId });
+        await sendCurrentState();
+      } catch (error) {
+        console.error('Failed to launch bash:', error);
+        sendError('Failed to launch terminal');
+      }
+    }, 100);
+  }
 
   // Handle incoming messages
   ws.on('message', async (data) => {
@@ -298,10 +355,71 @@ export function handleWebSocketConnection(
       return;
     }
 
-    // If no agent is active, ignore input or show message
+    // If no agent is active, launch appropriate agent based on connection type
     if (!currentAgentId) {
-      send('OUTPUT', { data: '\r\nClaude is starting up...\r\n' });
-      return;
+      // For non-Claude terminals, launch a bash shell
+      if (!autoLaunchClaude) {
+        try {
+          // Create session if needed
+          if (!currentSessionId) {
+            currentSessionId = await stateManager.createSession(process.cwd(), 'bash');
+            send('SESSION_CREATED', { sessionId: currentSessionId });
+          }
+          
+          // Launch bash agent
+          currentAgentId = await agentManager.launchAgent('bash', {
+            sessionId: currentSessionId,
+            workspacePath: process.cwd()
+          });
+          
+          // Set up agent event listeners
+          const handleOutput = (data: { agentId: string; data: string }) => {
+            if (data.agentId === currentAgentId) {
+              send('OUTPUT', { data: data.data });
+            }
+          };
+
+          const handleError = (data: { agentId: string; error: string }) => {
+            if (data.agentId === currentAgentId) {
+              send('ERROR', { message: data.error });
+            }
+          };
+
+          const handleExit = (data: { agentId: string; code: number }) => {
+            if (data.agentId === currentAgentId) {
+              send('AGENT_EXIT', { code: data.code });
+              currentAgentId = null;
+              
+              // Clean up listeners
+              agentManager.off('agent_output', handleOutput);
+              agentManager.off('agent_error', handleError);
+              agentManager.off('agent_exit', handleExit);
+            }
+          };
+
+          agentManager.on('agent_output', handleOutput);
+          agentManager.on('agent_error', handleError);
+          agentManager.on('agent_exit', handleExit);
+
+          send('AGENT_LAUNCHED', { agentId: currentAgentId });
+          
+          // Now send the input
+          await agentManager.sendToAgent(currentAgentId, input);
+          
+          // Log command
+          if (currentSessionId) {
+            await stateManager.logCommand(currentSessionId, input, '', null);
+          }
+          return;
+        } catch (error) {
+          console.error('Failed to launch bash agent:', error);
+          sendError('Failed to launch terminal');
+          return;
+        }
+      } else {
+        send('OUTPUT', { data: '\r\nClaude is starting up...\r\n' });
+        return;
+      }
     }
 
     // Send to active agent

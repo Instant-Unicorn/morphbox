@@ -15,11 +15,19 @@
 import { writable, derived, get } from 'svelte/store';
 import { browser } from '$app/environment';
 
+// Workspace interface
+export interface Workspace {
+  id: string;
+  name: string;
+  created: number;
+}
+
 // Panel interface
 export interface Panel {
   id: string;
   type: string;
   title: string;
+  workspaceId: string; // Added workspace support
   position: {
     x: number;
     y: number;
@@ -49,6 +57,8 @@ export type PanelLayout = 'grid' | 'split' | 'tabs' | 'floating';
 // Panel store state
 interface PanelState {
   panels: Panel[];
+  workspaces: Workspace[];
+  activeWorkspaceId: string;
   layout: PanelLayout;
   activePanel: string | null;
   hotReloadRecovery?: boolean; // Flag to indicate if recovering from hot reload
@@ -65,6 +75,13 @@ export const defaultPanelConfigs: Record<string, Partial<Panel>> = {
   terminal: {
     type: 'terminal',
     title: 'Terminal',
+    size: { width: 800, height: 400 },
+    persistent: false,
+    terminalPersistent: true
+  },
+  claude: {
+    type: 'claude',
+    title: 'Claude',
     size: { width: 800, height: 400 },
     persistent: true,
     terminalPersistent: true
@@ -118,6 +135,8 @@ function saveStateToSessionStorage(state: PanelState): void {
     // Save critical state separately for terminal persistence
     const criticalState = {
       terminalPanels: state.panels.filter(p => p.type === 'terminal' && p.terminalPersistent),
+      workspaces: state.workspaces,
+      activeWorkspaceId: state.activeWorkspaceId,
       activePanel: state.activePanel,
       layout: state.layout,
       lastSavedAt: Date.now()
@@ -161,6 +180,8 @@ function loadStateFromSessionStorage(): PanelState | null {
 
 interface CriticalState {
   terminalPanels: Panel[];
+  workspaces: Workspace[];
+  activeWorkspaceId: string;
   activePanel: string | null;
   layout: PanelLayout;
   lastSavedAt: number;
@@ -213,6 +234,8 @@ export function createPanelSnapshot(state: PanelState): string {
         ...panel,
         websocketConnections: undefined // Remove non-serializable data
       })),
+      workspaces: state.workspaces,
+      activeWorkspaceId: state.activeWorkspaceId,
       layout: state.layout,
       activePanel: state.activePanel,
       timestamp: Date.now()
@@ -227,11 +250,21 @@ export function createPanelSnapshot(state: PanelState): string {
 export function restorePanelSnapshot(snapshotData: string): PanelState | null {
   try {
     const snapshot = JSON.parse(snapshotData);
+    
+    const defaultWorkspace: Workspace = {
+      id: 'workspace-1',
+      name: 'Workspace 1',
+      created: Date.now()
+    };
+    
     return {
       panels: snapshot.panels.map((panel: Panel) => ({
         ...panel,
+        workspaceId: panel.workspaceId || defaultWorkspace.id,
         websocketConnections: new Map()
       })),
+      workspaces: snapshot.workspaces || [defaultWorkspace],
+      activeWorkspaceId: snapshot.activeWorkspaceId || defaultWorkspace.id,
       layout: snapshot.layout || 'floating',
       activePanel: snapshot.activePanel || null
     };
@@ -255,9 +288,24 @@ function createPanelStore() {
     }
   }
   
+  // Create default workspace if needed
+  const defaultWorkspace: Workspace = {
+    id: 'workspace-1',
+    name: 'Workspace 1',
+    created: Date.now()
+  };
+
+  // Ensure restored state has workspaces
+  if (restoredState && (!restoredState.workspaces || restoredState.workspaces.length === 0)) {
+    restoredState.workspaces = [defaultWorkspace];
+    restoredState.activeWorkspaceId = defaultWorkspace.id;
+  }
+
   const initialState: PanelState = restoredState || {
     panels: [],
-    layout: 'floating',
+    workspaces: [defaultWorkspace],
+    activeWorkspaceId: defaultWorkspace.id,
+    layout: 'grid', // Changed to grid for new layout
     activePanel: null
   };
 
@@ -310,16 +358,20 @@ function createPanelStore() {
         const position = config?.position || getNextPosition(state.panels);
         const zIndex = getHighestZIndex(state.panels) + 1;
 
+        // Ensure we never use a config-provided id
+        const { id: configId, ...configWithoutId } = config || {};
+        
         const newPanel: Panel = {
           id,
           type,
           title: 'Untitled',
+          workspaceId: configWithoutId?.workspaceId || state.activeWorkspaceId,
           position,
           size: { width: 400, height: 300 },
           persistent: false,
           zIndex,
           ...defaultConfig,
-          ...config
+          ...configWithoutId
         };
 
 
@@ -419,8 +471,19 @@ function createPanelStore() {
       if (saved) {
         try {
           const config = JSON.parse(saved);
+          const defaultWorkspace: Workspace = {
+            id: 'workspace-1',
+            name: 'Workspace 1',
+            created: Date.now()
+          };
+          
           set({
-            panels: config.panels || [],
+            panels: (config.panels || []).map((panel: Panel) => ({
+              ...panel,
+              workspaceId: panel.workspaceId || defaultWorkspace.id
+            })),
+            workspaces: config.workspaces || [defaultWorkspace],
+            activeWorkspaceId: config.activeWorkspaceId || defaultWorkspace.id,
             layout: config.layout || 'floating',
             activePanel: null
           });
@@ -457,7 +520,7 @@ function createPanelStore() {
 
         const defaultPanels: Panel[] = [
           {
-            ...defaultPanelConfigs.terminal,
+            ...defaultPanelConfigs.claude,
             id: generateId(),
             position: { x: 340, y: 440 }
           } as Panel
@@ -547,6 +610,7 @@ function createPanelStore() {
       saveStateToSessionStorage(state);
     },
 
+
     // Clear all state
     clearState: () => {
       if (browser) {
@@ -554,9 +618,18 @@ function createPanelStore() {
         sessionStorage.removeItem(CRITICAL_STATE_KEY);
         sessionStorage.removeItem(HOT_RELOAD_MARKER);
         
+        // Create default workspace
+        const defaultWorkspace: Workspace = {
+          id: 'workspace-1',
+          name: 'Workspace 1',
+          created: Date.now()
+        };
+        
         // Reset to just Terminal panel
         set({
           panels: [],
+          workspaces: [defaultWorkspace],
+          activeWorkspaceId: defaultWorkspace.id,
           layout: 'floating',
           activePanel: null
         });
@@ -567,14 +640,74 @@ function createPanelStore() {
         }, 100);
       }
     },
+
+    // Workspace management
+    addWorkspace: (name?: string) => {
+      update(state => {
+        const id = `workspace-${Date.now()}`;
+        const workspaceName = name || `Workspace ${state.workspaces.length + 1}`;
+        const newWorkspace: Workspace = {
+          id,
+          name: workspaceName,
+          created: Date.now()
+        };
+
+        return {
+          ...state,
+          workspaces: [...state.workspaces, newWorkspace],
+          activeWorkspaceId: id
+        };
+      });
+    },
+
+    removeWorkspace: (workspaceId: string) => {
+      update(state => {
+        // Don't allow removing the last workspace
+        if (state.workspaces.length <= 1) return state;
+
+        // Remove workspace and all its panels
+        const newWorkspaces = state.workspaces.filter(w => w.id !== workspaceId);
+        const newPanels = state.panels.filter(p => p.workspaceId !== workspaceId);
+        
+        // Switch to first remaining workspace if removing active one
+        const newActiveWorkspaceId = workspaceId === state.activeWorkspaceId 
+          ? newWorkspaces[0].id 
+          : state.activeWorkspaceId;
+
+        return {
+          ...state,
+          workspaces: newWorkspaces,
+          panels: newPanels,
+          activeWorkspaceId: newActiveWorkspaceId,
+          activePanel: null
+        };
+      });
+    },
+
+    switchWorkspace: (workspaceId: string) => {
+      update(state => ({
+        ...state,
+        activeWorkspaceId: workspaceId,
+        activePanel: null
+      }));
+    },
+
+    renameWorkspace: (workspaceId: string, newName: string) => {
+      update(state => ({
+        ...state,
+        workspaces: state.workspaces.map(w => 
+          w.id === workspaceId ? { ...w, name: newName } : w
+        )
+      }));
+    },
     
     // Clear all panels (for grid layout)
     clear: () => {
-      set({
-        panels: [],
-        layout: 'grid',
+      update(state => ({
+        ...state,
+        panels: state.panels.filter(p => p.workspaceId !== state.activeWorkspaceId),
         activePanel: null
-      });
+      }));
     },
 
     // Check if recovering from hot reload
@@ -589,20 +722,32 @@ function createPanelStore() {
 export const panelStore = createPanelStore();
 
 // Create derived stores for easier access
-export const panels = derived(panelStore, $store => $store.panels);
+export const panels = derived(panelStore, $store => 
+  $store.panels.filter(p => p.workspaceId === $store.activeWorkspaceId)
+);
+export const allPanels = derived(panelStore, $store => $store.panels);
+export const workspaces = derived(panelStore, $store => $store.workspaces || []);
+export const activeWorkspaceId = derived(panelStore, $store => $store.activeWorkspaceId);
+export const activeWorkspace = derived(panelStore, $store => 
+  $store.workspaces.find(w => w.id === $store.activeWorkspaceId) ?? null
+);
 export const activePanel = derived(panelStore, $store => 
   $store.panels.find(p => p.id === $store.activePanel) ?? null
 );
 export const panelsByType = derived(panelStore, $store => {
   const byType: Record<string, Panel[]> = {};
-  $store.panels.forEach(panel => {
-    if (!byType[panel.type]) byType[panel.type] = [];
-    byType[panel.type].push(panel);
-  });
+  $store.panels
+    .filter(p => p.workspaceId === $store.activeWorkspaceId)
+    .forEach(panel => {
+      if (!byType[panel.type]) byType[panel.type] = [];
+      byType[panel.type].push(panel);
+    });
   return byType;
 });
 export const visiblePanels = derived(panelStore, $store => 
-  $store.panels.filter(p => !p.minimized)
+  $store.panels
+    .filter(p => p.workspaceId === $store.activeWorkspaceId)
+    .filter(p => !p.minimized)
 );
 
 // Export storage utilities for external use
@@ -633,6 +778,8 @@ if (browser) {
     try {
       const criticalState = {
         terminalPanels: state.panels.filter(p => p.type === 'terminal' && p.terminalPersistent),
+        workspaces: state.workspaces,
+        activeWorkspaceId: state.activeWorkspaceId,
         activePanel: state.activePanel,
         layout: state.layout,
         lastSavedAt: Date.now()

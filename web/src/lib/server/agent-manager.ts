@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import * as pty from 'node-pty';
 import { SSHAgent } from './agents/ssh-agent';
+import { BashAgent } from './agents/bash-agent';
 
 export interface AgentOptions {
   workspacePath?: string;
@@ -31,6 +32,7 @@ export class AgentManager extends EventEmitter {
   async initialize(): Promise<void> {
     // Register available agent types
     this.registerAgentType('ssh', SSHAgent);
+    this.registerAgentType('bash', BashAgent);
     
     // Future agent types can be registered here
     // this.registerAgentType('openai', OpenAIAgent);

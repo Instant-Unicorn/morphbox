@@ -169,18 +169,11 @@ cleanup() {
     pkill -f "tsx.*websocket-server" 2>/dev/null || true
     pkill -f "vite dev" 2>/dev/null || true
     
-    # Ask about stopping Docker container
+    # Automatically stop Docker container
     if docker ps | grep -q morphbox-vm; then
-        echo ""
-        read -t 5 -p "Stop Docker container too? (y/N) " -n 1 -r
-        echo ""
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            info "Stopping Docker container..."
-            cd "$SCRIPT_DIR"
-            docker compose down
-        else
-            info "Docker container left running"
-        fi
+        info "Stopping Docker container..."
+        cd "$SCRIPT_DIR"
+        docker compose down
     fi
     
     info "MorphBox stopped"

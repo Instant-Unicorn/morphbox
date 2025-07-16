@@ -1,7 +1,8 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import type { Panel } from '$lib/stores/panels';
-  import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, X, GripVertical } from 'lucide-svelte';
+  import { panelStore } from '$lib/stores/panels';
+  import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, X, GripVertical, Palette } from 'lucide-svelte';
   import ResizeHandle from './ResizeHandle.svelte';
   
   export let panel: Panel;
@@ -12,6 +13,8 @@
   
   let isDragging = false;
   let dragHandle: HTMLElement;
+  let showColorPicker = false;
+  let colorInput: HTMLInputElement;
   
   function handleMove(direction: string) {
     dispatch('move', { panelId: panel.id, direction });
@@ -19,6 +22,19 @@
   
   function handleClose() {
     dispatch('close');
+  }
+  
+  function toggleColorPicker() {
+    showColorPicker = !showColorPicker;
+    if (showColorPicker && colorInput) {
+      setTimeout(() => colorInput?.click(), 0);
+    }
+  }
+  
+  function handleColorChange(e: Event) {
+    const color = (e.target as HTMLInputElement).value;
+    panelStore.updatePanel(panel.id, { headerColor: color });
+    showColorPicker = false;
   }
   
   function handleDragStart(e: DragEvent) {
@@ -76,7 +92,7 @@
   on:dragover={handleDragOver}
   on:drop={handleDrop}
 >
-  <div class="panel-header">
+  <div class="panel-header" style="background-color: {panel.headerColor || 'var(--panel-header-bg, #0d0d0d)'}">
     <!-- Drag handle -->
     <div
       bind:this={dragHandle}
@@ -91,6 +107,23 @@
     
     <h3 class="panel-title">{panel.title}</h3>
     <div class="panel-controls">
+      <!-- Color picker -->
+      <button 
+        class="control-btn color-btn"
+        on:click={toggleColorPicker}
+        title="Change header color"
+      >
+        <Palette size={14} />
+      </button>
+      <input
+        bind:this={colorInput}
+        type="color"
+        class="color-input"
+        value={panel.headerColor || '#0d0d0d'}
+        on:change={handleColorChange}
+        style="display: none;"
+      />
+      
       <!-- Arrow controls -->
       <button 
         class="control-btn"
@@ -183,8 +216,8 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 4px 8px;
-    background-color: var(--panel-header-bg, #1a1a1a);
+    padding: 2px 6px;
+    background-color: var(--panel-header-bg, #0d0d0d);
     border-bottom: 1px solid var(--panel-border, #3e3e42);
     flex-shrink: 0;
   }
@@ -252,6 +285,16 @@
     color: white;
   }
   
+  .color-btn {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .color-btn:hover {
+    background-color: var(--panel-control-hover-bg, rgba(255, 255, 255, 0.1));
+    color: var(--accent-color, #0e639c);
+  }
+  
   .panel-content {
     flex: 1;
     overflow: hidden;
@@ -261,13 +304,18 @@
   /* Mobile optimizations */
   @media (max-width: 768px) {
     .panel-header {
-      padding: 3px 6px;
+      padding: 2px 4px;
     }
     
     .control-btn {
-      padding: 2px;
-      width: 24px;
-      height: 24px;
+      padding: 1px;
+      width: 22px;
+      height: 22px;
+    }
+    
+    .color-btn {
+      width: 18px;
+      height: 18px;
     }
   }
   

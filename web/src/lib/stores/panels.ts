@@ -49,6 +49,7 @@ export interface Panel {
     rowSpan: number;
     colSpan: number;
   };
+  headerColor?: string; // Custom header background color
 }
 
 // Layout modes

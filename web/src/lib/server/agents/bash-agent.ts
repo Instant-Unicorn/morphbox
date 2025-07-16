@@ -26,16 +26,26 @@ export class BashAgent extends EventEmitter implements Agent {
         rows: 24
       });
       
-      // Try using sh which is more universally available
-      const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/sh';
-      const shellArgs = process.platform === 'win32' ? [] : ['-i'];
+      // SECURITY: Use Docker container for isolation
+      // The workspace is mounted at /workspace in the container
+      const workDir = '/workspace';
+      const dockerArgs = [
+        'exec',
+        '-it',
+        '-w', workDir,  // Set working directory in container
+        'morphbox-vm',
+        '/bin/bash',
+        '-i'
+      ];
       
-      this.pty = pty.spawn(shell, shellArgs, {
+      console.log('Spawning containerized bash with args:', dockerArgs);
+      
+      this.pty = pty.spawn('docker', dockerArgs, {
         name: 'xterm-256color',
-        cwd: this.options.workspacePath || process.env.HOME || '/',
         env: {
           ...process.env,
-          TERM: 'xterm-256color'
+          TERM: 'xterm-256color',
+          COLORTERM: 'truecolor'
         },
         cols: 80,
         rows: 24

@@ -3,6 +3,11 @@
   import { panelRegistry, builtinPanels, customPanels } from '$lib/panels/registry';
   import CreatePanelWizard from './CreatePanelWizard.svelte';
   import { exportPanelCode, deleteGeneratedPanel } from '$lib/panels/generator';
+  import { createEventDispatcher } from 'svelte';
+  
+  export let showReset = false;
+  
+  const dispatch = createEventDispatcher();
   
   let showWizard = false;
   let showManager = false;
@@ -57,6 +62,14 @@
   export function toggleManager() {
     showManager = !showManager;
   }
+  
+  // Reset panels
+  function resetPanels() {
+    if (confirm('Reset all panels to default layout?')) {
+      dispatch('action', { action: 'reset' });
+      showManager = false;
+    }
+  }
 </script>
 
 <!-- Panel Manager Button (can be placed in header) -->
@@ -97,9 +110,16 @@
       <div class="section">
         <div class="section-header">
           <h4>Custom Panels</h4>
-          <button class="create-button" on:click={openWizard}>
-            + Create New
-          </button>
+          <div class="header-buttons">
+            <button class="create-button" on:click={openWizard}>
+              + Create New
+            </button>
+            {#if showReset}
+              <button class="reset-button" on:click={resetPanels}>
+                Reset Panels
+              </button>
+            {/if}
+          </div>
         </div>
         <div class="panel-list">
           {#if $customPanels.length === 0}
@@ -265,6 +285,26 @@
   
   .create-button:hover {
     background-color: #1177bb;
+  }
+  
+  .header-buttons {
+    display: flex;
+    gap: 8px;
+  }
+  
+  .reset-button {
+    padding: 4px 12px;
+    background-color: #d73a49;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .reset-button:hover {
+    background-color: #cb2431;
   }
   
   .panel-list {

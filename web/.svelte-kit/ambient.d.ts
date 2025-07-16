@@ -42,7 +42,6 @@ declare module '$env/static/private' {
 	export const npm_config_noproxy: string;
 	export const VIPSHOME: string;
 	export const HOME: string;
-	export const OLDPWD: string;
 	export const SSH_TTY: string;
 	export const npm_package_json: string;
 	export const npm_config_userconfig: string;
@@ -134,7 +133,6 @@ declare module '$env/dynamic/private' {
 		npm_config_noproxy: string;
 		VIPSHOME: string;
 		HOME: string;
-		OLDPWD: string;
 		SSH_TTY: string;
 		npm_package_json: string;
 		npm_config_userconfig: string;

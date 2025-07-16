@@ -27,6 +27,9 @@
 	"/api/panels/create": [
 		"src/routes/api/panels/create/+server.ts"
 	],
+	"/api/panels/layout": [
+		"src/routes/api/panels/layout/+server.ts"
+	],
 	"/api/panels/list": [
 		"src/routes/api/panels/list/+server.ts"
 	],

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import MorphBoxLayout from '$lib/MorphBoxLayout.svelte';
+	import GridLayout from '$lib/GridLayout.svelte';
 </script>
 
-<MorphBoxLayout />
+<GridLayout />

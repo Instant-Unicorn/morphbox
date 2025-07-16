@@ -1,6 +1,6 @@
 <script lang="ts">
   import { commands } from '$lib/stores/commands';
-  import { panels } from '$lib/stores/panels';
+  import { panels, panelStore } from '$lib/stores/panels';
   import { onMount } from 'svelte';
 
   let commandCount = 0;
@@ -13,8 +13,8 @@
     });
 
     // Subscribe to panels to show count
-    const unsubscribePanels = panels.subscribe(state => {
-      panelCount = state.panels.length;
+    const unsubscribePanels = panels.subscribe(currentPanels => {
+      panelCount = currentPanels.length;
     });
 
     return () => {
@@ -28,11 +28,11 @@
   }
 
   function addSamplePanel() {
-    panels.addPanel('terminal');
+    panelStore.addPanel('terminal');
   }
 
   function clearAllPanels() {
-    panels.clearPanels();
+    panelStore.clearPanels();
   }
 </script>
 

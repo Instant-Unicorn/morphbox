@@ -45,6 +45,20 @@ while [[ $# -gt 0 ]]; do
             ACCESS_MODE="local"
             shift
             ;;
+        --vpn)
+            # Auto-detect VPN interface IP
+            VPN_IP=$(ip addr show | grep -E "tailscale0|tun0|utun|wg0" | grep "inet " | awk '{print $2}' | cut -d/ -f1 | head -n1)
+            if [[ -n "$VPN_IP" ]]; then
+                BIND_HOST="$VPN_IP"
+                ACCESS_MODE="vpn"
+                info "Detected VPN IP: $VPN_IP"
+            else
+                warn "No VPN interface detected, falling back to external mode"
+                BIND_HOST="0.0.0.0"
+                ACCESS_MODE="external"
+            fi
+            shift
+            ;;
         --dev)
             DEV_MODE=true
             shift
@@ -57,12 +71,14 @@ while [[ $# -gt 0 ]]; do
             echo "Options:"
             echo "  --local     Bind to localhost only (default)"
             echo "  --external  Bind to all interfaces (WARNING: exposes to network)"
+            echo "  --vpn       Auto-detect and bind to VPN interface (Tailscale, WireGuard, etc.)"
             echo "  --dev       Skip security warnings (development mode)"
             echo "  --help      Show this help message"
             echo ""
             echo "Examples:"
             echo "  $0              # Start locally (safe)"
             echo "  $0 --external   # Expose to network (use with caution)"
+            echo "  $0 --vpn       # Bind to VPN interface only"
             echo "  $0 --external --dev   # External mode without prompts"
             exit 0
             ;;
@@ -97,6 +113,9 @@ if [[ "$ACCESS_MODE" == "external" ]] && [[ "$DEV_MODE" != "true" ]]; then
         info "Aborted. Use without --external for local-only access."
         exit 0
     fi
+elif [[ "$ACCESS_MODE" == "vpn" ]]; then
+    info "✅ VPN mode: MorphBox will only be accessible via VPN connection"
+    info "Binding to: $BIND_HOST"
 fi
 
 # Kill any existing processes

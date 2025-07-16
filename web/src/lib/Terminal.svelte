@@ -23,6 +23,7 @@
   }
 
   export let websocketUrl = 'ws://localhost:3000';
+  export let autoLaunchClaude = false;
   
   let terminalContainer: HTMLDivElement;
   let terminal: Terminal;
@@ -85,11 +86,14 @@
       ws.close();
     }
     
-    // Include terminal session ID if we have one
+    // Include terminal session ID and autoLaunchClaude flag
     let url = websocketUrl;
-    if (terminalSessionId && browser) {
+    if (browser) {
       const urlObj = new URL(websocketUrl);
-      urlObj.searchParams.set('terminalSessionId', terminalSessionId);
+      if (terminalSessionId) {
+        urlObj.searchParams.set('terminalSessionId', terminalSessionId);
+      }
+      urlObj.searchParams.set('autoLaunchClaude', autoLaunchClaude.toString());
       url = urlObj.toString();
     }
     
@@ -442,7 +446,9 @@
     
     // Initial message
     writeln('MorphBox Terminal v2.0.0');
-    writeln('Launching Claude...');
+    if (autoLaunchClaude) {
+      writeln('Launching Claude...');
+    }
     
     // Subscribe to settings changes
     settingsUnsubscribe = settings.subscribe(() => {

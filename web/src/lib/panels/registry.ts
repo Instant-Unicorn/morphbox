@@ -127,6 +127,15 @@ function createPanelRegistry() {
           isCustom: false
         },
         {
+          id: 'claude',
+          name: 'Claude',
+          description: 'Claude AI assistant',
+          path: '$lib/Claude.svelte',
+          features: ['terminal', 'websocket', 'ai'],
+          createdAt: new Date(),
+          isCustom: false
+        },
+        {
           id: 'fileExplorer',
           name: 'File Explorer',
           description: 'Browse and manage files',

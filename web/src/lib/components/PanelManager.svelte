@@ -36,13 +36,21 @@
       const existingPanel = $panels.find(p => p.type === definition.id);
       if (existingPanel && definition.id !== 'terminal') {
         // Focus existing panel instead of creating new one
-        panelStore.setActivePanel(existingPanel.id);
+        // For grid layout, we can't really "focus" but we could highlight it
         return;
       }
       
-      panelStore.addPanel(definition.id, {
-        title: definition.name
+      // Dispatch event to add panel through GridLayout
+      dispatch('action', {
+        action: 'add',
+        panelType: definition.id,
+        panelData: {
+          title: definition.name
+        }
       });
+      
+      // Close the manager dropdown
+      showManager = false;
     }
   }
   

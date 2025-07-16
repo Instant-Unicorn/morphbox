@@ -32,9 +32,9 @@
   function openPanel(panelId: string) {
     const definition = panelRegistry.get(panelId);
     if (definition) {
-      // Check if panel already exists (except for terminal which can have multiple)
+      // Check if panel already exists (except for terminal and claude which can have multiple)
       const existingPanel = $panels.find(p => p.type === definition.id);
-      if (existingPanel && definition.id !== 'terminal') {
+      if (existingPanel && definition.id !== 'terminal' && definition.id !== 'claude') {
         // Focus existing panel instead of creating new one
         // For grid layout, we can't really "focus" but we could highlight it
         return;

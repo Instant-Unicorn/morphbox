@@ -50,6 +50,11 @@ export interface Panel {
     colSpan: number;
   };
   headerColor?: string; // Custom header background color
+  // Row-based layout properties
+  rowIndex?: number; // Which row the panel is in
+  widthPercent?: number; // Percentage of row width (e.g., 50 for 50%)
+  heightPixels?: number; // Actual height in pixels
+  orderInRow?: number; // Order within the row (0, 1, 2, etc.)
 }
 
 // Layout modes

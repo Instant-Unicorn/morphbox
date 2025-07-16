@@ -10,7 +10,7 @@
   import GridPanel from '$lib/components/GridPanel.svelte';
   import GridDropZone from '$lib/components/GridDropZone.svelte';
   import PanelManager from '$lib/components/PanelManager.svelte';
-  import WorkspaceTabs from '$lib/components/WorkspaceTabs.svelte';
+  import SectionTabs from '$lib/components/SectionTabs.svelte';
   import { settings, applyTheme } from '$lib/panels/Settings/settings-store';
   import { fade } from 'svelte/transition';
   import { panelRegistry } from '$lib/panels/registry';
@@ -75,7 +75,7 @@
   let resizingPanelId: string | null = null;
   let resizeStartPos: { row: number; col: number; rowSpan: number; colSpan: number } | null = null;
   let resizeStartSize: { width: number; height: number } | null = null;
-  let tempResizeStyles: Record<string, { width?: string; height?: string }> = {};
+  let tempResizeStyles: Record<string, { width?: string; height?: string; left?: string; top?: string }> = {};
   
   // Create initial terminal panel directly
   const initialTerminal: Panel = {
@@ -309,23 +309,53 @@
     const { panelId, direction, deltaX, deltaY } = event.detail;
     if (!resizingPanelId || !resizeStartSize) return;
     
-    let newStyles: { width?: string; height?: string } = {};
+    let newStyles: { 
+      width?: string; 
+      height?: string; 
+      left?: string;
+      top?: string;
+    } = {};
+    
+    // Get max height (80% of viewport)
+    const maxHeight = window.innerHeight * 0.8;
+    const minWidth = 200;
+    const minHeight = 150;
     
     // Apply smooth resize based on direction using initial size
     switch (direction) {
-      case 'e': // East (right)
-        const newWidth = Math.max(200, resizeStartSize.width + deltaX);
-        newStyles.width = `${newWidth}px`;
+      case 'n': // North (top)
+        newStyles.height = `${Math.min(maxHeight, Math.max(minHeight, resizeStartSize.height - deltaY))}px`;
+        newStyles.top = `${deltaY}px`;
         break;
       case 's': // South (bottom)
-        const newHeight = Math.max(150, resizeStartSize.height + deltaY);
-        newStyles.height = `${newHeight}px`;
+        newStyles.height = `${Math.min(maxHeight, Math.max(minHeight, resizeStartSize.height + deltaY))}px`;
         break;
-      case 'se': // Southeast (bottom-right)
-        const newWidthSE = Math.max(200, resizeStartSize.width + deltaX);
-        const newHeightSE = Math.max(150, resizeStartSize.height + deltaY);
-        newStyles.width = `${newWidthSE}px`;
-        newStyles.height = `${newHeightSE}px`;
+      case 'e': // East (right)
+        newStyles.width = `${Math.max(minWidth, resizeStartSize.width + deltaX)}px`;
+        break;
+      case 'w': // West (left)
+        newStyles.width = `${Math.max(minWidth, resizeStartSize.width - deltaX)}px`;
+        newStyles.left = `${deltaX}px`;
+        break;
+      case 'ne': // Northeast
+        newStyles.height = `${Math.min(maxHeight, Math.max(minHeight, resizeStartSize.height - deltaY))}px`;
+        newStyles.width = `${Math.max(minWidth, resizeStartSize.width + deltaX)}px`;
+        newStyles.top = `${deltaY}px`;
+        break;
+      case 'nw': // Northwest
+        newStyles.height = `${Math.min(maxHeight, Math.max(minHeight, resizeStartSize.height - deltaY))}px`;
+        newStyles.width = `${Math.max(minWidth, resizeStartSize.width - deltaX)}px`;
+        newStyles.top = `${deltaY}px`;
+        newStyles.left = `${deltaX}px`;
+        break;
+      case 'se': // Southeast
+        newStyles.width = `${Math.max(minWidth, resizeStartSize.width + deltaX)}px`;
+        newStyles.height = `${Math.min(maxHeight, Math.max(minHeight, resizeStartSize.height + deltaY))}px`;
+        break;
+      case 'sw': // Southwest
+        newStyles.width = `${Math.max(minWidth, resizeStartSize.width - deltaX)}px`;
+        newStyles.height = `${Math.min(maxHeight, Math.max(minHeight, resizeStartSize.height + deltaY))}px`;
+        newStyles.left = `${deltaX}px`;
         break;
     }
     
@@ -655,12 +685,12 @@
 </script>
 
 <div class="grid-container">
-  <!-- Workspace Tabs with Panel Manager -->
-  <WorkspaceTabs>
+  <!-- Section Tabs with Panel Manager -->
+  <SectionTabs>
     <div slot="panel-manager">
       <PanelManager on:action={handlePanelAction} showReset={true} />
     </div>
-  </WorkspaceTabs>
+  </SectionTabs>
   
   <!-- Grid Layout -->
   <div 
@@ -711,7 +741,11 @@
             class:resizing={resizingPanelId === panel.id}
             data-panel-id={panel.id}
             style={tempResizeStyles[panel.id] ? 
-              `width: ${tempResizeStyles[panel.id].width || 'auto'}; height: ${tempResizeStyles[panel.id].height || 'auto'};` : 
+              `width: ${tempResizeStyles[panel.id].width || 'auto'}; 
+               height: ${tempResizeStyles[panel.id].height || 'auto'};
+               ${tempResizeStyles[panel.id].left ? `left: ${tempResizeStyles[panel.id].left};` : ''}
+               ${tempResizeStyles[panel.id].top ? `top: ${tempResizeStyles[panel.id].top};` : ''}
+               ${tempResizeStyles[panel.id].left || tempResizeStyles[panel.id].top ? 'position: relative;' : ''}` : 
               ''}
           >
             <GridPanel 
@@ -763,7 +797,9 @@
     flex: 1;
     width: 100%;
     min-height: 400px;
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scroll-behavior: smooth;
     background-color: var(--bg-secondary, #252526);
     padding: 8px;
     box-sizing: border-box;

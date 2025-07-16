@@ -1,5 +1,5 @@
 <script lang="ts">
-	import GridLayout from '$lib/GridLayout.svelte';
+	import RowLayout from '$lib/RowLayout.svelte';
 </script>
 
-<GridLayout />
+<RowLayout />

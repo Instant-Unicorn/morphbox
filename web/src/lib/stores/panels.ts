@@ -35,6 +35,12 @@ export interface Panel {
   content?: any; // Additional content/state specific to panel type
   terminalPersistent?: boolean; // Prevents terminal from being destroyed during hot reloads
   websocketConnections?: Map<string, WebSocket>; // Store websocket connections for persistence
+  gridPosition?: { // Grid layout position
+    row: number;
+    col: number;
+    rowSpan: number;
+    colSpan: number;
+  };
 }
 
 // Layout modes
@@ -560,6 +566,15 @@ function createPanelStore() {
           panelStore.initializeDefaults();
         }, 100);
       }
+    },
+    
+    // Clear all panels (for grid layout)
+    clear: () => {
+      set({
+        panels: [],
+        layout: 'grid',
+        activePanel: null
+      });
     },
 
     // Check if recovering from hot reload

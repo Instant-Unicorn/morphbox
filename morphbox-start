@@ -114,6 +114,40 @@ else
     info "MorphBox VM container already running"
 fi
 
+# Check for Claude updates in container
+check_claude_updates() {
+    info "Checking for Claude updates..."
+    
+    # Get current version
+    CURRENT_VERSION=$(docker exec -u morphbox morphbox-vm npm list -g @anthropic-ai/claude-code 2>/dev/null | grep '@anthropic-ai/claude-code@' | sed 's/.*@anthropic-ai\/claude-code@//' | tr -d ' ')
+    
+    if [[ -z "$CURRENT_VERSION" ]]; then
+        warn "Could not determine Claude version"
+        return 0
+    fi
+    
+    # Check for updates (this will be silent if already up to date)
+    UPDATE_CHECK=$(docker exec -u morphbox morphbox-vm npm outdated -g @anthropic-ai/claude-code 2>/dev/null | grep '@anthropic-ai/claude-code' || true)
+    
+    if [[ -n "$UPDATE_CHECK" ]]; then
+        LATEST_VERSION=$(echo "$UPDATE_CHECK" | awk '{print $4}')
+        info "Claude update available: $CURRENT_VERSION → $LATEST_VERSION"
+        info "Updating Claude in container..."
+        
+        if docker exec -u morphbox morphbox-vm npm update -g @anthropic-ai/claude-code > /dev/null 2>&1; then
+            NEW_VERSION=$(docker exec -u morphbox morphbox-vm npm list -g @anthropic-ai/claude-code 2>/dev/null | grep '@anthropic-ai/claude-code@' | sed 's/.*@anthropic-ai\/claude-code@//' | tr -d ' ')
+            info "Claude updated successfully to version $NEW_VERSION"
+        else
+            warn "Failed to update Claude - auto-update may still work inside the terminal"
+        fi
+    else
+        info "Claude is up to date (version $CURRENT_VERSION)"
+    fi
+}
+
+# Run update check
+check_claude_updates
+
 # Get local IP for external mode
 if [[ "$ACCESS_MODE" == "external" ]]; then
     LOCAL_IP=$(hostname -I | awk '{print $1}')

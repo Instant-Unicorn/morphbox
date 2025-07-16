@@ -77,6 +77,14 @@
     showManager = !showManager;
   }
   
+  // Handle click outside to close
+  function handleClickOutside(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.panel-manager') && !target.closest('.manager-button')) {
+      showManager = false;
+    }
+  }
+  
   // Reset panels
   function resetPanels() {
     if (confirm('Reset all panels to default layout?')) {
@@ -86,16 +94,20 @@
   }
 </script>
 
-<!-- Panel Manager Button (can be placed in header) -->
-<button class="manager-button" on:click={toggleManager} title="Panel Manager">
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-    <path d="M2 2h5v5H2V2zm7 0h5v5H9V2zM2 9h5v5H2V9zm7 0h5v5H9V9z"/>
-  </svg>
-</button>
+<!-- Add click outside listener -->
+<svelte:window on:click={handleClickOutside} />
 
-<!-- Panel Manager Dropdown -->
-{#if showManager}
-  <div class="panel-manager" role="dialog" aria-label="Panel Manager" on:click|stopPropagation>
+<div class="panel-manager-wrapper">
+  <!-- Panel Manager Button (can be placed in header) -->
+  <button class="manager-button" on:click|stopPropagation={toggleManager} title="Panel Manager">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+      <path d="M2 2h5v5H2V2zm7 0h5v5H9V2zM2 9h5v5H2V9zm7 0h5v5H9V9z"/>
+    </svg>
+  </button>
+
+  <!-- Panel Manager Dropdown -->
+  {#if showManager}
+    <div class="panel-manager" role="dialog" aria-label="Panel Manager" on:click|stopPropagation>
     <div class="manager-header">
       <h3>Panel Manager</h3>
       <button class="close-button" on:click={() => showManager = false}>×</button>
@@ -181,7 +193,8 @@
       <span>MorphBox by <a href="https://iu.dev" target="_blank" rel="noopener noreferrer">IU.dev</a></span>
     </div>
   </div>
-{/if}
+  {/if}
+</div>
 
 <!-- Panel Creation Wizard -->
 {#if showWizard}
@@ -192,6 +205,11 @@
 {/if}
 
 <style>
+  .panel-manager-wrapper {
+    position: relative;
+    display: inline-block;
+  }
+  
   .manager-button {
     background-color: transparent;
     border: none;
@@ -210,8 +228,9 @@
   
   .panel-manager {
     position: absolute;
-    top: 40px;
-    right: 16px;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
     width: 400px;
     max-height: 600px;
     background-color: #1e1e1e;

@@ -281,25 +281,52 @@
   
   // Handle panel resize
   function handlePanelResize(event: CustomEvent) {
-    const { panelId, newWidth, newHeight } = event.detail;
+    const { panelId, newWidth, newHeight, moveLeft, moveTop, deltaPercent, deltaY } = event.detail;
     const panel = $panels.find(p => p.id === panelId);
     if (!panel) return;
     
     // Update panel size
     const updates: Partial<Panel> = {};
+    
     if (newWidth !== undefined) {
       updates.widthPercent = newWidth;
+      
+      // If resizing from left, we need to adjust adjacent panels
+      if (moveLeft && deltaPercent) {
+        const row = rows.find(r => r.panels.some(p => p.id === panelId));
+        if (row) {
+          const panelIndex = row.panels.findIndex(p => p.id === panelId);
+          
+          // Find the panel to the left
+          if (panelIndex > 0) {
+            const leftPanel = row.panels[panelIndex - 1];
+            const leftPanelNewWidth = (leftPanel.widthPercent || 0) + deltaPercent;
+            
+            // Update the left panel's width
+            panelStore.updatePanel(leftPanel.id, {
+              widthPercent: Math.max(10, leftPanelNewWidth)
+            });
+          }
+        }
+      }
     }
+    
     if (newHeight !== undefined) {
       updates.heightPixels = newHeight;
       
       // Update row height if this panel is taller
       const row = rows.find(r => r.panels.some(p => p.id === panelId));
-      if (row && newHeight > row.height) {
-        row.height = newHeight;
+      if (row) {
+        if (moveTop) {
+          // For top resize, maintain the bottom position
+          row.height = newHeight;
+        } else if (newHeight > row.height) {
+          row.height = newHeight;
+        }
+        
         // Update all panels in row to new height
         row.panels.forEach(p => {
-          panelStore.updatePanel(p.id, { heightPixels: newHeight });
+          panelStore.updatePanel(p.id, { heightPixels: row.height });
         });
       }
     }
@@ -539,6 +566,7 @@
   .row-layout {
     flex: 1;
     width: 100%;
+    max-width: 100%;
     overflow-x: hidden;
     overflow-y: auto;
     scroll-behavior: smooth;
@@ -553,6 +581,7 @@
     margin-bottom: 8px;
     position: relative;
     box-sizing: border-box;
+    overflow: hidden; /* Prevent panels from extending beyond row */
   }
   
   .panel-container {
@@ -560,6 +589,8 @@
     box-sizing: border-box;
     height: 100%;
     display: flex;
+    min-width: 0; /* Allow flex items to shrink below content size */
+    overflow: hidden;
   }
   
   .empty-row {

@@ -73,7 +73,7 @@
   onMount(async () => {
     setTimeout(() => {
       showLoadingOverlay = false;
-    }, 1500);
+    }, 750);
     
     settings.load();
     const unsubscribe = settings.subscribe($settings => {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy, createEventDispatcher } from 'svelte';
   import { browser } from '$app/environment';
-  import { settings } from '$lib/panels/Settings';
+  import { settings } from '$lib/panels/Settings/settings-store';
   import { fade } from 'svelte/transition';
   
   let Terminal: any;

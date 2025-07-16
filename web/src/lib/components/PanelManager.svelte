@@ -3,7 +3,7 @@
   import { panelRegistry, builtinPanels, customPanels } from '$lib/panels/registry';
   import CreatePanelWizard from './CreatePanelWizard.svelte';
   import { exportPanelCode, deleteGeneratedPanel } from '$lib/panels/generator';
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   
   export let showReset = false;
   
@@ -11,6 +11,12 @@
   
   let showWizard = false;
   let showManager = false;
+  
+  // Debug: log panels on mount
+  onMount(() => {
+    console.log('[PanelManager] Built-in panels:', $builtinPanels);
+    console.log('[PanelManager] Custom panels:', $customPanels);
+  });
   
   // Open the panel creation wizard
   function openWizard() {

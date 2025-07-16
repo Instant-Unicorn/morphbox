@@ -82,13 +82,16 @@ function createPanelRegistry() {
     // Save registry to localStorage
     saveRegistry() {
       const state = get({ subscribe });
-      const serialized = Array.from(state.panels.entries()).map(([id, panel]) => ({
-        ...panel,
-        component: null, // Don't serialize components
-        createdAt: panel.createdAt.toISOString()
-      }));
+      // Only save custom panels to localStorage
+      const customPanelsOnly = Array.from(state.panels.entries())
+        .filter(([id, panel]) => panel.isCustom)
+        .map(([id, panel]) => ({
+          ...panel,
+          component: null, // Don't serialize components
+          createdAt: panel.createdAt.toISOString()
+        }));
       
-      localStorage.setItem('panel-registry', JSON.stringify(serialized));
+      localStorage.setItem('panel-registry', JSON.stringify(customPanelsOnly));
     },
 
     // Load registry from localStorage
@@ -100,17 +103,29 @@ function createPanelRegistry() {
         const parsed = JSON.parse(saved);
         const panels = new Map<string, PanelDefinition>();
         
+        // Only load custom panels from localStorage
         for (const panel of parsed) {
-          panels.set(panel.id, {
-            ...panel,
-            createdAt: new Date(panel.createdAt),
-            component: null // Will be loaded on demand
-          });
+          if (panel.isCustom) {
+            panels.set(panel.id, {
+              ...panel,
+              createdAt: new Date(panel.createdAt),
+              component: null // Will be loaded on demand
+            });
+          }
         }
 
-        set({ panels });
+        // Update only with custom panels, don't replace the whole state
+        update(state => {
+          // Add custom panels to existing state
+          for (const [id, panel] of panels) {
+            state.panels.set(id, panel);
+          }
+          return state;
+        });
       } catch (error) {
         console.error('Failed to load panel registry:', error);
+        // Clear corrupted data
+        localStorage.removeItem('panel-registry');
       }
     },
 
@@ -187,11 +202,22 @@ export const builtinPanels = derived(
 
 // Initialize registry on module load
 if (typeof window !== 'undefined') {
+  console.log('[PanelRegistry] Initializing...');
+  
+  // Load custom panels from localStorage
   panelRegistry.loadRegistry();
   
-  // Initialize built-in panels if registry is empty
+  // Always initialize built-in panels (they don't persist)
+  console.log('[PanelRegistry] Initializing built-in panels...');
+  panelRegistry.initializeBuiltins();
+  
+  // Log final state
   const registry = get(panelRegistry);
-  if (registry.panels.size === 0) {
-    panelRegistry.initializeBuiltins();
-  }
+  console.log('[PanelRegistry] Total panels:', registry.panels.size);
+  console.log('[PanelRegistry] All panels:', Array.from(registry.panels.keys()));
+  
+  const builtins = get(builtinPanels);
+  const customs = get(customPanels);
+  console.log('[PanelRegistry] Built-in panels:', builtins.map(p => p.id));
+  console.log('[PanelRegistry] Custom panels:', customs.map(p => p.id));
 }

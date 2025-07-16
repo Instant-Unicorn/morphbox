@@ -6,6 +6,18 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>MorphBox</title>
 		%sveltekit.head%
+		<script>
+			// Filter out SES errors from browser extensions
+			if (typeof window !== 'undefined') {
+				const originalError = console.error;
+				console.error = function(...args) {
+					if (args[0] && typeof args[0] === 'string' && args[0].includes('SES_UNCAUGHT_EXCEPTION')) {
+						return; // Suppress SES errors from extensions
+					}
+					originalError.apply(console, args);
+				};
+			}
+		</script>
 		<style>
 			body {
 				margin: 0;

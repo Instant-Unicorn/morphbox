@@ -213,6 +213,9 @@
     const panel = $panels.find(p => p.id === panelId);
     if (!panel) return;
     
+    // Store the original row index to recalculate its widths later
+    const originalRowIndex = panel.rowIndex;
+    
     const rowIndex = parseInt(rowId.split('-')[1]);
     const targetRow = rows.find(r => r.id === rowId);
     
@@ -241,18 +244,23 @@
       });
     } else {
       // Add to empty row or end of row
-      const maxOrder = targetRow ? Math.max(...targetRow.panels.map(p => p.orderInRow ?? 0)) : -1;
+      const maxOrder = targetRow ? Math.max(...targetRow.panels.map(p => p.orderInRow ?? 0), -1) : -1;
       
       panelStore.updatePanel(panelId, {
         rowIndex,
         orderInRow: maxOrder + 1,
-        heightPixels: targetRow?.height ?? 400
+        heightPixels: targetRow?.height ?? 400,
+        widthPercent: targetRow ? 100 / (targetRow.panels.length + 1) : 100
       });
     }
     
-    // Recalculate widths for all rows
-    recalculateRowWidths();
+    // Reorganize first to update row structures
     organizePanelsIntoRows();
+    
+    // Recalculate widths for affected rows
+    setTimeout(() => {
+      recalculateRowWidths();
+    }, 0);
   }
   
   // Recalculate panel widths within rows
@@ -261,9 +269,10 @@
       const panelCount = row.panels.length;
       if (panelCount > 0) {
         const widthPerPanel = 100 / panelCount;
-        row.panels.forEach(panel => {
+        row.panels.forEach((panel, index) => {
           panelStore.updatePanel(panel.id, {
-            widthPercent: widthPerPanel
+            widthPercent: widthPerPanel,
+            orderInRow: index
           });
         });
       }
@@ -453,7 +462,16 @@
         style="height: {row.height}px; min-height: {row.height}px;"
       >
         {#if row.panels.length === 0}
-          <div class="empty-row">
+          <div 
+            class="empty-row"
+            on:dragover={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+            on:drop={(e) => {
+              e.preventDefault();
+              if (draggedPanelId) {
+                movePanel(draggedPanelId, row.id);
+              }
+            }}
+          >
             <div class="drop-hint">Drop panel here</div>
           </div>
         {:else}
@@ -483,7 +501,17 @@
     
     <!-- Add new row drop zone -->
     {#if draggedPanelId}
-      <div class="new-row-drop-zone">
+      <div 
+        class="new-row-drop-zone"
+        on:dragover={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+        on:drop={(e) => {
+          e.preventDefault();
+          if (draggedPanelId) {
+            const newRowIndex = rows.length;
+            movePanel(draggedPanelId, `row-${newRowIndex}`);
+          }
+        }}
+      >
         <div class="drop-hint">Drop here to create new row</div>
       </div>
     {/if}
@@ -531,6 +559,7 @@
     padding: 0 4px;
     box-sizing: border-box;
     height: 100%;
+    display: flex;
   }
   
   .empty-row {

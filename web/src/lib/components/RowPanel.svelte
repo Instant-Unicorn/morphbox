@@ -18,10 +18,12 @@
   // Resize state
   let isResizing = false;
   let resizeDirection: 'horizontal' | 'vertical' | null = null;
+  let resizeSide: 'left' | 'right' | 'top' | 'bottom' | null = null;
   let resizeStartX = 0;
   let resizeStartY = 0;
   let resizeStartWidth = 0;
   let resizeStartHeight = 0;
+  let resizeStartLeft = 0;
   
   function handleClose() {
     dispatch('close', { panelId: panel.id });
@@ -98,11 +100,19 @@
   }
   
   // Horizontal resize (width)
-  function handleHorizontalResizeStart(e: MouseEvent) {
+  function handleHorizontalResizeStart(e: MouseEvent, side: 'left' | 'right') {
     isResizing = true;
     resizeDirection = 'horizontal';
+    resizeSide = side;
     resizeStartX = e.clientX;
     resizeStartWidth = panel.widthPercent || 100;
+    
+    // Get current position for left-side resizing
+    const panelElement = e.currentTarget.parentElement as HTMLElement;
+    if (panelElement) {
+      const rect = panelElement.getBoundingClientRect();
+      resizeStartLeft = rect.left;
+    }
     
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
@@ -110,9 +120,10 @@
   }
   
   // Vertical resize (height)
-  function handleVerticalResizeStart(e: MouseEvent) {
+  function handleVerticalResizeStart(e: MouseEvent, side: 'top' | 'bottom') {
     isResizing = true;
     resizeDirection = 'vertical';
+    resizeSide = side;
     resizeStartY = e.clientY;
     resizeStartHeight = panel.heightPixels || 400;
     
@@ -125,30 +136,57 @@
     if (!isResizing) return;
     
     if (resizeDirection === 'horizontal') {
-      const deltaX = e.clientX - resizeStartX;
-      // Calculate new width as percentage
-      const containerWidth = document.querySelector('.row')?.clientWidth || 1200;
-      const deltaPercent = (deltaX / containerWidth) * 100;
-      const newWidth = Math.max(10, Math.min(90, resizeStartWidth + deltaPercent));
+      const containerWidth = document.querySelector('.row')?.clientWidth || window.innerWidth;
       
-      dispatch('resize', { 
-        panelId: panel.id, 
-        newWidth
-      });
+      if (resizeSide === 'right') {
+        const deltaX = e.clientX - resizeStartX;
+        const deltaPercent = (deltaX / containerWidth) * 100;
+        const newWidth = Math.max(10, Math.min(90, resizeStartWidth + deltaPercent));
+        
+        dispatch('resize', { 
+          panelId: panel.id, 
+          newWidth
+        });
+      } else if (resizeSide === 'left') {
+        // For left resize, we need to handle both position and width
+        const deltaX = e.clientX - resizeStartX;
+        const deltaPercent = (deltaX / containerWidth) * 100;
+        const newWidth = Math.max(10, Math.min(90, resizeStartWidth - deltaPercent));
+        
+        dispatch('resize', { 
+          panelId: panel.id, 
+          newWidth,
+          moveLeft: true,
+          deltaPercent
+        });
+      }
     } else if (resizeDirection === 'vertical') {
-      const deltaY = e.clientY - resizeStartY;
-      const newHeight = Math.max(150, Math.min(window.innerHeight * 0.8, resizeStartHeight + deltaY));
-      
-      dispatch('resize', { 
-        panelId: panel.id, 
-        newHeight
-      });
+      if (resizeSide === 'bottom') {
+        const deltaY = e.clientY - resizeStartY;
+        const newHeight = Math.max(150, Math.min(window.innerHeight * 0.8, resizeStartHeight + deltaY));
+        
+        dispatch('resize', { 
+          panelId: panel.id, 
+          newHeight
+        });
+      } else if (resizeSide === 'top') {
+        const deltaY = e.clientY - resizeStartY;
+        const newHeight = Math.max(150, Math.min(window.innerHeight * 0.8, resizeStartHeight - deltaY));
+        
+        dispatch('resize', { 
+          panelId: panel.id, 
+          newHeight,
+          moveTop: true,
+          deltaY
+        });
+      }
     }
   }
   
   function handleMouseUp() {
     isResizing = false;
     resizeDirection = null;
+    resizeSide = null;
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
   }
@@ -228,13 +266,23 @@
   
   <!-- Resize handles -->
   <div 
-    class="resize-handle resize-right"
-    on:mousedown={handleHorizontalResizeStart}
+    class="resize-handle resize-left"
+    on:mousedown={(e) => handleHorizontalResizeStart(e, 'left')}
     title="Resize width"
   ></div>
   <div 
+    class="resize-handle resize-right"
+    on:mousedown={(e) => handleHorizontalResizeStart(e, 'right')}
+    title="Resize width"
+  ></div>
+  <div 
+    class="resize-handle resize-top"
+    on:mousedown={(e) => handleVerticalResizeStart(e, 'top')}
+    title="Resize height"
+  ></div>
+  <div 
     class="resize-handle resize-bottom"
-    on:mousedown={handleVerticalResizeStart}
+    on:mousedown={(e) => handleVerticalResizeStart(e, 'bottom')}
     title="Resize height"
   ></div>
 </div>
@@ -370,10 +418,19 @@
     position: absolute;
     background: transparent;
     transition: background-color 0.2s;
+    z-index: 10;
   }
   
   .resize-handle:hover {
     background-color: var(--accent-color, #0e639c);
+  }
+  
+  .resize-left {
+    top: 0;
+    left: -4px;
+    bottom: 0;
+    width: 8px;
+    cursor: ew-resize;
   }
   
   .resize-right {
@@ -382,6 +439,14 @@
     bottom: 0;
     width: 8px;
     cursor: ew-resize;
+  }
+  
+  .resize-top {
+    left: 0;
+    right: 0;
+    top: -4px;
+    height: 8px;
+    cursor: ns-resize;
   }
   
   .resize-bottom {

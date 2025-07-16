@@ -30,7 +30,8 @@ export const GET: RequestHandler = async ({ url }) => {
       return json({
         panels: [],
         gridColumns: 1,
-        gridRows: 1
+        gridRows: 1,
+        rows: []
       });
     }
   } catch (error) {

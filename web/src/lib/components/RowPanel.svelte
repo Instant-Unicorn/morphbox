@@ -2,26 +2,29 @@
   import { createEventDispatcher } from 'svelte';
   import type { Panel } from '$lib/stores/panels';
   import { panelStore } from '$lib/stores/panels';
-  import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, X, GripVertical, Palette } from 'lucide-svelte';
-  import ResizeHandle from './ResizeHandle.svelte';
+  import { X, GripVertical, Palette } from 'lucide-svelte';
   
   export let panel: Panel;
   export let component: any;
   export let websocketUrl: string = '';
+  export let isDragging: boolean = false;
   
   const dispatch = createEventDispatcher();
   
-  let isDragging = false;
-  let dragHandle: HTMLElement;
   let showColorPicker = false;
   let colorInput: HTMLInputElement;
+  let dropZone: 'before' | 'after' | 'center' | null = null;
   
-  function handleMove(direction: string) {
-    dispatch('move', { panelId: panel.id, direction });
-  }
+  // Resize state
+  let isResizing = false;
+  let resizeDirection: 'horizontal' | 'vertical' | null = null;
+  let resizeStartX = 0;
+  let resizeStartY = 0;
+  let resizeStartWidth = 0;
+  let resizeStartHeight = 0;
   
   function handleClose() {
-    dispatch('close');
+    dispatch('close', { panelId: panel.id });
   }
   
   function toggleColorPicker() {
@@ -38,11 +41,10 @@
   }
   
   function handleDragStart(e: DragEvent) {
-    isDragging = true;
     e.dataTransfer!.effectAllowed = 'move';
     e.dataTransfer!.setData('panelId', panel.id);
     
-    // Create a custom drag image
+    // Create custom drag image
     const dragImage = document.createElement('div');
     dragImage.style.cssText = 'background: #333; color: white; padding: 8px 12px; border-radius: 4px;';
     dragImage.textContent = panel.title;
@@ -50,52 +52,121 @@
     e.dataTransfer!.setDragImage(dragImage, 0, 0);
     setTimeout(() => document.body.removeChild(dragImage), 0);
     
-    // Emit drag start event
     dispatch('dragstart', { panelId: panel.id });
   }
   
   function handleDragEnd() {
-    isDragging = false;
-    // Emit drag end event
     dispatch('dragend');
   }
   
   function handleDragOver(e: DragEvent) {
     e.preventDefault();
     e.dataTransfer!.dropEffect = 'move';
+    
+    // Determine drop zone based on position
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const relativeX = x / rect.width;
+    
+    if (relativeX < 0.25) {
+      dropZone = 'before';
+    } else if (relativeX > 0.75) {
+      dropZone = 'after';
+    } else {
+      dropZone = 'center';
+    }
+  }
+  
+  function handleDragLeave() {
+    dropZone = null;
   }
   
   function handleDrop(e: DragEvent) {
     e.preventDefault();
     const draggedPanelId = e.dataTransfer!.getData('panelId');
+    
     if (draggedPanelId && draggedPanelId !== panel.id) {
-      dispatch('swap', { fromId: draggedPanelId, toId: panel.id });
+      const position = dropZone === 'center' ? 'split' : dropZone;
+      dispatch('drop', { 
+        rowId: `row-${panel.rowIndex}`,
+        targetPanelId: panel.id,
+        position
+      });
+    }
+    
+    dropZone = null;
+  }
+  
+  // Horizontal resize (width)
+  function handleHorizontalResizeStart(e: MouseEvent) {
+    isResizing = true;
+    resizeDirection = 'horizontal';
+    resizeStartX = e.clientX;
+    resizeStartWidth = panel.widthPercent || 100;
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    e.preventDefault();
+  }
+  
+  // Vertical resize (height)
+  function handleVerticalResizeStart(e: MouseEvent) {
+    isResizing = true;
+    resizeDirection = 'vertical';
+    resizeStartY = e.clientY;
+    resizeStartHeight = panel.heightPixels || 400;
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    e.preventDefault();
+  }
+  
+  function handleMouseMove(e: MouseEvent) {
+    if (!isResizing) return;
+    
+    if (resizeDirection === 'horizontal') {
+      const deltaX = e.clientX - resizeStartX;
+      // Calculate new width as percentage
+      const containerWidth = document.querySelector('.row')?.clientWidth || 1200;
+      const deltaPercent = (deltaX / containerWidth) * 100;
+      const newWidth = Math.max(10, Math.min(90, resizeStartWidth + deltaPercent));
+      
+      dispatch('resize', { 
+        panelId: panel.id, 
+        newWidth
+      });
+    } else if (resizeDirection === 'vertical') {
+      const deltaY = e.clientY - resizeStartY;
+      const newHeight = Math.max(150, Math.min(window.innerHeight * 0.8, resizeStartHeight + deltaY));
+      
+      dispatch('resize', { 
+        panelId: panel.id, 
+        newHeight
+      });
     }
   }
   
-  function handleResize(event: CustomEvent) {
-    dispatch('resize', { ...event.detail, panelId: panel.id });
-  }
-  
-  function handleResizeStart(event: CustomEvent) {
-    dispatch('resizestart', { ...event.detail, panelId: panel.id });
-  }
-  
-  function handleResizeEnd(event: CustomEvent) {
-    dispatch('resizeend', { ...event.detail, panelId: panel.id });
+  function handleMouseUp() {
+    isResizing = false;
+    resizeDirection = null;
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
   }
 </script>
 
 <div 
-  class="grid-panel"
+  class="row-panel"
   class:dragging={isDragging}
+  class:drop-before={dropZone === 'before'}
+  class:drop-after={dropZone === 'after'}
+  class:drop-center={dropZone === 'center'}
   on:dragover={handleDragOver}
+  on:dragleave={handleDragLeave}
   on:drop={handleDrop}
 >
-  <div class="panel-header" style="background-color: {panel.headerColor || 'var(--panel-header-bg, #636363)'}">
+  <div class="panel-header" style="background-color: {panel.headerColor || '#636363'}">
     <!-- Drag handle -->
     <div
-      bind:this={dragHandle}
       class="drag-handle"
       draggable="true"
       on:dragstart={handleDragStart}
@@ -106,6 +177,7 @@
     </div>
     
     <h3 class="panel-title">{panel.title}</h3>
+    
     <div class="panel-controls">
       <!-- Color picker -->
       <button 
@@ -124,21 +196,7 @@
         style="display: none;"
       />
       
-      <!-- Arrow controls -->
-      <button 
-        class="control-btn"
-        on:click={() => handleMove('up')}
-        title="Move up"
-      >
-        <ChevronUp size={16} />
-      </button>
-      <button 
-        class="control-btn"
-        on:click={() => handleMove('down')}
-        title="Move down"
-      >
-        <ChevronDown size={16} />
-      </button>
+      <!-- Close button -->
       {#if !panel.persistent}
         <button 
           class="control-btn close-btn"
@@ -169,66 +227,20 @@
   </div>
   
   <!-- Resize handles -->
-  <ResizeHandle 
-    direction="n" 
-    panelId={panel.id}
-    on:resize={handleResize}
-    on:resizestart={handleResizeStart}
-    on:resizeend={handleResizeEnd}
-  />
-  <ResizeHandle 
-    direction="e" 
-    panelId={panel.id}
-    on:resize={handleResize}
-    on:resizestart={handleResizeStart}
-    on:resizeend={handleResizeEnd}
-  />
-  <ResizeHandle 
-    direction="s" 
-    panelId={panel.id}
-    on:resize={handleResize}
-    on:resizestart={handleResizeStart}
-    on:resizeend={handleResizeEnd}
-  />
-  <ResizeHandle 
-    direction="w" 
-    panelId={panel.id}
-    on:resize={handleResize}
-    on:resizestart={handleResizeStart}
-    on:resizeend={handleResizeEnd}
-  />
-  <ResizeHandle 
-    direction="ne" 
-    panelId={panel.id}
-    on:resize={handleResize}
-    on:resizestart={handleResizeStart}
-    on:resizeend={handleResizeEnd}
-  />
-  <ResizeHandle 
-    direction="nw" 
-    panelId={panel.id}
-    on:resize={handleResize}
-    on:resizestart={handleResizeStart}
-    on:resizeend={handleResizeEnd}
-  />
-  <ResizeHandle 
-    direction="se" 
-    panelId={panel.id}
-    on:resize={handleResize}
-    on:resizestart={handleResizeStart}
-    on:resizeend={handleResizeEnd}
-  />
-  <ResizeHandle 
-    direction="sw" 
-    panelId={panel.id}
-    on:resize={handleResize}
-    on:resizestart={handleResizeStart}
-    on:resizeend={handleResizeEnd}
-  />
+  <div 
+    class="resize-handle resize-right"
+    on:mousedown={handleHorizontalResizeStart}
+    title="Resize width"
+  ></div>
+  <div 
+    class="resize-handle resize-bottom"
+    on:mousedown={handleVerticalResizeStart}
+    title="Resize height"
+  ></div>
 </div>
 
 <style>
-  .grid-panel {
+  .row-panel {
     position: relative;
     display: flex;
     flex-direction: column;
@@ -239,12 +251,31 @@
     transition: opacity 0.2s, transform 0.2s;
   }
   
-  .grid-panel.dragging {
+  .row-panel.dragging {
     opacity: 0.5;
   }
   
-  .grid-panel:hover {
-    border-color: var(--panel-border-hover, #4e4e52);
+  .row-panel.drop-before::before,
+  .row-panel.drop-after::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background-color: var(--accent-color, #0e639c);
+    z-index: 10;
+  }
+  
+  .row-panel.drop-before::before {
+    left: -2px;
+  }
+  
+  .row-panel.drop-after::after {
+    right: -2px;
+  }
+  
+  .row-panel.drop-center {
+    box-shadow: inset 0 0 0 3px var(--accent-color, #0e639c);
   }
   
   .panel-header {
@@ -252,9 +283,10 @@
     align-items: center;
     gap: 4px;
     padding: 2px 6px;
-    background-color: var(--panel-header-bg, #636363);
+    background-color: #636363;
     border-bottom: 1px solid var(--panel-border, #3e3e42);
     flex-shrink: 0;
+    height: 28px;
   }
   
   .drag-handle {
@@ -269,7 +301,7 @@
   }
   
   .drag-handle:hover {
-    background-color: var(--panel-control-hover-bg, rgba(255, 255, 255, 0.1));
+    background-color: rgba(255, 255, 255, 0.1);
     color: var(--panel-title-color, #cccccc);
   }
   
@@ -307,17 +339,8 @@
   }
   
   .control-btn:hover {
-    background-color: var(--panel-control-hover-bg, rgba(255, 255, 255, 0.1));
+    background-color: rgba(255, 255, 255, 0.1);
     color: var(--panel-title-color, #cccccc);
-  }
-  
-  .control-btn:active {
-    background-color: var(--panel-control-active-bg, rgba(255, 255, 255, 0.2));
-  }
-  
-  .close-btn:hover {
-    background-color: var(--panel-close-hover-bg, #f14c4c);
-    color: white;
   }
   
   .color-btn {
@@ -326,8 +349,13 @@
   }
   
   .color-btn:hover {
-    background-color: var(--panel-control-hover-bg, rgba(255, 255, 255, 0.1));
+    background-color: rgba(255, 255, 255, 0.1);
     color: var(--accent-color, #0e639c);
+  }
+  
+  .close-btn:hover {
+    background-color: var(--panel-close-hover-bg, #f14c4c);
+    color: white;
   }
   
   .panel-content {
@@ -336,30 +364,43 @@
     min-height: 0;
   }
   
+  /* Resize handles */
+  .resize-handle {
+    position: absolute;
+    background: transparent;
+    transition: background-color 0.2s;
+  }
+  
+  .resize-handle:hover {
+    background-color: var(--accent-color, #0e639c);
+  }
+  
+  .resize-right {
+    top: 0;
+    right: -4px;
+    bottom: 0;
+    width: 8px;
+    cursor: ew-resize;
+  }
+  
+  .resize-bottom {
+    left: 0;
+    right: 0;
+    bottom: -4px;
+    height: 8px;
+    cursor: ns-resize;
+  }
+  
   /* Mobile optimizations */
   @media (max-width: 768px) {
     .panel-header {
       padding: 2px 4px;
+      height: 32px;
     }
     
     .control-btn {
-      padding: 1px;
-      width: 22px;
-      height: 22px;
-    }
-    
-    .color-btn {
-      width: 18px;
-      height: 18px;
-    }
-  }
-  
-  /* Touch-friendly sizes */
-  @media (hover: none) {
-    .control-btn {
-      padding: 8px;
-      min-width: 40px;
-      min-height: 40px;
+      width: 24px;
+      height: 24px;
     }
   }
 </style>

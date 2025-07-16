@@ -22,10 +22,11 @@
   
   // Add new section
   function addSection() {
+    const layoutContainer = document.querySelector('.row-layout') as HTMLElement;
     const newSection: Section = {
       id: `section-${Date.now()}`,
       name: `Section ${$sections.length + 1}`,
-      scrollPosition: scrollContainer ? scrollContainer.scrollTop + window.innerHeight : 0
+      scrollPosition: layoutContainer ? layoutContainer.scrollTop + window.innerHeight : 0
     };
     
     $sections = [...$sections, newSection];
@@ -39,10 +40,10 @@
     
     activeSection = sectionId;
     
-    // Find the grid container
-    const gridContainer = document.querySelector('.grid-layout');
-    if (gridContainer) {
-      gridContainer.scrollTo({
+    // Find the layout container
+    const layoutContainer = document.querySelector('.row-layout');
+    if (layoutContainer) {
+      layoutContainer.scrollTo({
         top: section.scrollPosition,
         behavior: 'smooth'
       });
@@ -93,10 +94,10 @@
   
   // Auto-detect when content goes below fold
   function checkContentHeight() {
-    const gridContainer = document.querySelector('.grid-layout');
-    if (!gridContainer) return;
+    const layoutContainer = document.querySelector('.row-layout');
+    if (!layoutContainer) return;
     
-    const contentHeight = gridContainer.scrollHeight;
+    const contentHeight = layoutContainer.scrollHeight;
     const viewportHeight = window.innerHeight;
     const lastSection = $sections[$sections.length - 1];
     
@@ -114,10 +115,10 @@
   
   // Update active section based on scroll position
   function updateActiveSection() {
-    const gridContainer = document.querySelector('.grid-layout');
-    if (!gridContainer) return;
+    const layoutContainer = document.querySelector('.row-layout');
+    if (!layoutContainer) return;
     
-    const currentScroll = gridContainer.scrollTop;
+    const currentScroll = layoutContainer.scrollTop;
     
     // Find the section closest to current scroll position
     let closestSection = $sections[0];
@@ -136,15 +137,15 @@
   
   onMount(() => {
     // Set up scroll listener
-    const gridContainer = document.querySelector('.grid-layout');
-    if (gridContainer) {
-      gridContainer.addEventListener('scroll', updateActiveSection);
+    const layoutContainer = document.querySelector('.row-layout');
+    if (layoutContainer) {
+      layoutContainer.addEventListener('scroll', updateActiveSection);
       
       // Check content height periodically
       const interval = setInterval(checkContentHeight, 1000);
       
       return () => {
-        gridContainer.removeEventListener('scroll', updateActiveSection);
+        layoutContainer.removeEventListener('scroll', updateActiveSection);
         clearInterval(interval);
       };
     }

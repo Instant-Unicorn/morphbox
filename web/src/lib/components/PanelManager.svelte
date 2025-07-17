@@ -79,13 +79,7 @@
     console.log('[PanelManager] New state:', showManager);
   }
   
-  // Handle click outside to close
-  function handleClickOutside(event: MouseEvent) {
-    const target = event.target as HTMLElement;
-    if (!target.closest('.panel-manager') && !target.closest('.manager-button')) {
-      showManager = false;
-    }
-  }
+  // Handle click outside to close (removed - using backdrop instead)
   
   // Reset panels
   function resetPanels() {
@@ -95,9 +89,6 @@
     }
   }
 </script>
-
-<!-- Add click outside listener -->
-<svelte:window on:click={handleClickOutside} />
 
 <div class="panel-manager-wrapper">
   <!-- Panel Manager Button (can be placed in header) -->
@@ -109,6 +100,9 @@
 
   <!-- Panel Manager Dropdown -->
   {#if showManager}
+    <!-- Backdrop -->
+    <div class="panel-manager-backdrop" on:click={() => showManager = false}></div>
+    
     <div class="panel-manager" role="dialog" aria-label="Panel Manager" on:click|stopPropagation>
     <div class="manager-header">
       <h3>Panel Manager</h3>
@@ -210,6 +204,17 @@
   .panel-manager-wrapper {
     position: relative;
     display: inline-block;
+    z-index: 1000; /* Ensure wrapper doesn't block dropdown */
+  }
+  
+  .panel-manager-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
   }
   
   .manager-button {
@@ -229,19 +234,19 @@
   }
   
   .panel-manager {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    margin-top: 4px;
+    position: fixed; /* Changed from absolute to fixed */
+    top: 50px; /* Position below the header */
+    right: 20px;
     width: 400px;
-    max-height: 600px;
+    max-height: calc(100vh - 100px); /* Leave some space */
     background-color: #1e1e1e;
     border: 1px solid #3e3e42;
     border-radius: 8px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-    z-index: 1000;
+    z-index: 10000; /* Increased z-index */
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
   
   .manager-header {
@@ -282,7 +287,9 @@
   .manager-content {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 16px;
+    min-height: 0; /* Important for flex children */
   }
   
   .section {
@@ -455,6 +462,7 @@
     text-align: center;
     font-size: 12px;
     color: #858585;
+    flex-shrink: 0; /* Don't shrink footer */
   }
   
   .manager-footer a {

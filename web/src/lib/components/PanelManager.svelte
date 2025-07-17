@@ -529,6 +529,7 @@
       background-color: var(--border-color);
       border-radius: 2px;
       z-index: 1;
+      pointer-events: none; /* Don't block clicks */
     }
     
     .manager-header {

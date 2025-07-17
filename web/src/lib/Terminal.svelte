@@ -40,20 +40,53 @@
   
   const dispatch = createEventDispatcher();
   
+  // Output buffering for performance
+  let outputBuffer: string[] = [];
+  let flushTimeout: number | null = null;
+  const BUFFER_FLUSH_DELAY = 16; // ~60fps
+  
+  function flushBuffer() {
+    if (outputBuffer.length > 0 && terminal) {
+      const data = outputBuffer.join('');
+      outputBuffer = [];
+      terminal.write(data);
+    }
+    flushTimeout = null;
+  }
+  
+  function scheduleFlush() {
+    if (!flushTimeout && browser) {
+      flushTimeout = window.requestAnimationFrame(flushBuffer);
+    }
+  }
+  
   export function write(data: string) {
     if (terminal) {
-      terminal.write(data);
+      // For small amounts of data or when viewport is small, write immediately
+      const viewport = getViewportInfo();
+      if (data.length < 100 || viewport.isSmall) {
+        terminal.write(data);
+      } else {
+        // Buffer larger outputs for performance
+        outputBuffer.push(data);
+        scheduleFlush();
+      }
     }
   }
   
   export function writeln(data: string) {
     if (terminal) {
-      terminal.writeln(data);
+      write(data + '\r\n');
     }
   }
   
   export function clear() {
     if (terminal) {
+      outputBuffer = []; // Clear any pending output
+      if (flushTimeout) {
+        cancelAnimationFrame(flushTimeout);
+        flushTimeout = null;
+      }
       terminal.clear();
     }
   }
@@ -229,29 +262,59 @@
     };
   }
   
-  // Detect if we're on a mobile device
-  function isMobile() {
-    return window.innerWidth <= 768 || ('ontouchstart' in window);
+  // Detect viewport size and characteristics
+  function getViewportInfo() {
+    if (!browser) return { width: 1200, height: 800, isSmall: false, isTouchDevice: false };
+    
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const isSmall = width < 768;
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    
+    return { width, height, isSmall, isTouchDevice };
   }
   
-  // Calculate appropriate font size and dimensions for mobile
+  // Calculate appropriate font size and dimensions based on viewport and container
   function getTerminalOptions() {
-    const mobile = isMobile();
+    const viewport = getViewportInfo();
     const currentSettings = $settings;
-    const fontSize = mobile ? 12 : (currentSettings?.terminal.fontSize || 14);
-    const fontFamily = currentSettings?.terminal.fontFamily || '"Cascadia Code", "Fira Code", monospace';
-    const cols = mobile ? Math.floor((window.innerWidth - 20) / 7) : 80;
-    const rows = mobile ? Math.floor((window.innerHeight - 100) / 20) : 30;
+    
+    // Dynamic font sizing based on viewport
+    let fontSize = currentSettings?.terminal.fontSize || 14;
+    if (viewport.isSmall) {
+      // Ensure minimum readable font size on small screens
+      fontSize = Math.max(14, Math.min(fontSize, 16));
+    }
+    
+    // Get container dimensions if available
+    let containerWidth = viewport.width;
+    let containerHeight = viewport.height;
+    if (terminalContainer) {
+      const rect = terminalContainer.getBoundingClientRect();
+      containerWidth = rect.width || containerWidth;
+      containerHeight = rect.height || containerHeight;
+    }
+    
+    // Calculate columns and rows based on actual container size
+    const charWidth = fontSize * 0.6; // Approximate character width
+    const lineHeight = fontSize * (currentSettings?.terminal.lineHeight || 1.2);
+    const padding = viewport.isSmall ? 10 : 20;
+    
+    const cols = Math.max(40, Math.floor((containerWidth - padding * 2) / charWidth));
+    const rows = Math.max(10, Math.floor((containerHeight - padding * 2) / lineHeight));
     
     return {
       fontSize,
-      fontFamily,
+      fontFamily: currentSettings?.terminal.fontFamily || '"Cascadia Code", "Fira Code", monospace',
       cols,
       rows,
       lineHeight: currentSettings?.terminal.lineHeight || 1.2,
       cursorStyle: currentSettings?.terminal.cursorStyle || 'block',
       cursorBlink: currentSettings?.terminal.cursorBlink ?? true,
-      allowProposedApi: true
+      allowProposedApi: true,
+      scrollback: viewport.isSmall ? 1000 : 5000, // Reduce scrollback on mobile for performance
+      fastScrollModifier: 'ctrl',
+      smoothScrollDuration: viewport.isSmall ? 0 : 125 // Disable smooth scroll on mobile
     };
   }
   
@@ -373,9 +436,9 @@
       // Ensure proper terminal type for arrow keys
       convertEol: true,
       termName: 'xterm-256color',
-      // Set initial dimensions
-      cols: termOptions.cols,
-      rows: termOptions.rows
+      // Start with standard terminal dimensions
+      cols: 80,
+      rows: 24
     });
     
     // Apply initial theme
@@ -389,46 +452,92 @@
     // Open terminal in container
     terminal.open(terminalContainer);
     
-    // Initial fit
-    fitAddon.fit();
+    // Initial fit after terminal is ready
+    setTimeout(() => {
+      // Force initial resize to apply font scaling
+      if (handleResize) {
+        handleResize();
+      }
+    }, 100);
     
-    // Handle window resize
+    // Debounce function for performance
+    let resizeTimeout: number | null = null;
+    const debounce = (func: Function, wait: number) => {
+      return (...args: any[]) => {
+        if (resizeTimeout) clearTimeout(resizeTimeout);
+        resizeTimeout = window.setTimeout(() => func(...args), wait);
+      };
+    };
+    
+    // Handle resize events with performance optimization
     const handleResize = () => {
-      if (fitAddon && terminal) {
-        // On mobile, recalculate dimensions based on viewport
-        if (isMobile()) {
-          const termOptions = getTerminalOptions();
-          terminal.options.fontSize = termOptions.fontSize;
+      if (fitAddon && terminal && terminalContainer) {
+        try {
+          // CRITICAL: Set absolute minimum columns to prevent character wrapping
+          const MIN_COLS = 80; // Standard terminal width
+          const MIN_ROWS = 24; // Standard terminal height
           
-          // Use fit addon to automatically size to container
-          fitAddon.fit();
+          // Get what FitAddon thinks should fit
+          const proposed = fitAddon.proposeDimensions();
           
-          // Send resize command to PTY
-          if (ws && ws.readyState === WebSocket.OPEN) {
-            const dimensions = fitAddon.proposeDimensions();
-            if (dimensions) {
-              ws.send(JSON.stringify({
-                type: 'RESIZE',
-                payload: { 
-                  cols: dimensions.cols,
-                  rows: dimensions.rows
-                }
-              }));
+          if (!proposed || proposed.cols < MIN_COLS || proposed.rows < MIN_ROWS) {
+            // Container is too small for minimum terminal size
+            // Keep terminal at minimum size and let container scroll
+            if (terminal.cols !== MIN_COLS || terminal.rows !== MIN_ROWS) {
+              terminal.resize(MIN_COLS, MIN_ROWS);
+              
+              // Send dimensions to PTY
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'RESIZE',
+                  payload: { 
+                    cols: MIN_COLS,
+                    rows: MIN_ROWS
+                  }
+                }));
+              }
+            }
+          } else {
+            // Container is large enough, use FitAddon's calculation
+            fitAddon.fit();
+            
+            // Send actual dimensions to PTY
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              const actualDims = fitAddon.proposeDimensions();
+              if (actualDims && actualDims.cols > 0 && actualDims.rows > 0) {
+                ws.send(JSON.stringify({
+                  type: 'RESIZE',
+                  payload: { 
+                    cols: actualDims.cols,
+                    rows: actualDims.rows
+                  }
+                }));
+              }
             }
           }
-        } else {
-          fitAddon.fit();
+        } catch (err) {
+          console.error('Error during terminal resize:', err);
         }
       }
     };
     
-    // Use ResizeObserver for better responsiveness
-    const resizeObserver = new ResizeObserver(() => {
-      handleResize();
-    });
+    // Debounced resize handler
+    const debouncedResize = debounce(handleResize, 150);
+    
+    // Use ResizeObserver for container-based responsiveness
+    const resizeObserver = new ResizeObserver(debouncedResize);
     resizeObserver.observe(terminalContainer);
     
-    window.addEventListener('resize', handleResize);
+    // Also listen to window resize for viewport changes
+    window.addEventListener('resize', debouncedResize);
+    
+    // Handle orientation changes on mobile
+    window.addEventListener('orientationchange', () => {
+      setTimeout(handleResize, 100); // Small delay for orientation to settle
+    });
+    
+    // Trigger immediate resize to apply scaling
+    handleResize();
     
     // Handle terminal input - send directly to Claude without buffering
     terminal.onData((data: string) => {
@@ -466,6 +575,12 @@
   });
   
   onDestroy(() => {
+    // Clear any pending output buffer
+    if (flushTimeout) {
+      cancelAnimationFrame(flushTimeout);
+    }
+    outputBuffer = [];
+    
     if (ws) {
       ws.close();
     }
@@ -503,6 +618,15 @@
     width: 100%;
     height: 100%;
     background-color: #1e1e1e;
+    /* Enable container queries */
+    container-type: inline-size;
+    /* Improve rendering performance */
+    will-change: transform;
+    transform: translateZ(0);
+    /* Handle overflow for small containers */
+    min-width: 0;
+    overflow: auto;
+    position: relative;
   }
   
   .terminal-container.loading {
@@ -542,40 +666,123 @@
   :global(.terminal-wrapper .xterm) {
     padding: 10px;
     height: 100%;
+    /* Remove constraints to allow natural sizing */
+    display: block;
+  }
+  
+  /* Scale padding with container size */
+  @container (max-width: 400px) {
+    :global(.terminal-wrapper .xterm) {
+      padding: 4px !important;
+    }
+  }
+  
+  @container (max-width: 600px) {
+    :global(.terminal-wrapper .xterm) {
+      padding: 6px !important;
+    }
   }
   
   :global(.xterm-viewport) {
     background-color: #1e1e1e;
+    /* Let xterm handle scrolling */
+    overflow-y: scroll !important;
+    overflow-x: auto !important;
   }
   
   :global(.xterm-screen) {
     margin: 0;
   }
   
-  /* Mobile-specific styles */
+  /* Allow terminal to handle its own layout */
+  :global(.xterm-rows) {
+    /* Let xterm.js manage line wrapping */
+    min-width: 0;
+  }
+  
+  /* Let terminal maintain its natural size */
+  :global(.xterm) {
+    /* Remove width constraints to prevent forced fitting */
+    height: 100% !important;
+  }
+  
+  /* Let terminal handle its own sizing */
+  :global(.xterm-screen) {
+    /* Don't force width */
+  }
+  
+  /* Ensure canvas renders properly at all sizes */
+  :global(.xterm .xterm-text-layer),
+  :global(.xterm .xterm-cursor-layer),
+  :global(.xterm .xterm-selection-layer) {
+    /* Force re-render on resize */
+    will-change: transform;
+  }
+  
+  /* Handle very small terminals */
+  :global(.xterm.xterm-cursor-blink) {
+    /* Reduce animation overhead on small sizes */
+    animation-duration: 1s;
+  }
+  
+  :global(.xterm-helper-textarea) {
+    /* Prevent zoom on mobile when focusing input */
+    font-size: 16px !important;
+  }
+  
+  /* Container-based responsive styles */
+  @container (max-width: 600px) {
+    :global(.terminal-wrapper .xterm) {
+      padding: var(--spacing-sm);
+    }
+    
+    :global(.xterm-viewport) {
+      /* Optimize scrolling on small containers */
+      scroll-behavior: auto;
+    }
+  }
+  
+  /* Viewport-based responsive styles */
   @media (max-width: 768px) {
     :global(.terminal-wrapper .xterm) {
-      padding: 5px;
+      padding: var(--spacing-sm);
     }
     
     .terminal-container {
-      /* Prevent iOS bounce scrolling */
-      -webkit-overflow-scrolling: touch;
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      /* Remove fixed positioning that was causing issues */
+      position: relative;
+      /* Ensure terminal fills its container */
+      min-height: 200px;
     }
     
     :global(.xterm-rows) {
-      /* Ensure text doesn't overflow on mobile */
-      overflow-x: hidden;
+      /* Allow horizontal scroll for long lines on mobile */
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
     
     :global(.xterm-cursor-layer) {
       /* Make cursor more visible on mobile */
       z-index: 10;
+    }
+    
+    /* Connection status adjustments */
+    .connection-status {
+      font-size: var(--font-size-sm);
+      padding: var(--spacing-xs) var(--spacing-sm);
+    }
+  }
+  
+  /* Touch-friendly adjustments */
+  @media (pointer: coarse) {
+    :global(.xterm-screen) {
+      /* Increase line height for better touch selection */
+      line-height: 1.3;
+    }
+    
+    :global(.xterm-selection-layer) {
+      /* Make selection more visible on touch devices */
+      opacity: 0.4;
     }
   }
   

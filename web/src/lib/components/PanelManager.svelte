@@ -11,11 +11,28 @@
   
   let showWizard = false;
   let showManager = false;
+  let isSmallViewport = false;
   
-  // Debug: log panels on mount
+  // Check viewport size
+  function checkViewportSize() {
+    isSmallViewport = window.innerWidth < 768;
+  }
+  
+  // Debug: log panels on mount and setup viewport check
   onMount(() => {
     console.log('[PanelManager] Built-in panels:', $builtinPanels);
     console.log('[PanelManager] Custom panels:', $customPanels);
+    
+    // Check initial viewport size
+    checkViewportSize();
+    
+    // Listen for resize events
+    const handleResize = () => checkViewportSize();
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
   });
   
   // Open the panel creation wizard
@@ -79,13 +96,7 @@
     console.log('[PanelManager] New state:', showManager);
   }
   
-  // Handle click outside to close
-  function handleClickOutside(event: MouseEvent) {
-    const target = event.target as HTMLElement;
-    if (!target.closest('.panel-manager') && !target.closest('.manager-button')) {
-      showManager = false;
-    }
-  }
+  // Handle click outside to close (removed - using backdrop instead)
   
   // Reset panels
   function resetPanels() {
@@ -95,9 +106,6 @@
     }
   }
 </script>
-
-<!-- Add click outside listener -->
-<svelte:window on:click={handleClickOutside} />
 
 <div class="panel-manager-wrapper">
   <!-- Panel Manager Button (can be placed in header) -->
@@ -109,6 +117,9 @@
 
   <!-- Panel Manager Dropdown -->
   {#if showManager}
+    <!-- Backdrop -->
+    <div class="panel-manager-backdrop" on:click={() => showManager = false}></div>
+    
     <div class="panel-manager" role="dialog" aria-label="Panel Manager" on:click|stopPropagation>
     <div class="manager-header">
       <h3>Panel Manager</h3>
@@ -210,17 +221,29 @@
   .panel-manager-wrapper {
     position: relative;
     display: inline-block;
+    z-index: 1000; /* Ensure wrapper doesn't block dropdown */
+  }
+  
+  .panel-manager-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
   }
   
   .manager-button {
     background-color: transparent;
     border: none;
-    color: #cccccc;
+    color: var(--text-primary, #cccccc);
     cursor: pointer;
-    padding: 4px 8px;
+    padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: 4px;
     display: flex;
     align-items: center;
+    justify-content: center;
     transition: background-color 0.2s;
   }
   
@@ -229,19 +252,19 @@
   }
   
   .panel-manager {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    margin-top: 4px;
-    width: 400px;
-    max-height: 600px;
-    background-color: #1e1e1e;
-    border: 1px solid #3e3e42;
+    position: fixed;
+    top: 50px;
+    right: var(--spacing-lg);
+    width: min(400px, calc(100vw - var(--spacing-lg) * 2));
+    max-height: calc(100vh - 100px);
+    background-color: var(--bg-primary, #1e1e1e);
+    border: 1px solid var(--border-color, #3e3e42);
     border-radius: 8px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-    z-index: 1000;
+    z-index: 10000;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
   
   .manager-header {
@@ -282,7 +305,9 @@
   .manager-content {
     flex: 1;
     overflow-y: auto;
-    padding: 16px;
+    overflow-x: hidden;
+    padding: var(--spacing-md);
+    min-height: 0; /* Important for flex children */
   }
   
   .section {
@@ -345,16 +370,16 @@
   .panel-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--spacing-sm);
   }
   
   .panel-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px;
-    background-color: #252526;
-    border: 1px solid #3e3e42;
+    padding: var(--spacing-md);
+    background-color: var(--bg-secondary, #252526);
+    border: 1px solid var(--border-color, #3e3e42);
     border-radius: 4px;
     transition: background-color 0.2s;
   }
@@ -455,6 +480,7 @@
     text-align: center;
     font-size: 12px;
     color: #858585;
+    flex-shrink: 0; /* Don't shrink footer */
   }
   
   .manager-footer a {
@@ -468,12 +494,171 @@
     text-decoration: underline;
   }
   
-  /* Mobile responsive */
+  /* Mobile responsive - Bottom sheet pattern */
   @media (max-width: 768px) {
+    .panel-manager-backdrop {
+      /* Darken backdrop on mobile for better focus */
+      background-color: rgba(0, 0, 0, 0.7);
+    }
+    
     .panel-manager {
-      width: calc(100vw - 32px);
-      right: 16px;
-      max-height: 70vh;
+      /* Bottom sheet pattern */
+      position: fixed;
+      top: auto;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      width: 100%;
+      max-height: 85vh;
+      border-radius: 16px 16px 0 0;
+      /* Add safe area padding */
+      padding-bottom: env(safe-area-inset-bottom);
+      /* Smooth animation */
+      animation: slideUp 0.3s ease-out;
+    }
+    
+    /* Drag handle indicator */
+    .panel-manager::before {
+      content: '';
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 36px;
+      height: 4px;
+      background-color: var(--border-color);
+      border-radius: 2px;
+      z-index: 1;
+      pointer-events: none; /* Don't block clicks */
+    }
+    
+    .manager-header {
+      /* Add padding for drag handle */
+      margin-top: 12px;
+    }
+    
+    .manager-content {
+      /* Better scrolling on mobile */
+      -webkit-overflow-scrolling: touch;
+      /* Add bottom padding for safe area */
+      padding-bottom: calc(var(--spacing-lg) + env(safe-area-inset-bottom));
+    }
+    
+    /* Stack panel items on mobile */
+    .panel-list {
+      grid-template-columns: 1fr;
+    }
+    
+    .panel-item {
+      /* Larger touch targets */
+      min-height: 64px;
+      padding: var(--spacing-md);
+    }
+    
+    /* Simplify panel info on mobile */
+    .features {
+      display: none;
+    }
+    
+    /* Full-width buttons on very small screens */
+    @media (max-width: 400px) {
+      .panel-item {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+      }
+      
+      .panel-info {
+        text-align: center;
+      }
+      
+      .open-button {
+        width: 100%;
+      }
+      
+      .panel-actions {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  }
+  
+  /* Slide up animation for mobile */
+  @keyframes slideUp {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+  
+  /* Touch-friendly adjustments */
+  @media (pointer: coarse) {
+    .manager-button,
+    .close-button,
+    .create-button,
+    .reset-button,
+    .open-button,
+    .action-button {
+      /* Ensure minimum touch target size */
+      min-height: 44px;
+      padding: var(--spacing-sm) var(--spacing-md);
+    }
+    
+    .panel-item {
+      /* Easier to tap */
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    .panel-item:active {
+      background-color: var(--bg-tertiary);
+    }
+  }
+  
+  /* Container queries for responsive content */
+  @supports (container-type: inline-size) {
+    .manager-content {
+      container-type: inline-size;
+    }
+    
+    @container (max-width: 350px) {
+      .section-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--spacing-sm);
+      }
+      
+      .create-button {
+        width: 100%;
+      }
+    }
+  }
+  
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .panel-item {
+      border-width: 2px;
+    }
+    
+    .manager-button:focus,
+    .close-button:focus,
+    .open-button:focus {
+      outline: 2px solid var(--accent-color);
+      outline-offset: 2px;
+    }
+  }
+  
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    .panel-manager {
+      animation: none;
+    }
+    
+    .manager-button,
+    .panel-item,
+    .open-button {
+      transition: none;
     }
   }
 </style>

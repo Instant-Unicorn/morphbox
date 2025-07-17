@@ -239,6 +239,11 @@
     scrollbar-width: none;
     -ms-overflow-style: none;
     width: 100%;
+    /* Enable smooth touch scrolling */
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    /* Add visual scroll indicators on hover */
+    position: relative;
   }
   
   .tabs-container::-webkit-scrollbar {
@@ -249,8 +254,8 @@
     position: relative;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
     background-color: transparent;
     border: none;
     color: var(--text-secondary, #858585);
@@ -261,6 +266,13 @@
     min-width: 0;
     flex-shrink: 0;
     border-bottom: 2px solid transparent;
+    /* Improve touch targets */
+    min-height: var(--touch-target-min);
+    scroll-snap-align: start;
+    /* Prevent text selection on touch */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
   
   .tab:hover {
@@ -279,7 +291,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 120px;
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     font-weight: 500;
     user-select: none;
   }
@@ -350,20 +362,116 @@
     position: relative; /* For dropdown positioning */
   }
   
-  /* Mobile responsive */
+  /* Touch-friendly adjustments */
+  @media (pointer: coarse) {
+    .tab {
+      /* Larger touch targets */
+      min-height: 44px;
+      padding: var(--spacing-sm) var(--spacing-md);
+    }
+    
+    .tab-close {
+      /* Always show close button on touch devices */
+      display: flex !important;
+      width: 32px;
+      height: 32px;
+      font-size: 18px;
+    }
+    
+    .add-tab {
+      width: 44px;
+      height: 36px;
+    }
+  }
+  
+  /* Container queries for responsive tabs */
+  @container (max-width: 600px) {
+    .tabs-container {
+      height: 36px;
+    }
+    
+    .tab {
+      padding: var(--spacing-xs) var(--spacing-sm);
+      gap: var(--spacing-xs);
+    }
+    
+    .tab-name {
+      max-width: 60px;
+      font-size: var(--font-size-xs);
+    }
+    
+    .panel-manager-slot {
+      padding-left: var(--spacing-sm);
+    }
+  }
+  
+  /* Viewport-based responsive */
   @media (max-width: 768px) {
+    .section-tabs {
+      padding: 0 var(--spacing-xs);
+    }
+    
+    .tabs-container {
+      height: 38px;
+      /* Add scroll shadows */
+      background: 
+        linear-gradient(to right, var(--bg-secondary) 20px, transparent 20px),
+        linear-gradient(to left, var(--bg-secondary) 20px, transparent 20px),
+        linear-gradient(to right, rgba(0,0,0,0.15), transparent 20px),
+        linear-gradient(to left, rgba(0,0,0,0.15), transparent 20px);
+      background-attachment: local, local, scroll, scroll;
+      background-position: 0 0, 100% 0, 0 0, 100% 0;
+      background-repeat: no-repeat;
+      background-size: 20px 100%, 20px 100%, 10px 100%, 10px 100%;
+    }
+    
     .tab-name {
       max-width: 80px;
     }
     
     .tab {
-      padding: 6px 8px;
+      padding: var(--spacing-xs) var(--spacing-sm);
     }
     
     .add-tab {
-      width: 28px;
-      height: 28px;
-      margin-left: 4px;
+      width: 32px;
+      height: 32px;
+      margin-left: var(--spacing-xs);
+    }
+    
+    /* Show visual scroll indicator */
+    .tabs-container::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 20px;
+      height: 80%;
+      background: linear-gradient(to right, transparent, var(--bg-secondary));
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    
+    .tabs-container:hover::after {
+      opacity: 1;
+    }
+  }
+  
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .tab {
+      border: 1px solid transparent;
+    }
+    
+    .tab:hover,
+    .tab:focus {
+      border-color: var(--text-secondary);
+    }
+    
+    .tab.active {
+      border-color: var(--accent-color);
     }
   }
 </style>

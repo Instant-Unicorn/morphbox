@@ -100,33 +100,47 @@
   }
   
   // Horizontal resize (width)
-  function handleHorizontalResizeStart(e: MouseEvent, side: 'left' | 'right') {
+  function handleHorizontalResizeStart(e: MouseEvent | TouchEvent, side: 'left' | 'right') {
     isResizing = true;
     resizeDirection = 'horizontal';
     resizeSide = side;
-    resizeStartX = e.clientX;
+    
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    resizeStartX = clientX;
     resizeStartWidth = panel.widthPercent || 100;
     
     // Store reference to panel element if not already set
     if (!panelElement) {
-      panelElement = e.currentTarget.parentElement as HTMLElement;
+      panelElement = (e.currentTarget as HTMLElement).parentElement as HTMLElement;
     }
     
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    if ('touches' in e) {
+      document.addEventListener('touchmove', handleTouchMove, { passive: false });
+      document.addEventListener('touchend', handleTouchEnd);
+    } else {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
     e.preventDefault();
   }
   
   // Vertical resize (height)
-  function handleVerticalResizeStart(e: MouseEvent, side: 'top' | 'bottom') {
+  function handleVerticalResizeStart(e: MouseEvent | TouchEvent, side: 'top' | 'bottom') {
     isResizing = true;
     resizeDirection = 'vertical';
     resizeSide = side;
-    resizeStartY = e.clientY;
+    
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    resizeStartY = clientY;
     resizeStartHeight = panel.heightPixels || 400;
     
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    if ('touches' in e) {
+      document.addEventListener('touchmove', handleTouchMove, { passive: false });
+      document.addEventListener('touchend', handleTouchEnd);
+    } else {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
     e.preventDefault();
   }
   
@@ -196,6 +210,75 @@
     resizeSide = null;
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
+  }
+  
+  // Touch event handlers
+  function handleTouchMove(e: TouchEvent) {
+    if (!isResizing || !e.touches[0]) return;
+    
+    const touch = e.touches[0];
+    
+    if (resizeDirection === 'horizontal') {
+      // Get the row container for accurate width calculations
+      const rowElement = panelElement?.closest('.row') as HTMLElement;
+      if (!rowElement) return;
+      
+      const containerWidth = rowElement.clientWidth;
+      const containerRect = rowElement.getBoundingClientRect();
+      
+      if (resizeSide === 'right') {
+        const panelRect = panelElement.getBoundingClientRect();
+        const panelLeft = panelRect.left - containerRect.left;
+        const newWidthPx = touch.clientX - containerRect.left - panelLeft;
+        const newWidthPercent = (newWidthPx / containerWidth) * 100;
+        const finalWidth = Math.max(10, newWidthPercent);
+        
+        dispatch('resize', { 
+          panelId: panel.id, 
+          newWidth: finalWidth
+        });
+      } else if (resizeSide === 'left') {
+        const deltaX = resizeStartX - touch.clientX;
+        const deltaPercent = (deltaX / containerWidth) * 100;
+        const newWidth = Math.max(10, resizeStartWidth + deltaPercent);
+        
+        dispatch('resize', { 
+          panelId: panel.id, 
+          newWidth,
+          isLeftResize: true
+        });
+      }
+    } else if (resizeDirection === 'vertical') {
+      if (resizeSide === 'bottom') {
+        const deltaY = touch.clientY - resizeStartY;
+        const newHeight = Math.max(150, Math.min(window.innerHeight * 0.8, resizeStartHeight + deltaY));
+        
+        dispatch('resize', { 
+          panelId: panel.id, 
+          newHeight
+        });
+      } else if (resizeSide === 'top') {
+        const deltaY = touch.clientY - resizeStartY;
+        const newHeight = Math.max(150, Math.min(window.innerHeight * 0.8, resizeStartHeight - deltaY));
+        
+        dispatch('resize', { 
+          panelId: panel.id, 
+          newHeight,
+          moveTop: true,
+          deltaY
+        });
+      }
+    }
+    
+    e.preventDefault();
+  }
+  
+  function handleTouchEnd() {
+    isResizing = false;
+    resizeDirection = null;
+    resizeSide = null;
+    document.removeEventListener('touchmove', handleTouchMove);
+    document.removeEventListener('touchend', handleTouchEnd);
   }
 </script>
 
@@ -276,22 +359,38 @@
   <div 
     class="resize-handle resize-left"
     on:mousedown={(e) => handleHorizontalResizeStart(e, 'left')}
+    on:touchstart={(e) => handleHorizontalResizeStart(e, 'left')}
     title="Resize width"
+    role="separator"
+    aria-orientation="vertical"
+    tabindex="0"
   ></div>
   <div 
     class="resize-handle resize-right"
     on:mousedown={(e) => handleHorizontalResizeStart(e, 'right')}
+    on:touchstart={(e) => handleHorizontalResizeStart(e, 'right')}
     title="Resize width"
+    role="separator"
+    aria-orientation="vertical"
+    tabindex="0"
   ></div>
   <div 
     class="resize-handle resize-top"
     on:mousedown={(e) => handleVerticalResizeStart(e, 'top')}
+    on:touchstart={(e) => handleVerticalResizeStart(e, 'top')}
     title="Resize height"
+    role="separator"
+    aria-orientation="horizontal"
+    tabindex="0"
   ></div>
   <div 
     class="resize-handle resize-bottom"
     on:mousedown={(e) => handleVerticalResizeStart(e, 'bottom')}
+    on:touchstart={(e) => handleVerticalResizeStart(e, 'bottom')}
     title="Resize height"
+    role="separator"
+    aria-orientation="horizontal"
+    tabindex="0"
   ></div>
 </div>
 
@@ -433,6 +532,12 @@
     background-color: var(--accent-color, #0e639c);
   }
   
+  .resize-handle::after {
+    content: '';
+    position: absolute;
+    background: transparent;
+  }
+  
   .resize-left {
     top: 0;
     left: -4px;
@@ -441,12 +546,42 @@
     cursor: ew-resize;
   }
   
+  .resize-left::after {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 2px;
+    height: 30px;
+    background: var(--border-color);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  
+  .resize-left:hover::after {
+    opacity: 1;
+  }
+  
   .resize-right {
     top: 0;
     right: -4px;
     bottom: 0;
     width: 8px;
     cursor: ew-resize;
+  }
+  
+  .resize-right::after {
+    top: 50%;
+    right: 50%;
+    transform: translate(50%, -50%);
+    width: 2px;
+    height: 30px;
+    background: var(--border-color);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  
+  .resize-right:hover::after {
+    opacity: 1;
   }
   
   .resize-top {
@@ -465,16 +600,92 @@
     cursor: ns-resize;
   }
   
-  /* Mobile optimizations */
+  /* Touch-friendly resize handles */
+  @media (pointer: coarse) {
+    .resize-handle {
+      /* Increase touch target size */
+      width: calc(var(--resize-handle-size) * 1.5);
+      height: calc(var(--resize-handle-size) * 1.5);
+    }
+    
+    .resize-left {
+      left: calc(var(--resize-handle-size) * -0.75);
+      width: var(--resize-handle-size);
+    }
+    
+    .resize-right {
+      right: calc(var(--resize-handle-size) * -0.75);
+      width: var(--resize-handle-size);
+    }
+    
+    .resize-top {
+      top: calc(var(--resize-handle-size) * -0.75);
+      height: var(--resize-handle-size);
+    }
+    
+    .resize-bottom {
+      bottom: calc(var(--resize-handle-size) * -0.75);
+      height: var(--resize-handle-size);
+    }
+    
+    .resize-handle::after {
+      opacity: 0.5; /* Always show on touch devices */
+    }
+  }
+  
+  /* Responsive optimizations */
   @media (max-width: 768px) {
     .panel-header {
-      padding: 2px 4px;
-      height: 32px;
+      padding: var(--spacing-xs) var(--spacing-sm);
+      height: 36px;
+      font-size: var(--font-size-sm);
+    }
+    
+    .panel-title {
+      font-size: var(--font-size-sm);
     }
     
     .control-btn {
-      width: 24px;
-      height: 24px;
+      width: 28px;
+      height: 28px;
+      padding: 4px;
+    }
+    
+    .drag-handle {
+      padding: 4px;
+    }
+    
+    /* Hide resize handles on mobile as panels stack */
+    .resize-handle {
+      display: none;
+    }
+  }
+  
+  /* Container queries for responsive panels */
+  @container (max-width: 400px) {
+    .panel-header {
+      padding: var(--spacing-xs);
+      gap: var(--spacing-xs);
+    }
+    
+    .panel-title {
+      font-size: var(--font-size-xs);
+    }
+    
+    /* Hide color picker on very small panels */
+    .color-btn {
+      display: none;
+    }
+  }
+  
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .panel-header {
+      border: 1px solid var(--border-color);
+    }
+    
+    .resize-handle::after {
+      background: var(--accent-color);
     }
   }
 </style>

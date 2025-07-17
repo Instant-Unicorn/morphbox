@@ -7,3 +7,4 @@ web/build/
 web/dist/
 *.pid
 .morphbox.env
+todo.md

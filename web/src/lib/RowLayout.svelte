@@ -43,6 +43,54 @@
   let draggedPanelId: string | null = null;
   let dropTargetInfo: { rowId: string; panelId?: string; position: 'before' | 'after' | 'split' } | null = null;
   
+  // Responsive state
+  let viewportWidth = browser ? window.innerWidth : 1200;
+  let viewportHeight = browser ? window.innerHeight : 800;
+  let isCompactMode = false;
+  let stackedLayout = false;
+  
+  // Responsive breakpoints
+  const BREAKPOINTS = {
+    mobile: 768,
+    tablet: 1024,
+    desktop: 1280
+  };
+  
+  // Update responsive state based on viewport
+  function updateResponsiveState() {
+    if (!browser) return;
+    
+    viewportWidth = window.innerWidth;
+    viewportHeight = window.innerHeight;
+    
+    // Determine if we should stack panels
+    const shouldStack = viewportWidth < BREAKPOINTS.mobile || 
+                       (rows.some(row => row.panels.length > 2) && viewportWidth < BREAKPOINTS.tablet);
+    
+    if (shouldStack !== stackedLayout) {
+      stackedLayout = shouldStack;
+      reorganizeLayoutForViewport();
+    }
+    
+    isCompactMode = viewportWidth < BREAKPOINTS.tablet;
+  }
+  
+  // Reorganize layout when viewport changes significantly
+  function reorganizeLayoutForViewport() {
+    if (stackedLayout) {
+      // Convert multi-panel rows to single-panel rows
+      const allPanels = rows.flatMap(row => row.panels);
+      rows = allPanels.map((panel, index) => ({
+        id: `row-${index}`,
+        panels: [{ ...panel, widthPercent: 100 }],
+        height: Math.max(200, viewportHeight / Math.max(3, allPanels.length))
+      }));
+    } else {
+      // Restore original layout from server
+      loadLayoutFromServer();
+    }
+  }
+  
   // Get component for a panel type
   async function getComponentForPanel(type: string) {
     if (builtinComponents[type]) {
@@ -69,6 +117,19 @@
     return null;
   }
   
+  // Debounce function for resize events
+  function debounce(func: Function, wait: number) {
+    let timeout: NodeJS.Timeout;
+    return function executedFunction(...args: any[]) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
+  
   // Initialize on mount
   onMount(async () => {
     setTimeout(() => {
@@ -80,16 +141,40 @@
       applyTheme($settings.theme, $settings.customTheme);
     });
     
+    // Set up responsive handling
+    updateResponsiveState();
+    
+    // Debounced resize handler
+    const debouncedResize = debounce(updateResponsiveState, 150);
+    
+    // Add resize listener
+    window.addEventListener('resize', debouncedResize);
+    
+    // Add ResizeObserver for container-based responsiveness
+    let resizeObserver: ResizeObserver;
+    if (layoutContainer && 'ResizeObserver' in window) {
+      resizeObserver = new ResizeObserver(debounce(() => {
+        updateResponsiveState();
+      }, 150));
+      resizeObserver.observe(layoutContainer);
+    }
+    
     // Load saved layout from server OR initialize if empty
     setTimeout(async () => {
       const loaded = await loadLayoutFromServer();
       if (!loaded && $panels.length === 0) {
         initializeLayout();
       }
+      // Update responsive state after layout loads
+      updateResponsiveState();
     }, 50);
     
     return () => {
       unsubscribe();
+      window.removeEventListener('resize', debouncedResize);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
     };
   });
   
@@ -471,7 +556,7 @@
   }
 </script>
 
-<div class="layout-container">
+<div class="layout-container responsive-container" class:compact-mode={isCompactMode} class:stacked-layout={stackedLayout}>
   <!-- Section Tabs with Panel Manager -->
   <SectionTabs>
     <div slot="panel-manager">
@@ -481,13 +566,15 @@
   
   <!-- Row-based Layout -->
   <div 
-    class="row-layout" 
+    class="row-layout responsive-container" 
     bind:this={layoutContainer}
+    data-viewport-width={viewportWidth}
+    data-viewport-height={viewportHeight}
   >
     {#each rows as row (row.id)}
       <div 
         class="row" 
-        style="height: {row.height}px; min-height: {row.height}px;"
+        style="height: {stackedLayout ? 'auto' : row.height + 'px'}; min-height: {stackedLayout ? 'var(--min-panel-height)' : row.height + 'px'};"
       >
         {#if row.panels.length === 0}
           <div 
@@ -558,10 +645,12 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
+    height: 100dvh;
     width: 100vw;
     background-color: var(--bg-primary, #1e1e1e);
     color: var(--text-primary, #d4d4d4);
     overflow: hidden;
+    container-type: inline-size;
   }
   
   .row-layout {
@@ -572,26 +661,30 @@
     overflow-y: auto;
     scroll-behavior: smooth;
     background-color: var(--bg-secondary, #252526);
-    padding: 8px;
+    padding: var(--spacing-sm);
     box-sizing: border-box;
+    container-type: inline-size;
   }
   
   .row {
     display: flex;
     width: 100%;
-    margin-bottom: 8px;
+    margin-bottom: var(--spacing-sm);
     position: relative;
     box-sizing: border-box;
     overflow: hidden; /* Prevent panels from extending beyond row */
+    flex-wrap: nowrap;
+    transition: margin 0.3s ease;
   }
   
   .panel-container {
-    padding: 0 4px;
+    padding: 0 var(--spacing-xs);
     box-sizing: border-box;
     height: 100%;
     display: flex;
     min-width: 0; /* Allow flex items to shrink below content size */
     overflow: hidden;
+    transition: width 0.3s ease, flex 0.3s ease;
   }
   
   .empty-row {
@@ -643,18 +736,116 @@
     object-position: center;
   }
   
-  /* Mobile responsive */
-  @media (max-width: 768px) {
-    .row-layout {
-      padding: 4px;
-    }
-    
+  /* Container queries for panel-aware responsiveness */
+  @container (max-width: 600px) {
     .row {
-      margin-bottom: 4px;
+      flex-direction: column;
+      margin-bottom: var(--spacing-xs);
     }
     
     .panel-container {
-      padding: 0 2px;
+      width: 100% !important;
+      max-width: 100% !important;
+      flex: 1 1 100% !important;
+      margin-bottom: var(--spacing-xs);
+    }
+    
+    .panel-container:last-child {
+      margin-bottom: 0;
+    }
+    
+    .new-row-drop-zone {
+      height: 60px;
+      font-size: var(--font-size-sm);
+    }
+  }
+  
+  @container (min-width: 600px) and (max-width: 900px) {
+    /* 2-column max layout for medium containers */
+    .row:has(.panel-container:nth-child(3)) {
+      flex-wrap: wrap;
+    }
+    
+    .row:has(.panel-container:nth-child(3)) .panel-container {
+      width: 50% !important;
+      max-width: 50% !important;
+      flex: 1 1 50% !important;
+    }
+  }
+  
+  /* Viewport-based responsive styles */
+  @media (max-width: 768px) {
+    .row-layout {
+      padding: var(--spacing-xs);
+    }
+    
+    .row {
+      flex-direction: column;
+      margin-bottom: var(--spacing-xs);
+      min-height: auto;
+    }
+    
+    .panel-container {
+      width: 100% !important;
+      max-width: 100% !important;
+      flex: 1 1 100% !important;
+      padding: 0;
+      margin-bottom: var(--spacing-xs);
+    }
+    
+    .panel-container:last-child {
+      margin-bottom: 0;
+    }
+    
+    .empty-row,
+    .new-row-drop-zone {
+      height: 80px;
+      font-size: var(--font-size-sm);
+    }
+    
+    .drop-hint {
+      font-size: var(--font-size-xs);
+    }
+  }
+  
+  @media (min-width: 768px) and (max-width: 1024px) {
+    /* Tablet: limit to 2 panels per row */
+    .row:has(.panel-container:nth-child(3)) {
+      flex-wrap: wrap;
+    }
+    
+    .row:has(.panel-container:nth-child(3)) .panel-container {
+      width: 50% !important;
+      max-width: 50% !important;
+      flex: 1 1 calc(50% - var(--spacing-xs)) !important;
+    }
+  }
+  
+  /* Touch-friendly adjustments */
+  @media (pointer: coarse) {
+    .drop-hint {
+      font-size: var(--font-size-base);
+      padding: var(--spacing-md);
+    }
+    
+    .new-row-drop-zone,
+    .empty-row {
+      min-height: var(--touch-target-min);
+    }
+  }
+  
+  /* High DPI screens */
+  @media (min-resolution: 2dppx) {
+    .panel-container {
+      border-radius: 2px;
+    }
+  }
+  
+  /* Performance optimizations for animations */
+  @media (prefers-reduced-motion: reduce) {
+    .row,
+    .panel-container {
+      transition: none;
     }
   }
 </style>

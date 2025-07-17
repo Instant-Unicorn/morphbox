@@ -8,6 +8,34 @@
   --accent-color: #007acc;
   --text-secondary: #858585;
   
+  /* Responsive breakpoints */
+  --breakpoint-mobile: 768px;
+  --breakpoint-tablet: 1024px;
+  --breakpoint-desktop: 1280px;
+  
+  /* Responsive spacing */
+  --spacing-xs: clamp(2px, 0.5vw, 4px);
+  --spacing-sm: clamp(4px, 1vw, 8px);
+  --spacing-md: clamp(8px, 1.5vw, 16px);
+  --spacing-lg: clamp(16px, 2vw, 24px);
+  --spacing-xl: clamp(24px, 3vw, 32px);
+  
+  /* Responsive typography */
+  --font-size-xs: clamp(10px, 1.5vw, 12px);
+  --font-size-sm: clamp(12px, 1.8vw, 14px);
+  --font-size-base: clamp(14px, 2vw, 16px);
+  --font-size-lg: clamp(16px, 2.2vw, 18px);
+  --font-size-xl: clamp(18px, 2.5vw, 20px);
+  
+  /* Responsive dimensions */
+  --min-panel-width: clamp(150px, 20vw, 250px);
+  --min-panel-height: clamp(100px, 15vh, 150px);
+  --resize-handle-size: clamp(8px, 1.5vw, 24px);
+  --touch-target-min: 44px;
+  
+  /* Layout variables */
+  --viewport-padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  
   /* These will be overridden by the settings */
 }
 
@@ -22,6 +50,12 @@ html, body {
   height: 100%;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-size: var(--font-size-base);
+  /* Use dynamic viewport units for better mobile support */
+  height: 100vh;
+  height: 100dvh;
+  /* Respect safe areas on devices with notches */
+  padding: var(--viewport-padding);
 }
 
 /* Ensure proper focus styles */
@@ -61,4 +95,92 @@ input, textarea, select, button {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
+}
+
+/* Responsive utility classes */
+.hide-mobile {
+  @media (max-width: 768px) {
+    display: none !important;
+  }
+}
+
+.hide-tablet {
+  @media (max-width: 1024px) {
+    display: none !important;
+  }
+}
+
+.show-mobile {
+  display: none !important;
+  @media (max-width: 768px) {
+    display: block !important;
+  }
+}
+
+.show-tablet {
+  display: none !important;
+  @media (max-width: 1024px) {
+    display: block !important;
+  }
+}
+
+/* Container query support for modern browsers */
+@supports (container-type: inline-size) {
+  .responsive-container {
+    container-type: inline-size;
+  }
+  
+  /* Container-based responsive styles */
+  @container (max-width: 400px) {
+    .container-narrow {
+      font-size: var(--font-size-sm);
+    }
+  }
+  
+  @container (max-width: 600px) {
+    .container-medium {
+      font-size: var(--font-size-base);
+    }
+  }
+}
+
+/* Touch-friendly interaction areas */
+@media (pointer: coarse) {
+  button, a, .clickable {
+    min-height: var(--touch-target-min);
+    min-width: var(--touch-target-min);
+  }
+  
+  /* Larger resize handles for touch */
+  .resize-handle {
+    min-width: var(--resize-handle-size);
+    min-height: var(--resize-handle-size);
+  }
+}
+
+/* Responsive layout helpers */
+.responsive-grid {
+  display: grid;
+  gap: var(--spacing-md);
+  grid-template-columns: repeat(auto-fit, minmax(var(--min-panel-width), 1fr));
+}
+
+/* Viewport-based layout modes */
+@media (max-width: 768px) {
+  .viewport-stack {
+    flex-direction: column !important;
+  }
+  
+  .viewport-hide-overflow {
+    overflow: hidden !important;
+  }
+}
+
+/* Performance optimizations */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

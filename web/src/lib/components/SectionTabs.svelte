@@ -157,61 +157,63 @@
 </script>
 
 <div class="section-tabs">
-  <div class="tabs-container">
-    {#each $sections as section (section.id)}
-      <div 
-        class="tab"
-        class:active={section.id === activeSection}
-        on:click={() => scrollToSection(section.id)}
-        role="button"
-        tabindex="0"
-        on:keydown={(e) => e.key === 'Enter' && scrollToSection(section.id)}
+  <div class="tabs-wrapper">
+    <div class="tabs-scrollable">
+      {#each $sections as section (section.id)}
+        <div 
+          class="tab"
+          class:active={section.id === activeSection}
+          on:click={() => scrollToSection(section.id)}
+          role="button"
+          tabindex="0"
+          on:keydown={(e) => e.key === 'Enter' && scrollToSection(section.id)}
+        >
+          {#if editingSection === section.id}
+            <input
+              type="text"
+              class="tab-name-input"
+              bind:value={editingName}
+              on:blur={saveSectionName}
+              on:keydown={(e) => {
+                if (e.key === 'Enter') saveSectionName();
+                if (e.key === 'Escape') cancelEditing();
+              }}
+              autofocus
+            />
+          {:else}
+            <span 
+              class="tab-name"
+              on:dblclick={() => startEditing(section.id)}
+              title="Double-click to rename"
+            >
+              {section.name}
+            </span>
+          {/if}
+          
+          {#if $sections.length > 1}
+            <button 
+              class="tab-close"
+              on:click|stopPropagation={() => deleteSection(section.id)}
+              title="Delete section"
+            >
+              ×
+            </button>
+          {/if}
+        </div>
+      {/each}
+      
+      <button 
+        class="add-tab"
+        on:click={addSection}
+        title="Add new section"
       >
-        {#if editingSection === section.id}
-          <input
-            type="text"
-            class="tab-name-input"
-            bind:value={editingName}
-            on:blur={saveSectionName}
-            on:keydown={(e) => {
-              if (e.key === 'Enter') saveSectionName();
-              if (e.key === 'Escape') cancelEditing();
-            }}
-            autofocus
-          />
-        {:else}
-          <span 
-            class="tab-name"
-            on:dblclick={() => startEditing(section.id)}
-            title="Double-click to rename"
-          >
-            {section.name}
-          </span>
-        {/if}
-        
-        {#if $sections.length > 1}
-          <button 
-            class="tab-close"
-            on:click|stopPropagation={() => deleteSection(section.id)}
-            title="Delete section"
-          >
-            ×
-          </button>
-        {/if}
-      </div>
-    {/each}
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+          <path d="M6.5 1.5h-1v4h-4v1h4v4h1v-4h4v-1h-4v-4z"/>
+        </svg>
+      </button>
+    </div>
     
-    <button 
-      class="add-tab"
-      on:click={addSection}
-      title="Add new section"
-    >
-      <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-        <path d="M6.5 1.5h-1v4h-4v1h4v4h1v-4h4v-1h-4v-4z"/>
-      </svg>
-    </button>
-    
-    <!-- Panel Manager Slot -->
+    <!-- Panel Manager Slot - Fixed position -->
     <div class="panel-manager-slot">
       <slot name="panel-manager" />
     </div>
@@ -229,19 +231,29 @@
     z-index: 100;
   }
   
-  .tabs-container {
+  .tabs-wrapper {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     height: 40px;
+    position: relative;
+  }
+  
+  .tabs-scrollable {
+    flex: 1;
+    display: flex;
+    align-items: center;
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: none;
     -ms-overflow-style: none;
-    width: 100%;
+    /* Enable smooth touch scrolling */
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    /* Prevent the scrollable area from pushing out the panel manager */
+    min-width: 0;
   }
   
-  .tabs-container::-webkit-scrollbar {
+  .tabs-scrollable::-webkit-scrollbar {
     display: none;
   }
   
@@ -249,8 +261,8 @@
     position: relative;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
     background-color: transparent;
     border: none;
     color: var(--text-secondary, #858585);
@@ -261,6 +273,13 @@
     min-width: 0;
     flex-shrink: 0;
     border-bottom: 2px solid transparent;
+    /* Improve touch targets */
+    min-height: var(--touch-target-min);
+    scroll-snap-align: start;
+    /* Prevent text selection on touch */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
   
   .tab:hover {
@@ -279,7 +298,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 120px;
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     font-weight: 500;
     user-select: none;
   }
@@ -344,26 +363,117 @@
   }
   
   .panel-manager-slot {
-    margin-left: auto;
-    padding-left: 16px;
     flex-shrink: 0;
+    margin-left: var(--spacing-sm);
     position: relative; /* For dropdown positioning */
+    /* Keep panel manager always visible */
+    background-color: var(--bg-secondary, #252526);
+    /* Add subtle separator */
+    border-left: 1px solid var(--panel-border, #3e3e42);
+    padding-left: var(--spacing-sm);
   }
   
-  /* Mobile responsive */
+  /* Touch-friendly adjustments */
+  @media (pointer: coarse) {
+    .tab {
+      /* Larger touch targets */
+      min-height: 44px;
+      padding: var(--spacing-sm) var(--spacing-md);
+    }
+    
+    .tab-close {
+      /* Always show close button on touch devices */
+      display: flex !important;
+      width: 32px;
+      height: 32px;
+      font-size: 18px;
+    }
+    
+    .add-tab {
+      width: 44px;
+      height: 36px;
+    }
+  }
+  
+  /* Container queries for responsive tabs */
+  @container (max-width: 600px) {
+    .tabs-container {
+      height: 36px;
+    }
+    
+    .tab {
+      padding: var(--spacing-xs) var(--spacing-sm);
+      gap: var(--spacing-xs);
+    }
+    
+    .tab-name {
+      max-width: 60px;
+      font-size: var(--font-size-xs);
+    }
+    
+    .panel-manager-slot {
+      padding-left: var(--spacing-sm);
+    }
+  }
+  
+  /* Viewport-based responsive */
   @media (max-width: 768px) {
+    .section-tabs {
+      padding: 0 var(--spacing-xs);
+    }
+    
+    .tabs-wrapper {
+      height: 38px;
+    }
+    
+    .tabs-scrollable {
+      /* Add scroll shadows for better UX */
+      background: 
+        linear-gradient(to right, var(--bg-secondary) 20px, transparent 20px),
+        linear-gradient(to left, var(--bg-secondary) 20px, transparent 20px),
+        linear-gradient(to right, rgba(0,0,0,0.15), transparent 20px),
+        linear-gradient(to left, rgba(0,0,0,0.15), transparent 20px);
+      background-attachment: local, local, scroll, scroll;
+      background-position: 0 0, 100% 0, 0 0, 100% 0;
+      background-repeat: no-repeat;
+      background-size: 20px 100%, 20px 100%, 10px 100%, 10px 100%;
+    }
+    
     .tab-name {
       max-width: 80px;
     }
     
     .tab {
-      padding: 6px 8px;
+      padding: var(--spacing-xs) var(--spacing-sm);
     }
     
     .add-tab {
-      width: 28px;
-      height: 28px;
-      margin-left: 4px;
+      width: 32px;
+      height: 32px;
+      margin-left: var(--spacing-xs);
+    }
+    
+    /* Ensure panel manager stays visible */
+    .panel-manager-slot {
+      background-color: var(--bg-secondary, #252526);
+      position: sticky;
+      right: 0;
+    }
+  }
+  
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .tab {
+      border: 1px solid transparent;
+    }
+    
+    .tab:hover,
+    .tab:focus {
+      border-color: var(--text-secondary);
+    }
+    
+    .tab.active {
+      border-color: var(--accent-color);
     }
   }
 </style>

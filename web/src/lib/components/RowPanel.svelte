@@ -23,7 +23,7 @@
   let resizeStartY = 0;
   let resizeStartWidth = 0;
   let resizeStartHeight = 0;
-  let resizeStartLeft = 0;
+  let panelElement: HTMLElement;
   
   function handleClose() {
     dispatch('close', { panelId: panel.id });
@@ -136,28 +136,37 @@
     if (!isResizing) return;
     
     if (resizeDirection === 'horizontal') {
-      const containerWidth = document.querySelector('.row')?.clientWidth || window.innerWidth;
+      // Get the row container for accurate width calculations
+      const rowElement = panelElement?.closest('.row') as HTMLElement;
+      if (!rowElement) return;
+      
+      const containerWidth = rowElement.clientWidth;
+      const containerRect = rowElement.getBoundingClientRect();
       
       if (resizeSide === 'right') {
-        const deltaX = e.clientX - resizeStartX;
-        const deltaPercent = (deltaX / containerWidth) * 100;
-        const newWidth = Math.max(10, Math.min(90, resizeStartWidth + deltaPercent));
+        // Calculate new width based on mouse position relative to panel left edge
+        const panelRect = panelElement.getBoundingClientRect();
+        const panelLeft = panelRect.left - containerRect.left;
+        const newWidthPx = e.clientX - containerRect.left - panelLeft;
+        const newWidthPercent = (newWidthPx / containerWidth) * 100;
+        
+        // Constrain width to reasonable bounds (10% min)
+        const finalWidth = Math.max(10, newWidthPercent);
         
         dispatch('resize', { 
           panelId: panel.id, 
-          newWidth
+          newWidth: finalWidth
         });
       } else if (resizeSide === 'left') {
-        // For left resize, we need to handle both position and width
-        const deltaX = e.clientX - resizeStartX;
+        // For left resize, just adjust this panel's width
+        const deltaX = resizeStartX - e.clientX; // Inverted for left resize
         const deltaPercent = (deltaX / containerWidth) * 100;
-        const newWidth = Math.max(10, Math.min(90, resizeStartWidth - deltaPercent));
+        const newWidth = Math.max(10, resizeStartWidth + deltaPercent);
         
         dispatch('resize', { 
           panelId: panel.id, 
           newWidth,
-          moveLeft: true,
-          deltaPercent
+          isLeftResize: true
         });
       }
     } else if (resizeDirection === 'vertical') {
@@ -194,6 +203,7 @@
 
 <div 
   class="row-panel"
+  bind:this={panelElement}
   class:dragging={isDragging}
   class:drop-before={dropZone === 'before'}
   class:drop-after={dropZone === 'after'}

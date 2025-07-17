@@ -281,7 +281,7 @@
   
   // Handle panel resize
   function handlePanelResize(event: CustomEvent) {
-    const { panelId, newWidth, newHeight, moveLeft, moveTop, deltaPercent, deltaY } = event.detail;
+    const { panelId, newWidth, newHeight, isLeftResize, moveTop, deltaY } = event.detail;
     const panel = $panels.find(p => p.id === panelId);
     if (!panel) return;
     
@@ -289,25 +289,26 @@
     const updates: Partial<Panel> = {};
     
     if (newWidth !== undefined) {
-      updates.widthPercent = newWidth;
-      
-      // If resizing from left, we need to adjust adjacent panels
-      if (moveLeft && deltaPercent) {
-        const row = rows.find(r => r.panels.some(p => p.id === panelId));
-        if (row) {
-          const panelIndex = row.panels.findIndex(p => p.id === panelId);
-          
-          // Find the panel to the left
-          if (panelIndex > 0) {
-            const leftPanel = row.panels[panelIndex - 1];
-            const leftPanelNewWidth = (leftPanel.widthPercent || 0) + deltaPercent;
-            
-            // Update the left panel's width
-            panelStore.updatePanel(leftPanel.id, {
-              widthPercent: Math.max(10, leftPanelNewWidth)
-            });
-          }
+      // For any resize, ensure we don't exceed 100% total width in the row
+      const row = rows.find(r => r.panels.some(p => p.id === panelId));
+      if (row) {
+        const otherPanelsWidth = row.panels
+          .filter(p => p.id !== panelId)
+          .reduce((sum, p) => sum + (p.widthPercent || 0), 0);
+        
+        // Constrain new width so total doesn't exceed 100%
+        const maxAllowedWidth = 100 - otherPanelsWidth;
+        const constrainedWidth = Math.min(newWidth, maxAllowedWidth);
+        
+        updates.widthPercent = constrainedWidth;
+        
+        // For left resize, we need to redistribute space
+        if (isLeftResize && row.panels.length > 1) {
+          // Simple approach: just resize this panel, let CSS handle the layout
+          // The flex layout will automatically adjust other panels
         }
+      } else {
+        updates.widthPercent = newWidth;
       }
     }
     
@@ -506,7 +507,7 @@
             {#if panelComponentMap[panel.id]}
               <div 
                 class="panel-container"
-                style="width: {panel.widthPercent}%; flex: 0 0 {panel.widthPercent}%;"
+                style="width: {panel.widthPercent}%; flex: 0 1 {panel.widthPercent}%; max-width: {panel.widthPercent}%;"
               >
                 <RowPanel 
                   {panel}

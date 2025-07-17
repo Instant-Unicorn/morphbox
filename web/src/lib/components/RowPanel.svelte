@@ -107,11 +107,9 @@
     resizeStartX = e.clientX;
     resizeStartWidth = panel.widthPercent || 100;
     
-    // Get current position for left-side resizing
-    const panelElement = e.currentTarget.parentElement as HTMLElement;
-    if (panelElement) {
-      const rect = panelElement.getBoundingClientRect();
-      resizeStartLeft = rect.left;
+    // Store reference to panel element if not already set
+    if (!panelElement) {
+      panelElement = e.currentTarget.parentElement as HTMLElement;
     }
     
     document.addEventListener('mousemove', handleMouseMove);

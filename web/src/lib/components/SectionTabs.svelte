@@ -36,12 +36,12 @@
   // Scroll to section
   function scrollToSection(sectionId: string) {
     const section = $sections.find(s => s.id === sectionId);
-    if (!section || !scrollContainer) return;
+    if (!section) return;
     
     activeSection = sectionId;
     
     // Find the layout container
-    const layoutContainer = document.querySelector('.row-layout');
+    const layoutContainer = document.querySelector('.row-layout') as HTMLElement;
     if (layoutContainer) {
       layoutContainer.scrollTo({
         top: section.scrollPosition,
@@ -94,22 +94,26 @@
   
   // Auto-detect when content goes below fold
   function checkContentHeight() {
-    const layoutContainer = document.querySelector('.row-layout');
+    const layoutContainer = document.querySelector('.row-layout') as HTMLElement;
     if (!layoutContainer) return;
     
     const contentHeight = layoutContainer.scrollHeight;
     const viewportHeight = window.innerHeight;
+    const containerTop = layoutContainer.offsetTop;
+    const effectiveViewportHeight = viewportHeight - containerTop;
+    
     const lastSection = $sections[$sections.length - 1];
     
     // If content extends beyond last section's position + viewport, add new section
-    if (contentHeight > lastSection.scrollPosition + viewportHeight * 1.5) {
+    if (contentHeight > lastSection.scrollPosition + effectiveViewportHeight) {
       const newSection: Section = {
         id: `section-${Date.now()}`,
         name: `Section ${$sections.length + 1}`,
-        scrollPosition: lastSection.scrollPosition + viewportHeight
+        scrollPosition: lastSection.scrollPosition + effectiveViewportHeight
       };
       
       $sections = [...$sections, newSection];
+      console.log('New section added:', newSection);
     }
   }
   
@@ -219,7 +223,7 @@
     background-color: var(--bg-secondary, #252526);
     border-bottom: 1px solid var(--panel-border, #3e3e42);
     padding: 0 8px;
-    overflow: hidden;
+    overflow: visible; /* Allow dropdown to show */
     position: sticky;
     top: 0;
     z-index: 100;
@@ -343,6 +347,7 @@
     margin-left: auto;
     padding-left: 16px;
     flex-shrink: 0;
+    position: relative; /* For dropdown positioning */
   }
   
   /* Mobile responsive */

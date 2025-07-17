@@ -74,7 +74,9 @@
   
   // Toggle manager visibility
   export function toggleManager() {
+    console.log('[PanelManager] Toggle clicked, current state:', showManager);
     showManager = !showManager;
+    console.log('[PanelManager] New state:', showManager);
   }
   
   // Handle click outside to close
@@ -237,7 +239,7 @@
     border: 1px solid #3e3e42;
     border-radius: 8px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-    z-index: 100;
+    z-index: 1000;
     display: flex;
     flex-direction: column;
   }

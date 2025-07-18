@@ -857,6 +857,11 @@
       opacity: 1;
     }
     
+    /* Debug: ensure container is visible */
+    .terminal-container {
+      background-color: #1e1e1e !important;
+    }
+    
     /* Mobile-specific viewport fixes */
     :global(.xterm-viewport) {
       /* Only fix positioning issues */

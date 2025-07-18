@@ -641,7 +641,7 @@
     flex-direction: column;
     height: 100%;
     width: 100%;
-    background-color: #1e1e1e;
+    background-color: var(--editor-bg, #1e1e1e);
     min-height: 0; /* Fix flexbox height issues */
     position: relative;
   }
@@ -658,7 +658,7 @@
   }
 
   :global(.monaco-editor .margin) {
-    background-color: #1e1e1e !important;
+    background-color: var(--editor-bg, #1e1e1e) !important;
   }
 
   .editor-loading {
@@ -666,7 +666,7 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: #cccccc;
+    color: var(--text-color, #cccccc);
     font-size: 14px;
   }
 
@@ -674,8 +674,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background-color: #252526;
-    border-bottom: 1px solid #3e3e42;
+    background-color: var(--surface, #252526);
+    border-bottom: 1px solid var(--border-color, #3e3e42);
   }
 
   .editor-menu {
@@ -686,7 +686,7 @@
   .menu-button {
     background: none;
     border: none;
-    color: #cccccc;
+    color: var(--text-color, #cccccc);
     padding: 6px 10px;
     cursor: pointer;
     display: flex;
@@ -697,7 +697,7 @@
   }
 
   .menu-button:hover {
-    background-color: #3e3e42;
+    background-color: var(--hover-bg, #3e3e42);
   }
 
   .menu-dropdown {
@@ -705,8 +705,8 @@
     top: 100%;
     right: 0;
     margin-top: 4px;
-    background-color: #252526;
-    border: 1px solid #3e3e42;
+    background-color: var(--surface, #252526);
+    border: 1px solid var(--border-color, #3e3e42);
     border-radius: 4px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
     min-width: 250px;
@@ -720,7 +720,7 @@
     padding: 8px 12px;
     background: none;
     border: none;
-    color: #cccccc;
+    color: var(--text-color, #cccccc);
     text-align: left;
     cursor: pointer;
     font-size: 13px;
@@ -728,7 +728,7 @@
   }
 
   .menu-item:hover:not(:disabled) {
-    background-color: #094771;
+    background-color: var(--accent-color, #094771);
   }
 
   .menu-item:disabled {
@@ -750,7 +750,7 @@
 
   .menu-divider {
     height: 1px;
-    background-color: #3e3e42;
+    background-color: var(--border-color, #3e3e42);
     margin: 4px 0;
   }
 </style>

@@ -114,8 +114,8 @@
 <style>
   .context-menu {
     position: fixed;
-    background-color: #2d2d30;
-    border: 1px solid #454545;
+    background-color: var(--bg-color, #2d2d30);
+    border: 1px solid var(--border-color, #454545);
     border-radius: 4px;
     padding: 4px 0;
     min-width: 150px;
@@ -129,20 +129,20 @@
     padding: 6px 16px;
     cursor: pointer;
     font-size: 13px;
-    color: #cccccc;
+    color: var(--text-color, #cccccc);
     transition: background-color 0.1s;
   }
   
   .menu-item:hover {
-    background-color: #094771;
+    background-color: var(--accent-color, #094771);
   }
   
   .menu-item.danger {
-    color: #f48771;
+    color: var(--error-color, #f48771);
   }
   
   .menu-item.danger:hover {
-    background-color: #5a1d1d;
+    background-color: var(--error-bg-hover, #5a1d1d);
   }
   
   .menu-icon {
@@ -154,7 +154,7 @@
   
   .menu-separator {
     height: 1px;
-    background-color: #454545;
+    background-color: var(--border-color, #454545);
     margin: 4px 0;
   }
 </style>

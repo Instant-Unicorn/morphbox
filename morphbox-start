@@ -250,33 +250,58 @@ if [[ "$TERMINAL_MODE" == "true" ]]; then
     CURRENT_DIR=$(pwd)
     WORKSPACE_DIR="$SCRIPT_DIR/workspace"
     
-    # Ensure workspace directory exists
-    mkdir -p "$WORKSPACE_DIR"
+    # Ensure workspace directory exists with proper permissions
+    if [[ ! -d "$WORKSPACE_DIR" ]]; then
+        mkdir -p "$WORKSPACE_DIR" || {
+            error "Failed to create workspace directory"
+            exit 1
+        }
+    fi
     
-    # Create a symbolic link in the workspace to the current directory if outside workspace
-    if [[ ! "$CURRENT_DIR" == "$WORKSPACE_DIR"* ]]; then
+    # Check if we can write to workspace directory
+    if [[ ! -w "$WORKSPACE_DIR" ]]; then
+        warn "Workspace directory is not writable, trying with sudo..."
+        sudo chmod 755 "$WORKSPACE_DIR" || {
+            error "Cannot make workspace writable. Running Claude in default workspace."
+            CONTAINER_PATH="/workspace"
+        }
+    fi
+    
+    # Try to create a symbolic link in the workspace to the current directory if outside workspace
+    if [[ ! "$CURRENT_DIR" == "$WORKSPACE_DIR"* ]] && [[ -w "$WORKSPACE_DIR" ]]; then
         # Create a unique name for this session
         SESSION_NAME="terminal-$(date +%s)"
         LINK_PATH="$WORKSPACE_DIR/$SESSION_NAME"
         
-        # Create the symbolic link
-        ln -sf "$CURRENT_DIR" "$LINK_PATH"
-        
-        info "Linked current directory to container workspace"
-        CONTAINER_PATH="/workspace/$SESSION_NAME"
-        
-        # Clean up function for the symlink
-        cleanup_terminal() {
-            rm -f "$LINK_PATH"
-        }
-        trap cleanup_terminal EXIT
-    else
+        # Try to create the symbolic link
+        if ln -sf "$CURRENT_DIR" "$LINK_PATH" 2>/dev/null; then
+            info "Linked current directory to container workspace"
+            CONTAINER_PATH="/workspace/$SESSION_NAME"
+            
+            # Clean up function for the symlink
+            cleanup_terminal() {
+                rm -f "$LINK_PATH" 2>/dev/null
+            }
+            trap cleanup_terminal EXIT
+        else
+            warn "Could not create symlink. Claude will start in default workspace."
+            warn "To access current directory, navigate from /workspace"
+            CONTAINER_PATH="/workspace"
+        fi
+    elif [[ "$CURRENT_DIR" == "$WORKSPACE_DIR"* ]]; then
         # Already in workspace, use relative path
         CONTAINER_PATH="/workspace${CURRENT_DIR#$WORKSPACE_DIR}"
+    else
+        # Fallback to default workspace
+        CONTAINER_PATH="/workspace"
     fi
     
     echo ""
     info "Working directory: $CURRENT_DIR"
+    if [[ "$CONTAINER_PATH" != "/workspace${CURRENT_DIR#$WORKSPACE_DIR}" ]] && [[ "$CONTAINER_PATH" != *"terminal-"* ]]; then
+        info "Container path: $CONTAINER_PATH (current dir not accessible)"
+        info "Tip: Place projects in $WORKSPACE_DIR for direct access"
+    fi
     echo ""
     
     # Run Claude directly in the Docker container

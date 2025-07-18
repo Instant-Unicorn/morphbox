@@ -46,4 +46,20 @@
 - Future work could explore:
   - Custom process management inside container
   - Patching Claude CLI to expose session info
-  - Alternative terminal emulation approaches
+  - Alternative terminal emulation approaches## [2025-07-18] File Explorer and Code Editor Enhancements
+
+### Added
+- **Default New Panel Behavior**: File Explorer now opens files in new code editor panels by default
+- **Comprehensive Editor Menu**: Full file menu with all standard operations (New, Open, Save, Save As, etc.)
+- **Keyboard Shortcuts**: All menu items show their keyboard shortcuts
+- **Visual Feedback**: Disabled menu items when operations aren't available
+
+### Fixed
+- SSH agent now handles missing conversations gracefully with --continue flag fallback
+- File API now reads from project directory instead of /workspace
+- File paths properly tracked for save operations
+
+### Changed
+- File Explorer dropdown now shows 'New Panel' as the default option
+- Users can still select existing panels from the dropdown menu
+

@@ -28,6 +28,8 @@ ACCESS_MODE="${MORPHBOX_BIND_MODE:-local}"
 DEV_MODE=false
 AUTH_ENABLED=false
 TERMINAL_MODE=false
+MORPHBOX_AUTH_USERNAME=""
+MORPHBOX_AUTH_PASSWORD=""
 
 # Apply bind mode
 if [[ "$ACCESS_MODE" == "external" ]]; then
@@ -277,7 +279,7 @@ if [[ "$TERMINAL_MODE" == "true" ]]; then
         -e "TERM=xterm-256color" \
         -e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}" \
         morphbox-vm \
-        claude
+        bash -c "claude || bash"
     
     # Exit after Claude exits
     exit 0

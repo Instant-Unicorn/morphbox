@@ -5,6 +5,8 @@
   import { loadMonaco } from './monaco-loader';
   import TabBar from './TabBar.svelte';
   import type { EditorTab, EditorTheme } from './types';
+  import { settings as settingsStore } from '$lib/panels/Settings/settings-store';
+  import { get } from 'svelte/store';
 
   export let theme: EditorTheme = 'vs-dark';
   export let fontSize = 14;
@@ -422,15 +424,21 @@
         }
       });
 
+      // Get editor settings
+      const currentSettings = get(settingsStore);
+      const editorSettings = currentSettings.editor || {};
+      
       // Create editor instance
       editorInstance = monaco.editor.create(containerEl, {
         value: '',
         language: 'plaintext',
-        theme: theme,
-        fontSize: fontSize,
+        theme: editorSettings.theme || theme,
+        fontSize: editorSettings.fontSize || fontSize,
+        fontFamily: editorSettings.fontFamily || undefined,
+        lineHeight: editorSettings.lineHeight || undefined,
         minimap: { enabled: minimap },
         lineNumbers: lineNumbers ? 'on' : 'off',
-        wordWrap: wordWrap ? 'on' : 'off',
+        wordWrap: editorSettings.wordWrap ? 'on' : 'off',
         automaticLayout: true,
         scrollBeyondLastLine: false,
         folding: true,
@@ -439,7 +447,7 @@
         quickSuggestions: true,
         suggestOnTriggerCharacters: true,
         acceptSuggestionOnEnter: 'on',
-        tabSize: 2,
+        tabSize: editorSettings.tabSize || 2,
         insertSpaces: true,
         formatOnPaste: true,
         formatOnType: true,
@@ -488,8 +496,30 @@
     });
   }
 
+  let settingsUnsubscribe: (() => void) | null = null;
+  
   onMount(async () => {
     await initEditor();
+    
+    // Subscribe to settings changes
+    settingsUnsubscribe = settingsStore.subscribe($settings => {
+      if (editorInstance && $settings.editor && monaco) {
+        // Update editor options when settings change
+        editorInstance.updateOptions({
+          fontSize: $settings.editor.fontSize,
+          fontFamily: $settings.editor.fontFamily,
+          lineHeight: $settings.editor.lineHeight,
+          wordWrap: $settings.editor.wordWrap ? 'on' : 'off',
+          tabSize: $settings.editor.tabSize,
+          theme: $settings.editor.theme
+        });
+        
+        // Update theme if changed
+        if ($settings.editor.theme) {
+          monaco.editor.setTheme($settings.editor.theme);
+        }
+      }
+    });
     
     // Load initial file if provided
     if (filePath) {
@@ -514,6 +544,9 @@
     }
     if (editorInstance) {
       editorInstance.dispose();
+    }
+    if (settingsUnsubscribe) {
+      settingsUnsubscribe();
     }
   });
 </script>

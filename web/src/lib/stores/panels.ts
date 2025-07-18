@@ -14,6 +14,7 @@
 
 import { writable, derived, get } from 'svelte/store';
 import { browser } from '$app/environment';
+import { settings as settingsStore } from '$lib/panels/Settings/settings-store';
 
 // Workspace interface
 export interface Workspace {
@@ -375,6 +376,10 @@ function createPanelStore() {
         // Ensure we never use a config-provided id
         const { id: configId, ...configWithoutId } = config || {};
         
+        // Get settings for default panel colors
+        const currentSettings = get(settingsStore);
+        const defaultColors = currentSettings.panels?.defaultPanelColors || {};
+        
         const newPanel: Panel = {
           id,
           type,
@@ -384,6 +389,9 @@ function createPanelStore() {
           size: { width: 400, height: 300 },
           persistent: false,
           zIndex,
+          headerColor: defaultColors.headerColor,
+          backgroundColor: defaultColors.backgroundColor,
+          borderColor: defaultColors.borderColor,
           ...defaultConfig,
           ...configWithoutId
         };

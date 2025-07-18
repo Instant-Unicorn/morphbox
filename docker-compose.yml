@@ -12,6 +12,8 @@ services:
       - claude-config:/home/morphbox/.config/claude-code
       # Persist workspace data
       - ./workspace:/workspace
+      # Mount current morphbox project for development
+      - ./:/workspace/morphbox
       # Persist bash history and other user data
       - claude-home:/home/morphbox
     environment:

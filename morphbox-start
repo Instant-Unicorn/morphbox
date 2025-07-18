@@ -268,13 +268,14 @@ if [[ "$TERMINAL_MODE" == "true" ]]; then
     echo ""
     
     # Run Claude directly in the Docker container
+    # Note: Not using --continue flag in terminal mode so it starts fresh
     docker exec -it \
         -u morphbox \
         -w "$CONTAINER_PATH" \
         -e "TERM=xterm-256color" \
         -e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}" \
         morphbox-vm \
-        bash -c "claude --continue"
+        claude
     
     # Exit after Claude exits
     exit 0

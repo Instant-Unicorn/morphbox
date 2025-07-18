@@ -13,6 +13,9 @@
   
   let showColorPicker = false;
   let colorInput: HTMLInputElement;
+  let backgroundColorInput: HTMLInputElement;
+  let borderColorInput: HTMLInputElement;
+  let activeColorPicker: 'header' | 'background' | 'border' | null = null;
   let dropZone: 'before' | 'after' | 'center' | null = null;
   
   // Resize state
@@ -29,17 +32,32 @@
     dispatch('close', { panelId: panel.id });
   }
   
-  function toggleColorPicker() {
-    showColorPicker = !showColorPicker;
-    if (showColorPicker && colorInput) {
-      setTimeout(() => colorInput?.click(), 0);
+  function toggleColorPicker(type: 'header' | 'background' | 'border') {
+    activeColorPicker = activeColorPicker === type ? null : type;
+    showColorPicker = activeColorPicker !== null;
+    
+    if (showColorPicker) {
+      setTimeout(() => {
+        if (type === 'header' && colorInput) colorInput.click();
+        else if (type === 'background' && backgroundColorInput) backgroundColorInput.click();
+        else if (type === 'border' && borderColorInput) borderColorInput.click();
+      }, 0);
     }
   }
   
-  function handleColorChange(e: Event) {
+  function handleColorChange(e: Event, type: 'header' | 'background' | 'border') {
     const color = (e.target as HTMLInputElement).value;
-    panelStore.updatePanel(panel.id, { headerColor: color });
+    
+    if (type === 'header') {
+      panelStore.updatePanel(panel.id, { headerColor: color });
+    } else if (type === 'background') {
+      panelStore.updatePanel(panel.id, { backgroundColor: color });
+    } else if (type === 'border') {
+      panelStore.updatePanel(panel.id, { borderColor: color });
+    }
+    
     showColorPicker = false;
+    activeColorPicker = null;
   }
   
   function handleDragStart(e: DragEvent) {
@@ -289,6 +307,7 @@
   class:drop-before={dropZone === 'before'}
   class:drop-after={dropZone === 'after'}
   class:drop-center={dropZone === 'center'}
+  style="background-color: {panel.backgroundColor || '#2a2a2a'}; border-color: {panel.borderColor || '#444'};"
   on:dragover={handleDragOver}
   on:dragleave={handleDragLeave}
   on:drop={handleDrop}
@@ -308,20 +327,57 @@
     <h3 class="panel-title">{panel.title}</h3>
     
     <div class="panel-controls">
-      <!-- Color picker -->
-      <button 
-        class="control-btn color-btn"
-        on:click={toggleColorPicker}
-        title="Change header color"
-      >
-        <Palette size={14} />
-      </button>
+      <!-- Color pickers -->
+      <div class="color-picker-group">
+        <button 
+          class="control-btn color-btn {activeColorPicker === 'header' ? 'active' : ''}"
+          on:click={() => toggleColorPicker('header')}
+          title="Change header color"
+          style="background-color: {panel.headerColor || '#636363'};"
+        >
+          <span class="color-label">H</span>
+        </button>
+        <button 
+          class="control-btn color-btn {activeColorPicker === 'background' ? 'active' : ''}"
+          on:click={() => toggleColorPicker('background')}
+          title="Change background color"
+          style="background-color: {panel.backgroundColor || '#2a2a2a'};"
+        >
+          <span class="color-label">B</span>
+        </button>
+        <button 
+          class="control-btn color-btn {activeColorPicker === 'border' ? 'active' : ''}"
+          on:click={() => toggleColorPicker('border')}
+          title="Change border color"
+          style="background-color: {panel.borderColor || '#444'};"
+        >
+          <span class="color-label">E</span>
+        </button>
+      </div>
+      
+      <!-- Hidden color inputs -->
       <input
         bind:this={colorInput}
         type="color"
         class="color-input"
         value={panel.headerColor || '#636363'}
-        on:change={handleColorChange}
+        on:change={(e) => handleColorChange(e, 'header')}
+        style="display: none;"
+      />
+      <input
+        bind:this={backgroundColorInput}
+        type="color"
+        class="color-input"
+        value={panel.backgroundColor || '#2a2a2a'}
+        on:change={(e) => handleColorChange(e, 'background')}
+        style="display: none;"
+      />
+      <input
+        bind:this={borderColorInput}
+        type="color"
+        class="color-input"
+        value={panel.borderColor || '#444'}
+        on:change={(e) => handleColorChange(e, 'border')}
         style="display: none;"
       />
       
@@ -499,14 +555,37 @@
     color: var(--panel-title-color, #cccccc);
   }
   
+  .color-picker-group {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+  }
+  
   .color-btn {
     width: 18px;
     height: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .color-btn.active {
+    border-color: var(--accent-color, #0e639c);
+    box-shadow: 0 0 3px var(--accent-color, #0e639c);
   }
   
   .color-btn:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-    color: var(--accent-color, #0e639c);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: scale(1.1);
+  }
+  
+  .color-label {
+    font-size: 10px;
+    font-weight: bold;
+    color: white;
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+    position: relative;
+    z-index: 1;
   }
   
   .close-btn:hover {

@@ -50,6 +50,8 @@ export interface Panel {
     colSpan: number;
   };
   headerColor?: string; // Custom header background color
+  backgroundColor?: string; // Custom panel background color
+  borderColor?: string; // Custom panel border color
   // Row-based layout properties
   rowIndex?: number; // Which row the panel is in
   widthPercent?: number; // Percentage of row width (e.g., 50 for 50%)
@@ -101,6 +103,12 @@ export const defaultPanelConfigs: Record<string, Partial<Panel>> = {
   editor: {
     type: 'editor',
     title: 'Editor',
+    size: { width: 800, height: 600 },
+    persistent: false
+  },
+  codeEditor: {
+    type: 'codeEditor',
+    title: 'Code Editor',
     size: { width: 800, height: 600 },
     persistent: false
   },

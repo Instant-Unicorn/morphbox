@@ -1,6 +1,7 @@
 export interface EditorTab {
   id: string;
   fileName: string;
+  filePath?: string;
   content: string;
   language: string;
   isDirty: boolean;

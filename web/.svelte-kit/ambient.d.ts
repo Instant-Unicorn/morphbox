@@ -38,6 +38,7 @@ declare module '$env/static/private' {
 	export const npm_node_execpath: string;
 	export const SHLVL: string;
 	export const npm_config_noproxy: string;
+	export const MORPHBOX_HOST: string;
 	export const HOME: string;
 	export const OLDPWD: string;
 	export const SSH_TTY: string;
@@ -48,6 +49,7 @@ declare module '$env/static/private' {
 	export const COLOR: string;
 	export const DEBUGINFOD_URLS: string;
 	export const npm_config_metrics_registry: string;
+	export const MORPHBOX_AUTH_PASSWORD: string;
 	export const LOGNAME: string;
 	export const _: string;
 	export const npm_config_prefix: string;
@@ -69,11 +71,15 @@ declare module '$env/static/private' {
 	export const npm_package_version: string;
 	export const npm_lifecycle_event: string;
 	export const LESSCLOSE: string;
+	export const MORPHBOX_AUTH_MODE: string;
 	export const npm_config_globalconfig: string;
 	export const npm_config_init_module: string;
 	export const PWD: string;
 	export const npm_config_globalignorefile: string;
 	export const npm_execpath: string;
+	export const npm_package_bin_morphbox: string;
+	export const MORPHBOX_AUTH_USERNAME: string;
+	export const MORPHBOX_AUTH_ENABLED: string;
 	export const SSH_CONNECTION: string;
 	export const XDG_DATA_DIRS: string;
 	export const npm_config_global_prefix: string;
@@ -124,6 +130,7 @@ declare module '$env/dynamic/private' {
 		npm_node_execpath: string;
 		SHLVL: string;
 		npm_config_noproxy: string;
+		MORPHBOX_HOST: string;
 		HOME: string;
 		OLDPWD: string;
 		SSH_TTY: string;
@@ -134,6 +141,7 @@ declare module '$env/dynamic/private' {
 		COLOR: string;
 		DEBUGINFOD_URLS: string;
 		npm_config_metrics_registry: string;
+		MORPHBOX_AUTH_PASSWORD: string;
 		LOGNAME: string;
 		_: string;
 		npm_config_prefix: string;
@@ -155,11 +163,15 @@ declare module '$env/dynamic/private' {
 		npm_package_version: string;
 		npm_lifecycle_event: string;
 		LESSCLOSE: string;
+		MORPHBOX_AUTH_MODE: string;
 		npm_config_globalconfig: string;
 		npm_config_init_module: string;
 		PWD: string;
 		npm_config_globalignorefile: string;
 		npm_execpath: string;
+		npm_package_bin_morphbox: string;
+		MORPHBOX_AUTH_USERNAME: string;
+		MORPHBOX_AUTH_ENABLED: string;
 		SSH_CONNECTION: string;
 		XDG_DATA_DIRS: string;
 		npm_config_global_prefix: string;

@@ -13,6 +13,7 @@
   import { settings, applyTheme } from '$lib/panels/Settings/settings-store';
   import { fade } from 'svelte/transition';
   import { panelRegistry } from '$lib/panels/registry';
+  import { handleFileOpen } from '$lib/utils/fileHandler';
   
   // Static component mapping for built-in panels
   const builtinComponents = {
@@ -445,30 +446,36 @@
   
   // Add new panel to layout
   function addNewPanel(type: string, data?: any) {
-    // Find the last row or create new one
-    const lastRowIndex = rows.length > 0 ? rows.length - 1 : 0;
-    const lastRow = rows[lastRowIndex];
-    
-    // Check if we should create a new row (if last row is full or doesn't exist)
-    const shouldCreateNewRow = !lastRow || lastRow.panels.length >= 3;
-    
-    const rowIndex = shouldCreateNewRow ? lastRowIndex + 1 : lastRowIndex;
-    const orderInRow = shouldCreateNewRow ? 0 : lastRow.panels.length;
+    // Always create a new row at the bottom for new panels
+    const newRowIndex = rows.length > 0 ? Math.max(...rows.map(r => parseInt(r.id.split('-')[1]))) + 1 : 0;
     
     panelStore.addPanel(type, {
       ...data,
-      rowIndex,
-      widthPercent: shouldCreateNewRow ? 100 : 100 / (lastRow.panels.length + 1),
+      rowIndex: newRowIndex,
+      widthPercent: 100, // New panels take full width of new row
       heightPixels: 400,
-      orderInRow
+      orderInRow: 0
     });
-    
-    if (!shouldCreateNewRow) {
-      recalculateRowWidths();
-    }
     
     organizePanelsIntoRows();
     saveLayoutToServer();
+    
+    // Wait for DOM update then scroll to the new row
+    setTimeout(() => {
+      const newRow = document.querySelector(`#row-${newRowIndex}`);
+      if (newRow && layoutContainer) {
+        // Calculate the position to scroll to, accounting for any header height
+        const rowTop = newRow.getBoundingClientRect().top;
+        const containerTop = layoutContainer.getBoundingClientRect().top;
+        const scrollTop = layoutContainer.scrollTop + (rowTop - containerTop);
+        
+        // Smooth scroll to the new row
+        layoutContainer.scrollTo({
+          top: scrollTop,
+          behavior: 'smooth'
+        });
+      }
+    }, 100);
   }
   
   // Load layout from server
@@ -573,6 +580,7 @@
   >
     {#each rows as row (row.id)}
       <div 
+        id={row.id}
         class="row" 
         style="height: {stackedLayout ? 'auto' : row.height + 'px'}; min-height: {stackedLayout ? 'var(--min-panel-height)' : row.height + 'px'};"
       >
@@ -605,6 +613,7 @@
                   on:dragend={handleDragEnd}
                   on:drop={handlePanelDrop}
                   on:resize={handlePanelResize}
+                  on:open={handleFileOpen}
                   on:close={handlePanelClose}
                 />
               </div>

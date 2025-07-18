@@ -3,27 +3,24 @@ import { get } from 'svelte/store';
 
 export async function handleFileOpen(event: CustomEvent<{ path: string; targetPanelId?: string }>) {
   const { path, targetPanelId } = event.detail;
+  console.log('handleFileOpen called with:', { path, targetPanelId });
   
   // If no target panel specified, try to find an existing editor
   let targetPanel = targetPanelId ? 
     get(panelStore).panels.find(p => p.id === targetPanelId) : 
     null;
   
-  // If target panel doesn't exist or is not suitable, create or find an editor
+  // If target panel doesn't exist or is not suitable, create a new editor
   if (!targetPanel || !['editor', 'codeEditor', 'code-editor', 'preview', 'terminal', 'claude'].includes(targetPanel.type)) {
-    // Look for an existing editor
-    targetPanel = get(panelStore).panels.find(p => 
-      p.type === 'editor' || p.type === 'codeEditor' || p.type === 'code-editor'
-    );
-    
-    // If no editor exists, create one
-    if (!targetPanel) {
-      panelStore.addPanel('codeEditor', {
-        title: 'Code Editor',
-        content: { filePath: path }
-      });
-      return;
-    }
+    // Always create a new code editor panel
+    const fileName = path.split('/').pop() || 'Untitled';
+    console.log('Creating new codeEditor panel for file:', fileName);
+    panelStore.addPanel('codeEditor', {
+      title: fileName,
+      content: { filePath: path }
+    });
+    console.log('Panel added, current panels:', get(panelStore).panels);
+    return;
   }
   
   // Open the file in the target panel
@@ -54,6 +51,8 @@ export async function handleFileOpen(event: CustomEvent<{ path: string; targetPa
     });
   }
   
-  // Focus the target panel
-  panelStore.setActivePanel(targetPanel.id);
+  // Focus the target panel only if it exists
+  if (targetPanel) {
+    panelStore.setActivePanel(targetPanel.id);
+  }
 }

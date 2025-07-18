@@ -27,15 +27,9 @@
   
   // Initialize target panel
   onMount(() => {
-    // Get saved target or default
+    // Get saved target or default to null (which will create new panels)
     targetPanelId = fileTargetStore.getTarget(panelId);
-    if (!targetPanelId) {
-      const defaultTarget = getDefaultTarget();
-      if (defaultTarget) {
-        targetPanelId = defaultTarget.id;
-        fileTargetStore.setTarget(panelId, targetPanelId);
-      }
-    }
+    // Don't set a default target - let it remain null to create new panels
   });
   
   // Update target when selection changes
@@ -73,7 +67,9 @@
   }
   
   function handleOpen(event: CustomEvent<{ path: string; isDirectory: boolean }>) {
+    console.log('FileExplorer handleOpen:', event.detail);
     if (!event.detail.isDirectory) {
+      console.log('Dispatching open event with targetPanelId:', targetPanelId);
       dispatch('open', { 
         path: event.detail.path,
         targetPanelId: targetPanelId 
@@ -211,13 +207,28 @@
           title="Select target panel for opening files"
         >
           <span class="target-icon">🎯</span>
-          <span class="target-label">{currentTarget ? currentTarget.title : 'No target'}</span>
+          <span class="target-label">{currentTarget ? currentTarget.title : 'New Panel'}</span>
           <span class="dropdown-arrow">▼</span>
         </button>
         
         {#if showTargetMenu}
           <div class="target-menu" on:click|stopPropagation>
             <div class="menu-header">Open files in:</div>
+            <button 
+              class="target-option" 
+              class:selected={!targetPanelId}
+              on:click={() => {
+                targetPanelId = null;
+                fileTargetStore.clearTarget(panelId);
+                showTargetMenu = false;
+              }}
+            >
+              <span class="panel-type">new</span>
+              <span class="panel-title">New Code Editor Panel</span>
+            </button>
+            {#if targetPanels.length > 0}
+              <div class="menu-divider"></div>
+            {/if}
             {#each targetPanels as panel}
               <button 
                 class="target-option" 
@@ -228,9 +239,6 @@
                 <span class="panel-title">{panel.title}</span>
               </button>
             {/each}
-            {#if targetPanels.length === 0}
-              <div class="no-targets">No panels available</div>
-            {/if}
           </div>
         {/if}
       </div>
@@ -475,5 +483,11 @@
   
   .file-explorer-content::-webkit-scrollbar-thumb:hover {
     background: #4e4e4e;
+  }
+  
+  .menu-divider {
+    height: 1px;
+    background-color: #3e3e42;
+    margin: 4px 8px;
   }
 </style>

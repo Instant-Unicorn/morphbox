@@ -106,6 +106,12 @@ export const defaultPanelConfigs: Record<string, Partial<Panel>> = {
     size: { width: 800, height: 600 },
     persistent: false
   },
+  codeEditor: {
+    type: 'codeEditor',
+    title: 'Code Editor',
+    size: { width: 800, height: 600 },
+    persistent: false
+  },
   preview: {
     type: 'preview',
     title: 'Preview',

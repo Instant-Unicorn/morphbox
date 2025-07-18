@@ -676,10 +676,13 @@
     min-width: 0;
     overflow: auto;
     position: relative;
+    /* Ensure content is visible */
+    z-index: 1;
   }
   
   .terminal-container.loading {
-    opacity: 0.2;
+    /* Don't hide content on mobile */
+    opacity: 1;
   }
   
   .loading-overlay {
@@ -779,6 +782,9 @@
     position: relative !important;
     left: 0 !important;
     transform: none !important;
+    /* Ensure visibility */
+    opacity: 1 !important;
+    visibility: visible !important;
   }
   
   :global(.xterm-screen) {
@@ -810,6 +816,9 @@
   :global(.xterm .xterm-selection-layer) {
     /* Force re-render on resize */
     will-change: transform;
+    /* Ensure visibility on mobile */
+    opacity: 1 !important;
+    visibility: visible !important;
   }
   
   /* Handle very small terminals */
@@ -838,8 +847,8 @@
   /* Viewport-based responsive styles */
   @media (max-width: 768px) {
     .terminal-outer-container {
-      max-height: 100vh !important;
-      height: 100vh !important;
+      /* Don't force height, let it be flexible */
+      max-height: 100%;
     }
     
     :global(.terminal-wrapper .xterm) {
@@ -849,7 +858,7 @@
       position: relative !important;
       left: 0 !important;
       right: 0 !important;
-      max-height: calc(100vh - 40px) !important; /* Account for any headers */
+      /* Remove forced height constraint */
     }
     
     .terminal-container {
@@ -857,8 +866,7 @@
       position: relative;
       /* Ensure terminal fills its container */
       min-height: 200px;
-      max-height: 100vh !important;
-      height: 100% !important;
+      /* Don't force height */
       /* Reset any transforms */
       transform: none !important;
       left: 0 !important;

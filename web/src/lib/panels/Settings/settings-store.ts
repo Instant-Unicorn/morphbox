@@ -119,8 +119,9 @@ export function applyTheme(theme: Settings['theme'], customTheme?: Settings['cus
         root.style.setProperty('--bg-color', customTheme.background);
         root.style.setProperty('--text-color', customTheme.foreground);
         root.style.setProperty('--accent-color', customTheme.accent);
+        root.style.setProperty('--surface', customTheme.surface || adjustColor(customTheme.background, 10));
+        root.style.setProperty('--border-color', customTheme.border || adjustColor(customTheme.background, 20));
         // Derive other colors from the custom theme
-        root.style.setProperty('--border-color', adjustColor(customTheme.background, 20));
         root.style.setProperty('--input-bg', adjustColor(customTheme.background, 10));
         root.style.setProperty('--text-secondary', adjustColor(customTheme.foreground, -40));
       }

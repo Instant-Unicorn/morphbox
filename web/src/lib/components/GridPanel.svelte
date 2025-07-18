@@ -102,6 +102,10 @@
   function handleResizeEnd(event: CustomEvent) {
     dispatch('resizeend', { ...event.detail, panelId: panel.id });
   }
+  
+  function handleOpen(event: CustomEvent) {
+    dispatch('open', event.detail);
+  }
 </script>
 
 <div 
@@ -213,11 +217,20 @@
         <svelte:component 
           this={component} 
           {websocketUrl}
+          panelId={panel.id}
           {...panel.content}
+        />
+      {:else if panel.type === 'fileExplorer' || panel.type === 'file-explorer'}
+        <svelte:component 
+          this={component} 
+          panelId={panel.id}
+          {...panel.content}
+          on:open={handleOpen}
         />
       {:else}
         <svelte:component 
           this={component} 
+          panelId={panel.id}
           {...panel.content}
         />
       {/if}

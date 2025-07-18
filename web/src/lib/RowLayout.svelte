@@ -13,6 +13,7 @@
   import { settings, applyTheme } from '$lib/panels/Settings/settings-store';
   import { fade } from 'svelte/transition';
   import { panelRegistry } from '$lib/panels/registry';
+  import { handleFileOpen } from '$lib/utils/fileHandler';
   
   // Static component mapping for built-in panels
   const builtinComponents = {
@@ -612,6 +613,7 @@
                   on:dragend={handleDragEnd}
                   on:drop={handlePanelDrop}
                   on:resize={handlePanelResize}
+                  on:open={handleFileOpen}
                   on:close={handlePanelClose}
                 />
               </div>

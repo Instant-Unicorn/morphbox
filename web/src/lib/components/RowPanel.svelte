@@ -298,6 +298,10 @@
     document.removeEventListener('touchmove', handleTouchMove);
     document.removeEventListener('touchend', handleTouchEnd);
   }
+  
+  function handleOpen(event: CustomEvent) {
+    dispatch('open', event.detail);
+  }
 </script>
 
 <div 
@@ -400,11 +404,19 @@
         <svelte:component 
           this={component} 
           {websocketUrl}
+          panelId={panel.id}
+          {...panel.content}
+        />
+      {:else if panel.type === 'fileExplorer' || panel.type === 'file-explorer'}
+        <svelte:component 
+          this={component} 
+          panelId={panel.id}
           {...panel.content}
         />
       {:else}
         <svelte:component 
           this={component} 
+          panelId={panel.id}
           {...panel.content}
         />
       {/if}

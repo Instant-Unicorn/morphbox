@@ -3,8 +3,8 @@ import type { RequestHandler } from './$types';
 import { promises as fs } from 'fs';
 import path from 'path';
 
-// Base directory for file operations - restrict to /workspace for security
-const WORKSPACE_DIR = '/workspace';
+// Base directory for file operations - use current working directory
+const WORKSPACE_DIR = process.cwd();
 
 // Helper function to validate and normalize paths
 function validatePath(requestPath: string): string {

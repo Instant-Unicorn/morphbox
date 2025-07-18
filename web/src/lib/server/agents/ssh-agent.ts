@@ -62,7 +62,7 @@ export class SSHAgent extends EventEmitter implements Agent {
       '-it',
       'morphbox-vm',
       'su', '-', vmUser, '-c',
-      'cd /workspace && echo "✅ Claude auto-update is now enabled! To update manually, run: npm update -g @anthropic-ai/claude-code" && claude --dangerously-skip-permissions --continue'
+      'PROJECT_DIR=$(ls -d /workspace/*/ 2>/dev/null | head -n1 | xargs basename 2>/dev/null); cd /workspace/${PROJECT_DIR:-} 2>/dev/null || cd /workspace && echo "✅ Claude auto-update is now enabled! To update manually, run: npm update -g @anthropic-ai/claude-code" && claude --dangerously-skip-permissions --continue'
     ];
 
     const ptyOptions = {

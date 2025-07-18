@@ -98,11 +98,11 @@
 <style>
   .tab-bar {
     display: flex;
-    background-color: #2d2d2d;
-    border-bottom: 1px solid #3e3e3e;
+    background-color: var(--bg-color, #2d2d2d);
+    border-bottom: 1px solid var(--border-color, #3e3e3e);
     overflow-x: auto;
     scrollbar-width: thin;
-    scrollbar-color: #555 #2d2d2d;
+    scrollbar-color: var(--scrollbar-thumb, #555) var(--bg-color, #2d2d2d);
   }
 
   .tab-bar::-webkit-scrollbar {
@@ -110,11 +110,11 @@
   }
 
   .tab-bar::-webkit-scrollbar-track {
-    background: #2d2d2d;
+    background: var(--bg-color, #2d2d2d);
   }
 
   .tab-bar::-webkit-scrollbar-thumb {
-    background: #555;
+    background: var(--scrollbar-thumb, #555);
     border-radius: 3px;
   }
 
@@ -128,10 +128,10 @@
     align-items: center;
     gap: 6px;
     padding: 8px 12px;
-    background-color: #2d2d2d;
+    background-color: var(--bg-color, #2d2d2d);
     border: none;
-    border-right: 1px solid #3e3e3e;
-    color: #cccccc;
+    border-right: 1px solid var(--border-color, #3e3e3e);
+    color: var(--text-color, #cccccc);
     cursor: pointer;
     font-size: 13px;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
@@ -143,12 +143,12 @@
   }
 
   .tab:hover {
-    background-color: #383838;
+    background-color: var(--hover-bg, #383838);
   }
 
   .tab.active {
-    background-color: #1e1e1e;
-    color: #ffffff;
+    background-color: var(--editor-bg, #1e1e1e);
+    color: var(--text-color-bright, #ffffff);
   }
 
   .tab-icon {
@@ -164,7 +164,7 @@
   }
 
   .dirty-indicator {
-    color: #fff;
+    color: var(--text-color-bright, #fff);
     font-size: 20px;
     line-height: 1;
     margin-left: 4px;
@@ -181,7 +181,7 @@
     background: none;
     border: none;
     border-radius: 3px;
-    color: #888;
+    color: var(--text-secondary, #888);
     font-size: 18px;
     line-height: 1;
     cursor: pointer;
@@ -194,13 +194,13 @@
   }
 
   .close-btn:hover {
-    background-color: #4a4a4a;
-    color: #fff;
+    background-color: var(--hover-bg, #4a4a4a);
+    color: var(--text-color-bright, #fff);
   }
 
   .no-tabs {
     padding: 12px 20px;
-    color: #888;
+    color: var(--text-secondary, #888);
     font-size: 13px;
     font-style: italic;
   }

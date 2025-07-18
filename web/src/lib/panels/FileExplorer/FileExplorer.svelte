@@ -6,6 +6,7 @@
   import { fetchDirectory, createFile, createDirectory, deleteItem, renameItem } from './fileOperations';
   import { fileTargetStore, availableTargets, getDefaultTarget } from '$lib/stores/fileTarget';
   import type { Panel } from '$lib/stores/panels';
+  import { settings as settingsStore } from '$lib/panels/Settings/settings-store';
   
   const dispatch = createEventDispatcher();
   
@@ -292,8 +293,8 @@
     width: 100%;
     display: flex;
     flex-direction: column;
-    background-color: #252526;
-    color: #cccccc;
+    background-color: var(--surface, #252526);
+    color: var(--text-color, #cccccc);
     user-select: none;
     position: relative;
     min-height: 0; /* Fix flexbox height issues */
@@ -304,8 +305,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 8px 16px;
-    border-bottom: 1px solid #3e3e42;
-    background-color: #2d2d30;
+    border-bottom: 1px solid var(--border-color, #3e3e42);
+    background-color: var(--bg-color, #2d2d30);
   }
   
   .file-explorer-header h3 {
@@ -314,7 +315,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: #cccccc;
+    color: var(--text-color, #cccccc);
   }
   
   .header-actions {
@@ -331,9 +332,9 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    background: #3e3e42;
-    border: 1px solid #464647;
-    color: #cccccc;
+    background: var(--input-bg, #3e3e42);
+    border: 1px solid var(--border-color, #464647);
+    color: var(--text-color, #cccccc);
     cursor: pointer;
     font-size: 11px;
     padding: 4px 8px;
@@ -343,8 +344,8 @@
   }
   
   .target-btn:hover {
-    background-color: #464647;
-    border-color: #5a5a5c;
+    background-color: var(--hover-bg, #464647);
+    border-color: var(--hover-border, #5a5a5c);
   }
   
   .target-icon {
@@ -368,8 +369,8 @@
     top: 100%;
     right: 0;
     margin-top: 4px;
-    background: #2d2d30;
-    border: 1px solid #464647;
+    background: var(--bg-color, #2d2d30);
+    border: 1px solid var(--border-color, #464647);
     border-radius: 4px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     min-width: 200px;
@@ -383,8 +384,8 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: #969696;
-    border-bottom: 1px solid #464647;
+    color: var(--text-secondary, #969696);
+    border-bottom: 1px solid var(--border-color, #464647);
   }
   
   .target-option {
@@ -395,7 +396,7 @@
     padding: 8px 12px;
     background: none;
     border: none;
-    color: #cccccc;
+    color: var(--text-color, #cccccc);
     cursor: pointer;
     font-size: 12px;
     text-align: left;
@@ -403,17 +404,17 @@
   }
   
   .target-option:hover {
-    background-color: #3e3e42;
+    background-color: var(--hover-bg, #3e3e42);
   }
   
   .target-option.selected {
-    background-color: #094771;
+    background-color: var(--accent-color, #094771);
   }
   
   .panel-type {
     font-size: 10px;
     text-transform: uppercase;
-    color: #969696;
+    color: var(--text-secondary, #969696);
     margin-right: 8px;
   }
   
@@ -427,14 +428,14 @@
   .no-targets {
     padding: 12px;
     text-align: center;
-    color: #969696;
+    color: var(--text-secondary, #969696);
     font-size: 12px;
   }
   
   .refresh-btn {
     background: none;
     border: none;
-    color: #cccccc;
+    color: var(--text-color, #cccccc);
     cursor: pointer;
     font-size: 14px;
     padding: 4px;
@@ -443,7 +444,7 @@
   }
   
   .refresh-btn:hover {
-    background-color: #3e3e42;
+    background-color: var(--hover-bg, #3e3e42);
   }
   
   .file-explorer-content {
@@ -464,7 +465,7 @@
   }
   
   .error {
-    color: #f48771;
+    color: var(--error-color, #f48771);
   }
   
   /* Custom scrollbar */
@@ -477,17 +478,17 @@
   }
   
   .file-explorer-content::-webkit-scrollbar-thumb {
-    background: #424242;
+    background: var(--scrollbar-thumb, #424242);
     border-radius: 5px;
   }
   
   .file-explorer-content::-webkit-scrollbar-thumb:hover {
-    background: #4e4e4e;
+    background: var(--scrollbar-thumb-hover, #4e4e4e);
   }
   
   .menu-divider {
     height: 1px;
-    background-color: #3e3e42;
+    background-color: var(--border-color, #3e3e42);
     margin: 4px 8px;
   }
 </style>

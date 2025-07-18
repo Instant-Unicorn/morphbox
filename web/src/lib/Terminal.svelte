@@ -620,7 +620,26 @@
         if (fitAddon) {
           fitAddon.fit();
         }
-        // Don't set fixed height - let xterm manage it
+        
+        // Adjust terminal to show only actual content
+        if (terminal && terminalContainer) {
+          // Find the last row with content
+          let lastContentRow = 0;
+          for (let i = terminal.rows - 1; i >= 0; i--) {
+            const line = terminal.buffer.active.getLine(i);
+            if (line && line.translateToString().trim() !== '') {
+              lastContentRow = i;
+              break;
+            }
+          }
+          
+          // Resize terminal to fit content
+          const contentRows = Math.max(lastContentRow + 5, 10); // Add some padding
+          if (contentRows < terminal.rows) {
+            terminal.resize(terminal.cols, contentRows);
+            fitAddon.fit();
+          }
+        }
       }, 2000);
     }
     
@@ -850,6 +869,8 @@
   @media (max-width: 768px) {
     :global(.terminal-wrapper .xterm) {
       padding: 5px !important; /* Reduce padding on mobile */
+      height: auto !important; /* Let content determine height */
+      min-height: 0 !important; /* Remove minimum height constraints */
     }
     
     /* Fix loading opacity on mobile only */
@@ -878,12 +899,17 @@
       opacity: 1 !important;
     }
     
+    /* Allow xterm screen to size based on content */
+    :global(.xterm-screen) {
+      height: auto !important;
+    }
+    
     .terminal-container {
       /* Remove fixed positioning that was causing issues */
       position: relative;
-      /* Mobile needs specific height to prevent excess space */
-      height: calc(100vh - 100px); /* Account for UI elements */
-      max-height: 100%;
+      /* Let content determine height but constrain to viewport */
+      height: auto !important;
+      max-height: calc(100vh - 100px); /* Prevent overflow beyond viewport */
       /* Reset any transforms */
       transform: none !important;
       left: 0 !important;

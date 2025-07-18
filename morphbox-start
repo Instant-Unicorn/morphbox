@@ -26,6 +26,8 @@ fi
 BIND_HOST="${MORPHBOX_HOST:-localhost}"
 ACCESS_MODE="${MORPHBOX_BIND_MODE:-local}"
 DEV_MODE=false
+AUTH_ENABLED=false
+TERMINAL_MODE=false
 
 # Apply bind mode
 if [[ "$ACCESS_MODE" == "external" ]]; then

@@ -59,6 +59,10 @@ while [[ $# -gt 0 ]]; do
             fi
             shift
             ;;
+        --auth)
+            AUTH_ENABLED=true
+            shift
+            ;;
         --dev)
             DEV_MODE=true
             shift
@@ -72,13 +76,15 @@ while [[ $# -gt 0 ]]; do
             echo "  --local     Bind to localhost only (default)"
             echo "  --external  Bind to all interfaces (WARNING: exposes to network)"
             echo "  --vpn       Auto-detect and bind to VPN interface (Tailscale, WireGuard, etc.)"
+            echo "  --auth      Enable authentication (mandatory for --external, optional for --vpn)"
             echo "  --dev       Skip security warnings (development mode)"
             echo "  --help      Show this help message"
             echo ""
             echo "Examples:"
             echo "  $0              # Start locally (safe)"
-            echo "  $0 --external   # Expose to network (use with caution)"
+            echo "  $0 --external   # Expose to network with mandatory auth"
             echo "  $0 --vpn       # Bind to VPN interface only"
+            echo "  $0 --vpn --auth # VPN mode with authentication"
             echo "  $0 --external --dev   # External mode without prompts"
             exit 0
             ;;
@@ -99,13 +105,43 @@ if [[ ! -d "$WEB_DIR/node_modules" ]]; then
     cd "$WEB_DIR" && npm install
 fi
 
+# Setup authentication
+if [[ "$ACCESS_MODE" == "external" ]] || ([[ "$ACCESS_MODE" == "vpn" ]] && [[ "$AUTH_ENABLED" == "true" ]]); then
+    # External mode always requires auth, VPN mode only if --auth is specified
+    if [[ "$ACCESS_MODE" == "external" ]]; then
+        AUTH_ENABLED=true
+        export MORPHBOX_AUTH_MODE="external"
+    else
+        export MORPHBOX_AUTH_MODE="vpn"
+    fi
+    
+    # Generate secure credentials if not provided
+    if [[ -z "$MORPHBOX_AUTH_USERNAME" ]]; then
+        export MORPHBOX_AUTH_USERNAME="admin"
+    fi
+    
+    if [[ -z "$MORPHBOX_AUTH_PASSWORD" ]]; then
+        # Generate a secure random password
+        export MORPHBOX_AUTH_PASSWORD=$(openssl rand -base64 12)
+        info "🔐 Generated authentication credentials:"
+        info "   Username: $MORPHBOX_AUTH_USERNAME"
+        info "   Password: $MORPHBOX_AUTH_PASSWORD"
+        info "   Save these credentials - you'll need them to access MorphBox!"
+    fi
+    
+    export MORPHBOX_AUTH_ENABLED="true"
+else
+    export MORPHBOX_AUTH_MODE="none"
+    export MORPHBOX_AUTH_ENABLED="false"
+fi
+
 # Show security warning if external (unless in dev mode)
 if [[ "$ACCESS_MODE" == "external" ]] && [[ "$DEV_MODE" != "true" ]]; then
     echo ""
     warn "⚠️  SECURITY WARNING ⚠️"
     warn "MorphBox will be accessible from external networks!"
     warn "This exposes your development environment to potential security risks."
-    warn "Only use --external on trusted networks."
+    warn "Authentication is ENABLED to protect your system."
     echo ""
     read -p "Continue with external access? (y/N) " -n 1 -r
     echo ""
@@ -116,6 +152,9 @@ if [[ "$ACCESS_MODE" == "external" ]] && [[ "$DEV_MODE" != "true" ]]; then
 elif [[ "$ACCESS_MODE" == "vpn" ]]; then
     info "✅ VPN mode: MorphBox will only be accessible via VPN connection"
     info "Binding to: $BIND_HOST"
+    if [[ "$AUTH_ENABLED" == "true" ]]; then
+        info "🔐 Authentication is enabled for additional security"
+    fi
 fi
 
 # Kill any existing processes
@@ -180,7 +219,12 @@ fi
 # Start WebSocket server
 info "Starting WebSocket server..."
 cd "$WEB_DIR"
-MORPHBOX_HOST="$BIND_HOST" npm run dev:ws > "$SCRIPT_DIR/websocket.log" 2>&1 &
+MORPHBOX_HOST="$BIND_HOST" \
+MORPHBOX_AUTH_MODE="$MORPHBOX_AUTH_MODE" \
+MORPHBOX_AUTH_ENABLED="$MORPHBOX_AUTH_ENABLED" \
+MORPHBOX_AUTH_USERNAME="$MORPHBOX_AUTH_USERNAME" \
+MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
+npm run dev:ws > "$SCRIPT_DIR/websocket.log" 2>&1 &
 WS_PID=$!
 
 # Wait for WebSocket server
@@ -188,6 +232,11 @@ sleep 2
 
 # Start SvelteKit dev server
 info "Starting MorphBox web interface..."
+MORPHBOX_HOST="$BIND_HOST" \
+MORPHBOX_AUTH_MODE="$MORPHBOX_AUTH_MODE" \
+MORPHBOX_AUTH_ENABLED="$MORPHBOX_AUTH_ENABLED" \
+MORPHBOX_AUTH_USERNAME="$MORPHBOX_AUTH_USERNAME" \
+MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
 npm run dev -- --host "$BIND_HOST" > "$SCRIPT_DIR/web.log" 2>&1 &
 WEB_PID=$!
 

@@ -3,6 +3,9 @@
 		"src/routes/+layout.server.ts",
 		"src/routes/+layout.server.ts"
 	],
+	"/api/auth/login": [
+		"src/routes/api/auth/login/+server.ts"
+	],
 	"/api/files": [
 		"src/routes/api/files/+server.ts"
 	],
@@ -69,6 +72,9 @@
 		"src/routes/+layout.server.ts"
 	],
 	"/layout-test": [
+		"src/routes/+layout.server.ts"
+	],
+	"/login": [
 		"src/routes/+layout.server.ts"
 	],
 	"/panel-menu-demo": [

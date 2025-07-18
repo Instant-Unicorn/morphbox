@@ -242,48 +242,79 @@ else
     WEB_URL="http://localhost:8008"
 fi
 
-# Start WebSocket server (skip if terminal mode, as server.js handles it)
-if [[ "$TERMINAL_MODE" != "true" ]]; then
-    info "Starting WebSocket server..."
-    cd "$WEB_DIR"
-    MORPHBOX_HOST="$BIND_HOST" \
-    MORPHBOX_AUTH_MODE="$MORPHBOX_AUTH_MODE" \
-    MORPHBOX_AUTH_ENABLED="$MORPHBOX_AUTH_ENABLED" \
-    MORPHBOX_AUTH_USERNAME="$MORPHBOX_AUTH_USERNAME" \
-    MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
-    npm run dev:ws > "$SCRIPT_DIR/websocket.log" 2>&1 &
-    WS_PID=$!
+# Terminal mode - run Claude directly in terminal
+if [[ "$TERMINAL_MODE" == "true" ]]; then
+    info "Launching Claude in terminal mode..."
     
-    # Wait for WebSocket server
-    sleep 2
+    # Get the current directory
+    CURRENT_DIR=$(pwd)
+    WORKSPACE_DIR="$SCRIPT_DIR/workspace"
+    
+    # Ensure workspace directory exists
+    mkdir -p "$WORKSPACE_DIR"
+    
+    # Create a symbolic link in the workspace to the current directory if outside workspace
+    if [[ ! "$CURRENT_DIR" == "$WORKSPACE_DIR"* ]]; then
+        # Create a unique name for this session
+        SESSION_NAME="terminal-$(date +%s)"
+        LINK_PATH="$WORKSPACE_DIR/$SESSION_NAME"
+        
+        # Create the symbolic link
+        ln -sf "$CURRENT_DIR" "$LINK_PATH"
+        
+        info "Linked current directory to container workspace"
+        CONTAINER_PATH="/workspace/$SESSION_NAME"
+        
+        # Clean up function for the symlink
+        cleanup_terminal() {
+            rm -f "$LINK_PATH"
+        }
+        trap cleanup_terminal EXIT
+    else
+        # Already in workspace, use relative path
+        CONTAINER_PATH="/workspace${CURRENT_DIR#$WORKSPACE_DIR}"
+    fi
+    
+    echo ""
+    info "Working directory: $CURRENT_DIR"
+    echo ""
+    
+    # Run Claude directly in the Docker container
+    docker exec -it \
+        -u morphbox \
+        -w "$CONTAINER_PATH" \
+        -e "TERM=xterm-256color" \
+        -e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}" \
+        morphbox-vm \
+        bash -c "claude --continue"
+    
+    # Exit after Claude exits
+    exit 0
 fi
 
-# Start SvelteKit server
-if [[ "$TERMINAL_MODE" == "true" ]]; then
-    info "Starting MorphBox in Terminal Mode (Claude Code only)..."
-    # Build first if needed
-    if [[ ! -d "$WEB_DIR/build" ]]; then
-        info "Building MorphBox..."
-        npm run build
-    fi
-    # Use the server.js with --terminal flag
-    MORPHBOX_HOST="$BIND_HOST" \
-    MORPHBOX_AUTH_MODE="$MORPHBOX_AUTH_MODE" \
-    MORPHBOX_AUTH_ENABLED="$MORPHBOX_AUTH_ENABLED" \
-    MORPHBOX_AUTH_USERNAME="$MORPHBOX_AUTH_USERNAME" \
-    MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
-    node server.js --terminal > "$SCRIPT_DIR/web.log" 2>&1 &
-    WEB_PID=$!
-else
-    info "Starting MorphBox web interface..."
-    MORPHBOX_HOST="$BIND_HOST" \
-    MORPHBOX_AUTH_MODE="$MORPHBOX_AUTH_MODE" \
-    MORPHBOX_AUTH_ENABLED="$MORPHBOX_AUTH_ENABLED" \
-    MORPHBOX_AUTH_USERNAME="$MORPHBOX_AUTH_USERNAME" \
-    MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
-    npm run dev -- --host "$BIND_HOST" > "$SCRIPT_DIR/web.log" 2>&1 &
-    WEB_PID=$!
-fi
+# Start WebSocket server for web mode
+info "Starting WebSocket server..."
+cd "$WEB_DIR"
+MORPHBOX_HOST="$BIND_HOST" \
+MORPHBOX_AUTH_MODE="$MORPHBOX_AUTH_MODE" \
+MORPHBOX_AUTH_ENABLED="$MORPHBOX_AUTH_ENABLED" \
+MORPHBOX_AUTH_USERNAME="$MORPHBOX_AUTH_USERNAME" \
+MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
+npm run dev:ws > "$SCRIPT_DIR/websocket.log" 2>&1 &
+WS_PID=$!
+
+# Wait for WebSocket server
+sleep 2
+
+# Start SvelteKit web server
+info "Starting MorphBox web interface..."
+MORPHBOX_HOST="$BIND_HOST" \
+MORPHBOX_AUTH_MODE="$MORPHBOX_AUTH_MODE" \
+MORPHBOX_AUTH_ENABLED="$MORPHBOX_AUTH_ENABLED" \
+MORPHBOX_AUTH_USERNAME="$MORPHBOX_AUTH_USERNAME" \
+MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
+npm run dev -- --host "$BIND_HOST" > "$SCRIPT_DIR/web.log" 2>&1 &
+WEB_PID=$!
 
 # Wait for web server
 sleep 3

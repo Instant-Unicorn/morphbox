@@ -660,6 +660,7 @@
     height: 100%;
     position: relative;
     overflow: hidden;
+    max-height: 100%;
   }
   
   .terminal-container {
@@ -747,6 +748,7 @@
   :global(.terminal-wrapper .xterm) {
     padding: 10px;
     height: 100%;
+    max-height: 100%;
     /* Remove constraints to allow natural sizing */
     display: block;
     /* Fix for mobile positioning issues */
@@ -793,6 +795,8 @@
   :global(.xterm) {
     /* Remove width constraints to prevent forced fitting */
     height: 100% !important;
+    max-height: 100% !important;
+    overflow: hidden;
   }
   
   /* Let terminal handle its own sizing */
@@ -833,6 +837,11 @@
   
   /* Viewport-based responsive styles */
   @media (max-width: 768px) {
+    .terminal-outer-container {
+      max-height: 100vh !important;
+      height: 100vh !important;
+    }
+    
     :global(.terminal-wrapper .xterm) {
       padding: var(--spacing-sm);
       /* Fix for mobile positioning */
@@ -840,6 +849,7 @@
       position: relative !important;
       left: 0 !important;
       right: 0 !important;
+      max-height: calc(100vh - 40px) !important; /* Account for any headers */
     }
     
     .terminal-container {
@@ -847,6 +857,8 @@
       position: relative;
       /* Ensure terminal fills its container */
       min-height: 200px;
+      max-height: 100vh !important;
+      height: 100% !important;
       /* Reset any transforms */
       transform: none !important;
       left: 0 !important;

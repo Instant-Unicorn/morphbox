@@ -1,0 +1,34 @@
+#!/usr/bin/env node
+
+// This is a wrapper script to run Morphbox in terminal mode
+import { spawn } from 'child_process';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Check if the build exists
+import { existsSync } from 'fs';
+const buildPath = join(__dirname, 'build');
+
+if (!existsSync(buildPath)) {
+  console.error('Error: Build directory not found. Please run "npm run build" first.');
+  process.exit(1);
+}
+
+// Start the server with terminal flag
+const serverPath = join(__dirname, 'server.js');
+const child = spawn('node', [serverPath, '--terminal'], {
+  stdio: 'inherit',
+  cwd: __dirname
+});
+
+child.on('error', (err) => {
+  console.error('Failed to start Morphbox terminal:', err);
+  process.exit(1);
+});
+
+child.on('exit', (code) => {
+  process.exit(code || 0);
+});

@@ -16,8 +16,8 @@ const terminalMode = args.includes('--terminal');
 
 // Environment variables
 const path = env('SOCKET_PATH', false);
-const host = env('HOST', '0.0.0.0');
-const port = env('PORT', !path && '3000');
+const host = env('HOST', env('MORPHBOX_HOST', '0.0.0.0'));
+const port = env('PORT', !path && '8008');
 const wsPort = env('WS_PORT', '8009');
 
 // Start the websocket server in a separate process

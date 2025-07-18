@@ -63,6 +63,10 @@ while [[ $# -gt 0 ]]; do
             AUTH_ENABLED=true
             shift
             ;;
+        --terminal)
+            TERMINAL_MODE=true
+            shift
+            ;;
         --dev)
             DEV_MODE=true
             shift
@@ -76,12 +80,14 @@ while [[ $# -gt 0 ]]; do
             echo "  --local     Bind to localhost only (default)"
             echo "  --external  Bind to all interfaces (WARNING: exposes to network)"
             echo "  --vpn       Auto-detect and bind to VPN interface (Tailscale, WireGuard, etc.)"
+            echo "  --terminal  Terminal mode - Claude Code only, no panels"
             echo "  --auth      Enable authentication (mandatory for --external, optional for --vpn)"
             echo "  --dev       Skip security warnings (development mode)"
             echo "  --help      Show this help message"
             echo ""
             echo "Examples:"
             echo "  $0              # Start locally (safe)"
+            echo "  $0 --terminal   # Claude Code only mode"
             echo "  $0 --external   # Expose to network with mandatory auth"
             echo "  $0 --vpn       # Bind to VPN interface only"
             echo "  $0 --vpn --auth # VPN mode with authentication"
@@ -236,35 +242,57 @@ else
     WEB_URL="http://localhost:8008"
 fi
 
-# Start WebSocket server
-info "Starting WebSocket server..."
-cd "$WEB_DIR"
-MORPHBOX_HOST="$BIND_HOST" \
-MORPHBOX_AUTH_MODE="$MORPHBOX_AUTH_MODE" \
-MORPHBOX_AUTH_ENABLED="$MORPHBOX_AUTH_ENABLED" \
-MORPHBOX_AUTH_USERNAME="$MORPHBOX_AUTH_USERNAME" \
-MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
-npm run dev:ws > "$SCRIPT_DIR/websocket.log" 2>&1 &
-WS_PID=$!
+# Start WebSocket server (skip if terminal mode, as server.js handles it)
+if [[ "$TERMINAL_MODE" != "true" ]]; then
+    info "Starting WebSocket server..."
+    cd "$WEB_DIR"
+    MORPHBOX_HOST="$BIND_HOST" \
+    MORPHBOX_AUTH_MODE="$MORPHBOX_AUTH_MODE" \
+    MORPHBOX_AUTH_ENABLED="$MORPHBOX_AUTH_ENABLED" \
+    MORPHBOX_AUTH_USERNAME="$MORPHBOX_AUTH_USERNAME" \
+    MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
+    npm run dev:ws > "$SCRIPT_DIR/websocket.log" 2>&1 &
+    WS_PID=$!
+    
+    # Wait for WebSocket server
+    sleep 2
+fi
 
-# Wait for WebSocket server
-sleep 2
-
-# Start SvelteKit dev server
-info "Starting MorphBox web interface..."
-MORPHBOX_HOST="$BIND_HOST" \
-MORPHBOX_AUTH_MODE="$MORPHBOX_AUTH_MODE" \
-MORPHBOX_AUTH_ENABLED="$MORPHBOX_AUTH_ENABLED" \
-MORPHBOX_AUTH_USERNAME="$MORPHBOX_AUTH_USERNAME" \
-MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
-npm run dev -- --host "$BIND_HOST" > "$SCRIPT_DIR/web.log" 2>&1 &
-WEB_PID=$!
+# Start SvelteKit server
+if [[ "$TERMINAL_MODE" == "true" ]]; then
+    info "Starting MorphBox in Terminal Mode (Claude Code only)..."
+    # Build first if needed
+    if [[ ! -d "$WEB_DIR/build" ]]; then
+        info "Building MorphBox..."
+        npm run build
+    fi
+    # Use the server.js with --terminal flag
+    MORPHBOX_HOST="$BIND_HOST" \
+    MORPHBOX_AUTH_MODE="$MORPHBOX_AUTH_MODE" \
+    MORPHBOX_AUTH_ENABLED="$MORPHBOX_AUTH_ENABLED" \
+    MORPHBOX_AUTH_USERNAME="$MORPHBOX_AUTH_USERNAME" \
+    MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
+    node server.js --terminal > "$SCRIPT_DIR/web.log" 2>&1 &
+    WEB_PID=$!
+else
+    info "Starting MorphBox web interface..."
+    MORPHBOX_HOST="$BIND_HOST" \
+    MORPHBOX_AUTH_MODE="$MORPHBOX_AUTH_MODE" \
+    MORPHBOX_AUTH_ENABLED="$MORPHBOX_AUTH_ENABLED" \
+    MORPHBOX_AUTH_USERNAME="$MORPHBOX_AUTH_USERNAME" \
+    MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
+    npm run dev -- --host "$BIND_HOST" > "$SCRIPT_DIR/web.log" 2>&1 &
+    WEB_PID=$!
+fi
 
 # Wait for web server
 sleep 3
 
 info "MorphBox is running!"
 echo ""
+if [[ "$TERMINAL_MODE" == "true" ]]; then
+    info "🖥️  Terminal Mode - Claude Code only (no panels)"
+fi
 if [[ "$DEV_MODE" == "true" ]]; then
     info "Development mode enabled (warnings disabled)"
 fi
@@ -286,10 +314,11 @@ info "Press Ctrl+C to stop all services"
 cleanup() {
     echo ""
     info "Stopping MorphBox..."
-    kill $WS_PID 2>/dev/null || true
-    kill $WEB_PID 2>/dev/null || true
+    [[ -n "$WS_PID" ]] && kill $WS_PID 2>/dev/null || true
+    [[ -n "$WEB_PID" ]] && kill $WEB_PID 2>/dev/null || true
     pkill -f "tsx.*websocket-server" 2>/dev/null || true
     pkill -f "vite dev" 2>/dev/null || true
+    pkill -f "node server.js" 2>/dev/null || true
     
     # Automatically stop Docker container
     if docker ps | grep -q morphbox-vm; then

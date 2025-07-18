@@ -620,6 +620,15 @@
         if (fitAddon) {
           fitAddon.fit();
         }
+        // Remove any extra space
+        if (terminalContainer && terminal) {
+          const dims = fitAddon.proposeDimensions();
+          if (dims) {
+            // Set container height to match terminal content
+            const height = dims.rows * terminal.options.lineHeight * terminal.options.fontSize;
+            terminalContainer.style.height = `${height}px`;
+          }
+        }
       }, 2000);
     }
     
@@ -853,7 +862,7 @@
   /* Viewport-based responsive styles */
   @media (max-width: 768px) {
     :global(.terminal-wrapper .xterm) {
-      padding: var(--spacing-sm);
+      padding: 5px !important; /* Reduce padding on mobile */
       position: relative !important;
       display: block !important;
       visibility: visible !important;
@@ -872,6 +881,10 @@
       display: block !important;
       opacity: 1 !important;
       visibility: visible !important;
+      /* Fix double scrollbar issue */
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      -webkit-overflow-scrolling: touch;
     }
     
     /* Force terminal screen to be visible */
@@ -892,13 +905,19 @@
     .terminal-container {
       /* Remove fixed positioning that was causing issues */
       position: relative;
-      /* Ensure terminal fills its container */
-      min-height: 200px;
-      /* Don't force height */
+      /* Remove min-height that adds extra space */
+      /* min-height: 200px; */
+      /* Prevent double scrollbars */
+      overflow: hidden !important;
       /* Reset any transforms */
       transform: none !important;
       left: 0 !important;
       right: 0 !important;
+    }
+    
+    .terminal-outer-container {
+      /* Prevent outer container scrolling */
+      overflow: hidden !important;
     }
     
     :global(.xterm-rows) {

@@ -681,8 +681,7 @@
   }
   
   .terminal-container.loading {
-    /* Don't hide content on mobile */
-    opacity: 1;
+    opacity: 0.2;
   }
   
   .loading-overlay {
@@ -751,13 +750,8 @@
   :global(.terminal-wrapper .xterm) {
     padding: 10px;
     height: 100%;
-    max-height: 100%;
     /* Remove constraints to allow natural sizing */
     display: block;
-    /* Fix for mobile positioning issues */
-    position: relative;
-    left: 0;
-    top: 0;
   }
   
   /* Scale padding with container size */
@@ -778,13 +772,6 @@
     /* Let xterm handle scrolling */
     overflow-y: scroll !important;
     overflow-x: auto !important;
-    /* Fix for mobile viewport issues */
-    position: relative !important;
-    left: 0 !important;
-    transform: none !important;
-    /* Ensure visibility */
-    opacity: 1 !important;
-    visibility: visible !important;
   }
   
   :global(.xterm-screen) {
@@ -801,8 +788,6 @@
   :global(.xterm) {
     /* Remove width constraints to prevent forced fitting */
     height: 100% !important;
-    max-height: 100% !important;
-    overflow: hidden;
   }
   
   /* Let terminal handle its own sizing */
@@ -816,9 +801,6 @@
   :global(.xterm .xterm-selection-layer) {
     /* Force re-render on resize */
     will-change: transform;
-    /* Ensure visibility on mobile */
-    opacity: 1 !important;
-    visibility: visible !important;
   }
   
   /* Handle very small terminals */
@@ -846,19 +828,20 @@
   
   /* Viewport-based responsive styles */
   @media (max-width: 768px) {
-    .terminal-outer-container {
-      /* Don't force height, let it be flexible */
-      max-height: 100%;
-    }
-    
     :global(.terminal-wrapper .xterm) {
       padding: var(--spacing-sm);
-      /* Fix for mobile positioning */
-      transform: none !important;
+    }
+    
+    /* Fix loading opacity on mobile only */
+    .terminal-container.loading {
+      opacity: 1;
+    }
+    
+    /* Mobile-specific viewport fixes */
+    :global(.xterm-viewport) {
       position: relative !important;
       left: 0 !important;
-      right: 0 !important;
-      /* Remove forced height constraint */
+      transform: none !important;
     }
     
     .terminal-container {

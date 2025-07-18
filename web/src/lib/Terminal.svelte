@@ -130,8 +130,17 @@
       url = urlObj.toString();
     }
     
-    console.log('Connecting to WebSocket:', url);
-    ws = new WebSocket(url);
+    console.log('[Terminal] Connecting to WebSocket:', url);
+    console.log('[Terminal] User agent:', navigator.userAgent);
+    console.log('[Terminal] Is mobile:', getViewportInfo().isTouchDevice);
+    
+    try {
+      ws = new WebSocket(url);
+    } catch (error) {
+      console.error('[Terminal] WebSocket creation error:', error);
+      isInitializing = false;
+      return;
+    }
     
     // Set timeout for connection
     const connectionTimeout = setTimeout(() => {
@@ -399,6 +408,8 @@
   onMount(async () => {
     if (!browser) return;
     
+    console.log('[Terminal] Starting initialization...');
+    
     // Load terminal session ID from sessionStorage if available
     const savedSessionId = sessionStorage.getItem('morphbox-terminal-session');
     if (savedSessionId) {
@@ -408,49 +419,69 @@
     
     // Wait for modules to load
     let attempts = 0;
+    console.log('[Terminal] Loading xterm modules...');
     while ((!Terminal || !FitAddon || !WebLinksAddon) && attempts < 50) {
       await new Promise(resolve => setTimeout(resolve, 100));
       attempts++;
     }
     
     if (!Terminal || !FitAddon || !WebLinksAddon) {
-      console.error('Failed to load xterm modules');
+      console.error('[Terminal] Failed to load xterm modules after', attempts, 'attempts');
+      console.error('[Terminal] Terminal:', !!Terminal, 'FitAddon:', !!FitAddon, 'WebLinksAddon:', !!WebLinksAddon);
+      // Show error to user
+      writeln('Error: Failed to load terminal modules. Please refresh the page.');
+      isInitializing = false;
       return;
     }
     
+    console.log('[Terminal] Modules loaded successfully');
+    
     const termOptions = getTerminalOptions();
     
-    // Create terminal instance with settings
-    terminal = new Terminal({
-      fontSize: termOptions.fontSize,
-      fontFamily: termOptions.fontFamily,
-      lineHeight: termOptions.lineHeight,
-      letterSpacing: 0,
-      scrollback: 10000,
-      smoothScrollDuration: 100,
-      cursorBlink: termOptions.cursorBlink,
-      cursorStyle: termOptions.cursorStyle,
-      allowTransparency: false,
-      tabStopWidth: 8,
-      screenReaderMode: false,
-      // Ensure proper terminal type for arrow keys
-      convertEol: true,
-      termName: 'xterm-256color',
-      // Start with standard terminal dimensions
-      cols: 80,
-      rows: 24
-    });
-    
-    // Apply initial theme
-    updateTerminalSettings();
-    
-    // Load addons
-    fitAddon = new FitAddon();
-    terminal.loadAddon(fitAddon);
-    terminal.loadAddon(new WebLinksAddon());
-    
-    // Open terminal in container
-    terminal.open(terminalContainer);
+    try {
+      // Create terminal instance with settings
+      console.log('[Terminal] Creating terminal with options:', termOptions);
+      terminal = new Terminal({
+        fontSize: termOptions.fontSize,
+        fontFamily: termOptions.fontFamily,
+        lineHeight: termOptions.lineHeight,
+        letterSpacing: 0,
+        scrollback: 10000,
+        smoothScrollDuration: 100,
+        cursorBlink: termOptions.cursorBlink,
+        cursorStyle: termOptions.cursorStyle,
+        allowTransparency: false,
+        tabStopWidth: 8,
+        screenReaderMode: false,
+        // Ensure proper terminal type for arrow keys
+        convertEol: true,
+        termName: 'xterm-256color',
+        // Start with standard terminal dimensions
+        cols: 80,
+        rows: 24
+      });
+      
+      // Apply initial theme
+      updateTerminalSettings();
+      
+      // Load addons
+      console.log('[Terminal] Loading addons...');
+      fitAddon = new FitAddon();
+      terminal.loadAddon(fitAddon);
+      terminal.loadAddon(new WebLinksAddon());
+      
+      // Open terminal in container
+      console.log('[Terminal] Opening terminal in container...');
+      terminal.open(terminalContainer);
+      console.log('[Terminal] Terminal opened successfully');
+    } catch (error) {
+      console.error('[Terminal] Error initializing terminal:', error);
+      isInitializing = false;
+      if (terminalContainer) {
+        terminalContainer.innerHTML = '<div style="color: red; padding: 20px;">Error initializing terminal. Please refresh the page.</div>';
+      }
+      return;
+    }
     
     // Initial fit after terminal is ready
     setTimeout(() => {
@@ -559,6 +590,14 @@
       writeln('Launching Claude...');
     }
     
+    // Add timeout to prevent infinite loading on mobile
+    setTimeout(() => {
+      if (isInitializing) {
+        console.error('[Terminal] Initialization timeout - forcing completion');
+        isInitializing = false;
+      }
+    }, 10000); // 10 second timeout
+    
     // Subscribe to settings changes
     settingsUnsubscribe = settings.subscribe(() => {
       updateTerminalSettings();
@@ -598,6 +637,14 @@
     </div>
   {/if}
   
+  {#if isInitializing}
+    <div class="loading-overlay">
+      <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading Claude...</div>
+      </div>
+    </div>
+  {/if}
   
   <div 
     bind:this={terminalContainer}
@@ -633,6 +680,38 @@
     opacity: 0.2;
   }
   
+  .loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(30, 30, 30, 0.9);
+    z-index: 100;
+  }
+  
+  .loading-content {
+    text-align: center;
+    color: var(--text-primary, #d4d4d4);
+  }
+  
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto 16px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: var(--accent-color, #0e639c);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  .loading-text {
+    font-size: 16px;
+    font-weight: 500;
+  }
   
   .connection-status {
     position: absolute;

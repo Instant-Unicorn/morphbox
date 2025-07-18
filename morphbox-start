@@ -138,15 +138,35 @@ fi
 # Show security warning if external (unless in dev mode)
 if [[ "$ACCESS_MODE" == "external" ]] && [[ "$DEV_MODE" != "true" ]]; then
     echo ""
-    warn "⚠️  SECURITY WARNING ⚠️"
-    warn "MorphBox will be accessible from external networks!"
-    warn "This exposes your development environment to potential security risks."
-    warn "Authentication is ENABLED to protect your system."
+    echo -e "${RED}████████████████████████████████████████████████████████████████${NC}"
+    echo -e "${RED}█                                                              █${NC}"
+    echo -e "${RED}█  🚨 EXTREME SECURITY WARNING - READ CAREFULLY! 🚨            █${NC}"
+    echo -e "${RED}█                                                              █${NC}"
+    echo -e "${RED}████████████████████████████████████████████████████████████████${NC}"
     echo ""
-    read -p "Continue with external access? (y/N) " -n 1 -r
+    warn "You are about to expose your ENTIRE DEVELOPMENT ENVIRONMENT to the network!"
     echo ""
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        info "Aborted. Use without --external for local-only access."
+    warn "This means ANYONE on your network can:"
+    warn "  ❌ Execute ANY command on your system"
+    warn "  ❌ Read, modify, or DELETE any accessible file"
+    warn "  ❌ Steal your source code and secrets"
+    warn "  ❌ Install malware or backdoors"
+    warn "  ❌ Use your machine to attack others"
+    echo ""
+    warn "Authentication is enabled but is NOT sufficient protection!"
+    echo ""
+    warn "ONLY proceed if ALL of these are true:"
+    warn "  ✅ You are on an isolated, air-gapped network"
+    warn "  ✅ This machine contains NO sensitive data"
+    warn "  ✅ This machine has NO production access"
+    warn "  ✅ You understand and accept these risks"
+    echo ""
+    echo -e "${RED}If you're unsure, the answer is NO. Press 'n' to cancel.${NC}"
+    echo ""
+    read -p "Type 'I UNDERSTAND THE RISKS' to continue: " -r CONFIRM
+    echo ""
+    if [[ "$CONFIRM" != "I UNDERSTAND THE RISKS" ]]; then
+        info "Aborted. Good choice! Use --vpn for safer remote access."
         exit 0
     fi
 elif [[ "$ACCESS_MODE" == "vpn" ]]; then

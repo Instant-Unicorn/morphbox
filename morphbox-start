@@ -358,5 +358,16 @@ cleanup() {
 # Set up signal handler
 trap cleanup SIGINT SIGTERM
 
-# Wait for processes
-wait
+# Keep script running
+while true; do
+    # Check if processes are still running
+    if [[ -n "$WEB_PID" ]] && ! kill -0 $WEB_PID 2>/dev/null; then
+        warn "Web server stopped unexpectedly"
+        cleanup
+    fi
+    if [[ -n "$WS_PID" ]] && ! kill -0 $WS_PID 2>/dev/null; then
+        warn "WebSocket server stopped unexpectedly"
+        cleanup
+    fi
+    sleep 5
+done

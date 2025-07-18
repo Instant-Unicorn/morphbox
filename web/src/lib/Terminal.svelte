@@ -130,8 +130,17 @@
       url = urlObj.toString();
     }
     
-    console.log('Connecting to WebSocket:', url);
-    ws = new WebSocket(url);
+    console.log('[Terminal] Connecting to WebSocket:', url);
+    console.log('[Terminal] User agent:', navigator.userAgent);
+    console.log('[Terminal] Is mobile:', getViewportInfo().isTouchDevice);
+    
+    try {
+      ws = new WebSocket(url);
+    } catch (error) {
+      console.error('[Terminal] WebSocket creation error:', error);
+      isInitializing = false;
+      return;
+    }
     
     // Set timeout for connection
     const connectionTimeout = setTimeout(() => {
@@ -159,6 +168,7 @@
       
       // Hide splash screen after connection
       setTimeout(() => {
+        console.log('[Terminal] Hiding loading overlay after connection');
         isInitializing = false;
       }, 750);
     };
@@ -399,6 +409,8 @@
   onMount(async () => {
     if (!browser) return;
     
+    console.log('[Terminal] Starting initialization...');
+    
     // Load terminal session ID from sessionStorage if available
     const savedSessionId = sessionStorage.getItem('morphbox-terminal-session');
     if (savedSessionId) {
@@ -408,49 +420,81 @@
     
     // Wait for modules to load
     let attempts = 0;
+    console.log('[Terminal] Loading xterm modules...');
     while ((!Terminal || !FitAddon || !WebLinksAddon) && attempts < 50) {
       await new Promise(resolve => setTimeout(resolve, 100));
       attempts++;
     }
     
     if (!Terminal || !FitAddon || !WebLinksAddon) {
-      console.error('Failed to load xterm modules');
+      console.error('[Terminal] Failed to load xterm modules after', attempts, 'attempts');
+      console.error('[Terminal] Terminal:', !!Terminal, 'FitAddon:', !!FitAddon, 'WebLinksAddon:', !!WebLinksAddon);
+      // Show error to user
+      writeln('Error: Failed to load terminal modules. Please refresh the page.');
+      isInitializing = false;
       return;
     }
     
+    console.log('[Terminal] Modules loaded successfully');
+    
     const termOptions = getTerminalOptions();
     
-    // Create terminal instance with settings
-    terminal = new Terminal({
-      fontSize: termOptions.fontSize,
-      fontFamily: termOptions.fontFamily,
-      lineHeight: termOptions.lineHeight,
-      letterSpacing: 0,
-      scrollback: 10000,
-      smoothScrollDuration: 100,
-      cursorBlink: termOptions.cursorBlink,
-      cursorStyle: termOptions.cursorStyle,
-      allowTransparency: false,
-      tabStopWidth: 8,
-      screenReaderMode: false,
-      // Ensure proper terminal type for arrow keys
-      convertEol: true,
-      termName: 'xterm-256color',
-      // Start with standard terminal dimensions
-      cols: 80,
-      rows: 24
-    });
-    
-    // Apply initial theme
-    updateTerminalSettings();
-    
-    // Load addons
-    fitAddon = new FitAddon();
-    terminal.loadAddon(fitAddon);
-    terminal.loadAddon(new WebLinksAddon());
-    
-    // Open terminal in container
-    terminal.open(terminalContainer);
+    try {
+      // Create terminal instance with settings
+      console.log('[Terminal] Creating terminal with options:', termOptions);
+      terminal = new Terminal({
+        fontSize: termOptions.fontSize,
+        fontFamily: termOptions.fontFamily,
+        lineHeight: termOptions.lineHeight,
+        letterSpacing: 0,
+        scrollback: 10000,
+        smoothScrollDuration: 100,
+        cursorBlink: termOptions.cursorBlink,
+        cursorStyle: termOptions.cursorStyle,
+        allowTransparency: false,
+        tabStopWidth: 8,
+        screenReaderMode: false,
+        // Ensure proper terminal type for arrow keys
+        convertEol: true,
+        termName: 'xterm-256color',
+        // Start with standard terminal dimensions
+        cols: 80,
+        rows: 24
+      });
+      
+      // Apply initial theme
+      updateTerminalSettings();
+      
+      // Load addons
+      console.log('[Terminal] Loading addons...');
+      fitAddon = new FitAddon();
+      terminal.loadAddon(fitAddon);
+      terminal.loadAddon(new WebLinksAddon());
+      
+      // Open terminal in container
+      console.log('[Terminal] Opening terminal in container...');
+      terminal.open(terminalContainer);
+      console.log('[Terminal] Terminal opened successfully');
+      
+      // Mobile-specific check
+      if (getViewportInfo().isTouchDevice) {
+        console.log('[Terminal] Mobile device detected - applying mobile fixes');
+        // Force terminal to render
+        terminal.refresh(0, terminal.rows - 1);
+      }
+    } catch (error) {
+      console.error('[Terminal] Error initializing terminal:', error);
+      isInitializing = false;
+      if (terminalContainer) {
+        const isMobile = getViewportInfo().isTouchDevice;
+        terminalContainer.innerHTML = `<div style="color: red; padding: 20px;">
+          Error initializing terminal${isMobile ? ' on mobile' : ''}. 
+          ${isMobile ? 'Mobile terminal support is limited. ' : ''}
+          Please refresh the page.
+        </div>`;
+      }
+      return;
+    }
     
     // Initial fit after terminal is ready
     setTimeout(() => {
@@ -559,6 +603,46 @@
       writeln('Launching Claude...');
     }
     
+    // Add timeout to prevent infinite loading on mobile
+    setTimeout(() => {
+      if (isInitializing) {
+        console.error('[Terminal] Initialization timeout - forcing completion');
+        isInitializing = false;
+      }
+    }, 10000); // 10 second timeout
+    
+    // Mobile-specific fix: Force a resize after initialization
+    if (getViewportInfo().isTouchDevice) {
+      setTimeout(() => {
+        console.log('[Terminal] Mobile detected - forcing resize');
+        handleResize();
+        // Also force fit addon to recalculate
+        if (fitAddon) {
+          fitAddon.fit();
+        }
+        
+        // Adjust terminal to show only actual content
+        if (terminal && terminalContainer) {
+          // Find the last row with content
+          let lastContentRow = 0;
+          for (let i = terminal.rows - 1; i >= 0; i--) {
+            const line = terminal.buffer.active.getLine(i);
+            if (line && line.translateToString().trim() !== '') {
+              lastContentRow = i;
+              break;
+            }
+          }
+          
+          // Resize terminal to fit content
+          const contentRows = Math.max(lastContentRow + 5, 10); // Add some padding
+          if (contentRows < terminal.rows) {
+            terminal.resize(terminal.cols, contentRows);
+            fitAddon.fit();
+          }
+        }
+      }, 2000);
+    }
+    
     // Subscribe to settings changes
     settingsUnsubscribe = settings.subscribe(() => {
       updateTerminalSettings();
@@ -598,6 +682,14 @@
     </div>
   {/if}
   
+  {#if isInitializing}
+    <div class="loading-overlay">
+      <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading Claude...</div>
+      </div>
+    </div>
+  {/if}
   
   <div 
     bind:this={terminalContainer}
@@ -612,6 +704,7 @@
     height: 100%;
     position: relative;
     overflow: hidden;
+    max-height: 100%;
   }
   
   .terminal-container {
@@ -620,9 +713,6 @@
     background-color: #1e1e1e;
     /* Enable container queries */
     container-type: inline-size;
-    /* Improve rendering performance */
-    will-change: transform;
-    transform: translateZ(0);
     /* Handle overflow for small containers */
     min-width: 0;
     overflow: auto;
@@ -633,6 +723,39 @@
     opacity: 0.2;
   }
   
+  .loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(30, 30, 30, 0.9);
+    z-index: 100;
+    pointer-events: none; /* Allow interaction with terminal underneath */
+  }
+  
+  .loading-content {
+    text-align: center;
+    color: var(--text-primary, #d4d4d4);
+  }
+  
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto 16px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: var(--accent-color, #0e639c);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  .loading-text {
+    font-size: 16px;
+    font-weight: 500;
+  }
   
   .connection-status {
     position: absolute;
@@ -745,14 +868,52 @@
   /* Viewport-based responsive styles */
   @media (max-width: 768px) {
     :global(.terminal-wrapper .xterm) {
-      padding: var(--spacing-sm);
+      padding: 5px !important; /* Reduce padding on mobile */
+      height: auto !important; /* Let content determine height */
+      min-height: 0 !important; /* Remove minimum height constraints */
+    }
+    
+    /* Fix loading opacity on mobile only */
+    .terminal-container.loading {
+      opacity: 1;
+    }
+    
+    /* Debug: ensure container is visible */
+    .terminal-container {
+      background-color: #1e1e1e !important;
+    }
+    
+    /* Mobile-specific viewport fixes */
+    :global(.xterm-viewport) {
+      /* Only fix positioning issues */
+      left: 0 !important;
+      transform: none !important;
+      /* Keep native touch scrolling */
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Keep terminal content visible but don't override display properties */
+    :global(.xterm-screen),
+    :global(.xterm .xterm-text-layer),
+    :global(.xterm .xterm-cursor-layer) {
+      opacity: 1 !important;
+    }
+    
+    /* Allow xterm screen to size based on content */
+    :global(.xterm-screen) {
+      height: auto !important;
     }
     
     .terminal-container {
       /* Remove fixed positioning that was causing issues */
       position: relative;
-      /* Ensure terminal fills its container */
-      min-height: 200px;
+      /* Let content determine height but constrain to viewport */
+      height: auto !important;
+      max-height: calc(100vh - 100px); /* Prevent overflow beyond viewport */
+      /* Reset any transforms */
+      transform: none !important;
+      left: 0 !important;
+      right: 0 !important;
     }
     
     :global(.xterm-rows) {

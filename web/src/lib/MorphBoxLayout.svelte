@@ -358,6 +358,8 @@
     right: 0;
     bottom: 0;
     z-index: 1;
+    overflow: hidden;
+    max-height: 100%;
   }
 
 

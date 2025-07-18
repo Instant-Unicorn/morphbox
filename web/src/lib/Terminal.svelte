@@ -475,11 +475,23 @@
       console.log('[Terminal] Opening terminal in container...');
       terminal.open(terminalContainer);
       console.log('[Terminal] Terminal opened successfully');
+      
+      // Mobile-specific check
+      if (getViewportInfo().isTouchDevice) {
+        console.log('[Terminal] Mobile device detected - applying mobile fixes');
+        // Force terminal to render
+        terminal.refresh(0, terminal.rows - 1);
+      }
     } catch (error) {
       console.error('[Terminal] Error initializing terminal:', error);
       isInitializing = false;
       if (terminalContainer) {
-        terminalContainer.innerHTML = '<div style="color: red; padding: 20px;">Error initializing terminal. Please refresh the page.</div>';
+        const isMobile = getViewportInfo().isTouchDevice;
+        terminalContainer.innerHTML = `<div style="color: red; padding: 20px;">
+          Error initializing terminal${isMobile ? ' on mobile' : ''}. 
+          ${isMobile ? 'Mobile terminal support is limited. ' : ''}
+          Please refresh the page.
+        </div>`;
       }
       return;
     }
@@ -598,6 +610,18 @@
         isInitializing = false;
       }
     }, 10000); // 10 second timeout
+    
+    // Mobile-specific fix: Force a resize after initialization
+    if (getViewportInfo().isTouchDevice) {
+      setTimeout(() => {
+        console.log('[Terminal] Mobile detected - forcing resize');
+        handleResize();
+        // Also force fit addon to recalculate
+        if (fitAddon) {
+          fitAddon.fit();
+        }
+      }, 2000);
+    }
     
     // Subscribe to settings changes
     settingsUnsubscribe = settings.subscribe(() => {
@@ -830,6 +854,9 @@
   @media (max-width: 768px) {
     :global(.terminal-wrapper .xterm) {
       padding: var(--spacing-sm);
+      position: relative !important;
+      display: block !important;
+      visibility: visible !important;
     }
     
     /* Fix loading opacity on mobile only */
@@ -842,6 +869,24 @@
       position: relative !important;
       left: 0 !important;
       transform: none !important;
+      display: block !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
+    
+    /* Force terminal screen to be visible */
+    :global(.xterm-screen) {
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+    }
+    
+    /* Ensure all canvas layers are visible */
+    :global(.xterm .xterm-text-layer),
+    :global(.xterm .xterm-cursor-layer) {
+      opacity: 1 !important;
+      visibility: visible !important;
+      display: block !important;
     }
     
     .terminal-container {

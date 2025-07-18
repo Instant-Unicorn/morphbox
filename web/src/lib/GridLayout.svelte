@@ -14,6 +14,7 @@
   import { settings, applyTheme } from '$lib/panels/Settings/settings-store';
   import { fade } from 'svelte/transition';
   import { panelRegistry } from '$lib/panels/registry';
+  import { handleFileOpen } from '$lib/utils/fileHandler';
   
   // Static component mapping for built-in panels
   const builtinComponents = {
@@ -759,6 +760,7 @@
               on:resize={handleResize}
               on:resizestart={handleResizeStart}
               on:resizeend={handleResizeEnd}
+              on:open={handleFileOpen}
               on:close={() => {
                 panelStore.removePanel(panel.id);
                 reorganizeGrid();

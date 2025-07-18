@@ -1,6 +1,18 @@
 import crypto from 'crypto';
 import type { RequestEvent } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
+
+// Dynamic import for SvelteKit environment
+let env: any = process.env;
+try {
+  // Only import $env in SvelteKit context
+  if (typeof process.env.VITE !== 'undefined') {
+    const envModule = await import('$env/dynamic/private');
+    env = envModule.env;
+  }
+} catch {
+  // Fallback to process.env when not in SvelteKit
+  env = process.env;
+}
 
 // Authentication configuration
 interface AuthConfig {

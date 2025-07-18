@@ -16,10 +16,11 @@ export const nodes = [
 	() => import('./nodes/9'),
 	() => import('./nodes/10'),
 	() => import('./nodes/11'),
-	() => import('./nodes/12')
+	() => import('./nodes/12'),
+	() => import('./nodes/13')
 ];
 
-export const server_loads = [];
+export const server_loads = [0];
 
 export const dictionary = {
 		"/": [3],
@@ -29,9 +30,10 @@ export const dictionary = {
 		"/docs/[...slug]": [~7,[2]],
 		"/file-explorer-demo": [8],
 		"/layout-test": [9],
-		"/panel-menu-demo": [10],
-		"/panel-test": [11],
-		"/test": [12]
+		"/login": [10],
+		"/panel-menu-demo": [11],
+		"/panel-test": [12],
+		"/test": [13]
 	};
 
 export const hooks = {

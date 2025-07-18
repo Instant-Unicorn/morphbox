@@ -1,5 +1,11 @@
 {
-	"/": [],
+	"/": [
+		"src/routes/+layout.server.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/api/auth/login": [
+		"src/routes/api/auth/login/+server.ts"
+	],
 	"/api/files": [
 		"src/routes/api/files/+server.ts"
 	],
@@ -48,15 +54,36 @@
 	"/api/ws": [
 		"src/routes/api/ws/+server.ts"
 	],
-	"/code-editor-demo": [],
-	"/command-palette-demo": [],
-	"/docs": [],
-	"/docs/[...slug]": [
-		"src/routes/docs/[...slug]/+page.server.ts"
+	"/code-editor-demo": [
+		"src/routes/+layout.server.ts"
 	],
-	"/file-explorer-demo": [],
-	"/layout-test": [],
-	"/panel-menu-demo": [],
-	"/panel-test": [],
-	"/test": []
+	"/command-palette-demo": [
+		"src/routes/+layout.server.ts"
+	],
+	"/docs": [
+		"src/routes/+layout.server.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/docs/[...slug]": [
+		"src/routes/docs/[...slug]/+page.server.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/file-explorer-demo": [
+		"src/routes/+layout.server.ts"
+	],
+	"/layout-test": [
+		"src/routes/+layout.server.ts"
+	],
+	"/login": [
+		"src/routes/+layout.server.ts"
+	],
+	"/panel-menu-demo": [
+		"src/routes/+layout.server.ts"
+	],
+	"/panel-test": [
+		"src/routes/+layout.server.ts"
+	],
+	"/test": [
+		"src/routes/+layout.server.ts"
+	]
 }

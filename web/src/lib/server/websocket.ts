@@ -2,6 +2,7 @@ import type { WebSocket } from 'ws';
 import type { IncomingMessage } from 'http';
 import type { AgentManager } from './agent-manager';
 import type { StateManager } from './state-manager';
+import { validateWebSocketAuth, getAuthConfig } from './auth';
 
 interface WebSocketMessage {
   type: string;
@@ -27,6 +28,20 @@ export function handleWebSocketConnection(
   const url = new URL(request.url || '', `http://${request.headers.host}`);
   const providedTerminalSessionId = url.searchParams.get('terminalSessionId');
   const autoLaunchClaude = url.searchParams.get('autoLaunchClaude') === 'true';
+  
+  // Check authentication
+  const authConfig = getAuthConfig();
+  if (authConfig.enabled) {
+    const headers = Object.fromEntries(
+      Object.entries(request.headers).map(([k, v]) => [k.toLowerCase(), v as string])
+    );
+    
+    if (!validateWebSocketAuth(url, headers)) {
+      console.log('WebSocket connection rejected: Authentication failed');
+      ws.close(1008, 'Authentication required');
+      return;
+    }
+  }
 
   console.log('New WebSocket connection established');
   console.log('WebSocket readyState:', ws.readyState);

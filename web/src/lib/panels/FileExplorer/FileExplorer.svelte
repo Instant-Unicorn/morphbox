@@ -4,17 +4,43 @@
   import ContextMenu from './ContextMenu.svelte';
   import type { FileItem, ContextMenuAction } from './types';
   import { fetchDirectory, createFile, createDirectory, deleteItem, renameItem } from './fileOperations';
+  import { fileTargetStore, availableTargets, getDefaultTarget } from '$lib/stores/fileTarget';
+  import type { Panel } from '$lib/stores/panels';
   
   const dispatch = createEventDispatcher();
   
-  export let rootPath = '/workspace';
+  export let rootPath = '';
   export let selectedFile: string | null = null;
+  export let panelId: string = ''; // ID of this FileExplorer panel
   
   let rootItems: FileItem[] = [];
   let loading = true;
   let error: string | null = null;
   let contextMenu: { x: number; y: number; item: FileItem | null } | null = null;
   let renamingItem: string | null = null;
+  let showTargetMenu = false;
+  let targetPanelId: string | null = null;
+  let targetPanels: Panel[] = [];
+  
+  // Subscribe to available target panels
+  $: targetPanels = $availableTargets;
+  
+  // Initialize target panel
+  onMount(() => {
+    // Get saved target or default to null (which will create new panels)
+    targetPanelId = fileTargetStore.getTarget(panelId);
+    // Don't set a default target - let it remain null to create new panels
+  });
+  
+  // Update target when selection changes
+  function selectTarget(panel: Panel) {
+    targetPanelId = panel.id;
+    fileTargetStore.setTarget(panelId, panel.id);
+    showTargetMenu = false;
+  }
+  
+  // Get the current target panel
+  $: currentTarget = targetPanels.find(p => p.id === targetPanelId);
   
   onMount(async () => {
     await loadDirectory(rootPath);
@@ -41,8 +67,13 @@
   }
   
   function handleOpen(event: CustomEvent<{ path: string; isDirectory: boolean }>) {
+    console.log('FileExplorer handleOpen:', event.detail);
     if (!event.detail.isDirectory) {
-      dispatch('open', { path: event.detail.path });
+      console.log('Dispatching open event with targetPanelId:', targetPanelId);
+      dispatch('open', { 
+        path: event.detail.path,
+        targetPanelId: targetPanelId 
+      });
     }
   }
   
@@ -168,13 +199,58 @@
 <div class="file-explorer" role="region" aria-label="File Explorer" on:click={handleGlobalClick} on:keydown={handleGlobalKeydown}>
   <div class="file-explorer-header">
     <h3>Explorer</h3>
-    <button 
-      class="refresh-btn" 
-      on:click={() => loadDirectory(rootPath)}
-      title="Refresh"
-    >
-      ↻
-    </button>
+    <div class="header-actions">
+      <div class="target-selector">
+        <button 
+          class="target-btn" 
+          on:click|stopPropagation={() => showTargetMenu = !showTargetMenu}
+          title="Select target panel for opening files"
+        >
+          <span class="target-icon">🎯</span>
+          <span class="target-label">{currentTarget ? currentTarget.title : 'New Panel'}</span>
+          <span class="dropdown-arrow">▼</span>
+        </button>
+        
+        {#if showTargetMenu}
+          <div class="target-menu" on:click|stopPropagation>
+            <div class="menu-header">Open files in:</div>
+            <button 
+              class="target-option" 
+              class:selected={!targetPanelId}
+              on:click={() => {
+                targetPanelId = null;
+                fileTargetStore.clearTarget(panelId);
+                showTargetMenu = false;
+              }}
+            >
+              <span class="panel-type">new</span>
+              <span class="panel-title">New Code Editor Panel</span>
+            </button>
+            {#if targetPanels.length > 0}
+              <div class="menu-divider"></div>
+            {/if}
+            {#each targetPanels as panel}
+              <button 
+                class="target-option" 
+                class:selected={panel.id === targetPanelId}
+                on:click={() => selectTarget(panel)}
+              >
+                <span class="panel-type">{panel.type}</span>
+                <span class="panel-title">{panel.title}</span>
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+      
+      <button 
+        class="refresh-btn" 
+        on:click={() => loadDirectory(rootPath)}
+        title="Refresh"
+      >
+        ↻
+      </button>
+    </div>
   </div>
   
   <div class="file-explorer-content">
@@ -241,6 +317,120 @@
     color: #cccccc;
   }
   
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .target-selector {
+    position: relative;
+  }
+  
+  .target-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #3e3e42;
+    border: 1px solid #464647;
+    color: #cccccc;
+    cursor: pointer;
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    max-width: 150px;
+  }
+  
+  .target-btn:hover {
+    background-color: #464647;
+    border-color: #5a5a5c;
+  }
+  
+  .target-icon {
+    font-size: 12px;
+  }
+  
+  .target-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .dropdown-arrow {
+    font-size: 8px;
+    margin-left: 4px;
+  }
+  
+  .target-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: #2d2d30;
+    border: 1px solid #464647;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    min-width: 200px;
+    max-width: 300px;
+    z-index: 1000;
+  }
+  
+  .menu-header {
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #969696;
+    border-bottom: 1px solid #464647;
+  }
+  
+  .target-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    color: #cccccc;
+    cursor: pointer;
+    font-size: 12px;
+    text-align: left;
+    transition: background-color 0.2s;
+  }
+  
+  .target-option:hover {
+    background-color: #3e3e42;
+  }
+  
+  .target-option.selected {
+    background-color: #094771;
+  }
+  
+  .panel-type {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #969696;
+    margin-right: 8px;
+  }
+  
+  .panel-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .no-targets {
+    padding: 12px;
+    text-align: center;
+    color: #969696;
+    font-size: 12px;
+  }
+  
   .refresh-btn {
     background: none;
     border: none;
@@ -293,5 +483,11 @@
   
   .file-explorer-content::-webkit-scrollbar-thumb:hover {
     background: #4e4e4e;
+  }
+  
+  .menu-divider {
+    height: 1px;
+    background-color: #3e3e42;
+    margin: 4px 8px;
   }
 </style>

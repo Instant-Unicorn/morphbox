@@ -168,6 +168,7 @@
       
       // Hide splash screen after connection
       setTimeout(() => {
+        console.log('[Terminal] Hiding loading overlay after connection');
         isInitializing = false;
       }, 750);
     };
@@ -667,9 +668,9 @@
     background-color: #1e1e1e;
     /* Enable container queries */
     container-type: inline-size;
-    /* Improve rendering performance */
-    will-change: transform;
-    transform: translateZ(0);
+    /* Remove transform that might cause mobile issues */
+    /* will-change: transform; */
+    /* transform: translateZ(0); */
     /* Handle overflow for small containers */
     min-width: 0;
     overflow: auto;
@@ -691,6 +692,7 @@
     justify-content: center;
     background-color: rgba(30, 30, 30, 0.9);
     z-index: 100;
+    pointer-events: none; /* Allow interaction with terminal underneath */
   }
   
   .loading-content {
@@ -747,6 +749,10 @@
     height: 100%;
     /* Remove constraints to allow natural sizing */
     display: block;
+    /* Fix for mobile positioning issues */
+    position: relative;
+    left: 0;
+    top: 0;
   }
   
   /* Scale padding with container size */
@@ -767,6 +773,10 @@
     /* Let xterm handle scrolling */
     overflow-y: scroll !important;
     overflow-x: auto !important;
+    /* Fix for mobile viewport issues */
+    position: relative !important;
+    left: 0 !important;
+    transform: none !important;
   }
   
   :global(.xterm-screen) {
@@ -825,6 +835,11 @@
   @media (max-width: 768px) {
     :global(.terminal-wrapper .xterm) {
       padding: var(--spacing-sm);
+      /* Fix for mobile positioning */
+      transform: none !important;
+      position: relative !important;
+      left: 0 !important;
+      right: 0 !important;
     }
     
     .terminal-container {
@@ -832,6 +847,10 @@
       position: relative;
       /* Ensure terminal fills its container */
       min-height: 200px;
+      /* Reset any transforms */
+      transform: none !important;
+      left: 0 !important;
+      right: 0 !important;
     }
     
     :global(.xterm-rows) {

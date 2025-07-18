@@ -300,6 +300,7 @@
   }
   
   function handleOpen(event: CustomEvent) {
+    console.log('RowPanel handleOpen:', event.detail);
     dispatch('open', event.detail);
   }
 </script>
@@ -412,6 +413,7 @@
           this={component} 
           panelId={panel.id}
           {...panel.content}
+          on:open={handleOpen}
         />
       {:else}
         <svelte:component 

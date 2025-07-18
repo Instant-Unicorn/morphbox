@@ -13,6 +13,7 @@
   export let wordWrap = false;
   export let autoSave = false;
   export let autoSaveDelay = 1000;
+  export let filePath: string | null = null;
 
   let containerEl: HTMLDivElement;
   let editorInstance: editor.IStandaloneCodeEditor | null = null;
@@ -20,11 +21,14 @@
   let tabs: EditorTab[] = [];
   let activeTabId: string | null = null;
   let autoSaveTimeout: NodeJS.Timeout | null = null;
+  let showMenu = false;
 
   const dispatch = createEventDispatcher();
+  
+  $: activeTab = tabs.find(tab => tab.id === activeTabId);
 
   // Create a new tab
-  export function openFile(fileName: string, content: string, language?: string) {
+  export function openFile(fileName: string, content: string, language?: string, filePath?: string) {
     const existingTab = tabs.find(tab => tab.fileName === fileName);
     
     if (existingTab) {
@@ -35,6 +39,7 @@
     const tab: EditorTab = {
       id: `tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       fileName,
+      filePath,
       content,
       language: language || detectLanguage(fileName),
       isDirty: false,
@@ -176,6 +181,196 @@
     return languageMap[ext || ''] || 'plaintext';
   }
 
+  // Menu handlers
+  function handleNewFile() {
+    showMenu = false;
+    const fileName = prompt('Enter file name:');
+    if (fileName) {
+      openFile(fileName, '', detectLanguage(fileName));
+    }
+  }
+
+  async function handleOpenFile() {
+    showMenu = false;
+    // Create a file input to select files
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '*/*';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const content = await file.text();
+        openFile(file.name, content, detectLanguage(file.name));
+      }
+    };
+    input.click();
+  }
+
+  async function handleSave() {
+    showMenu = false;
+    if (activeTab && editorInstance) {
+      const content = editorInstance.getValue();
+      const filePath = activeTab.filePath || `/${activeTab.fileName}`;
+      
+      try {
+        const response = await fetch('/api/files/write', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            path: filePath,
+            content
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to save file');
+        }
+
+        // Mark tab as not dirty
+        tabs = tabs.map(tab => 
+          tab.id === activeTab.id ? { ...tab, isDirty: false, content } : tab
+        );
+        
+        dispatch('save', { fileName: activeTab.fileName, content });
+      } catch (error) {
+        console.error('Error saving file:', error);
+        alert(`Failed to save ${activeTab.fileName}`);
+      }
+    }
+  }
+
+  async function handleSaveAs() {
+    showMenu = false;
+    if (activeTab && editorInstance) {
+      const newFileName = prompt('Save as:', activeTab.fileName);
+      if (newFileName) {
+        const content = editorInstance.getValue();
+        const newPath = `/${newFileName}`;
+        
+        try {
+          const response = await fetch('/api/files/write', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              path: newPath,
+              content
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to save file');
+          }
+
+          // Update tab with new filename
+          tabs = tabs.map(tab => 
+            tab.id === activeTab.id ? { 
+              ...tab, 
+              fileName: newFileName, 
+              filePath: newPath,
+              isDirty: false,
+              content 
+            } : tab
+          );
+          
+          dispatch('save', { fileName: newFileName, content });
+        } catch (error) {
+          console.error('Error saving file:', error);
+          alert(`Failed to save ${newFileName}`);
+        }
+      }
+    }
+  }
+
+  async function handleSaveAll() {
+    showMenu = false;
+    for (const tab of tabs) {
+      if (tab.isDirty && editorInstance) {
+        const filePath = tab.filePath || `/${tab.fileName}`;
+        
+        try {
+          const response = await fetch('/api/files/write', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              path: filePath,
+              content: tab.content
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to save ${tab.fileName}`);
+          }
+        } catch (error) {
+          console.error('Error saving file:', error);
+          alert(`Failed to save ${tab.fileName}`);
+        }
+      }
+    }
+    
+    // Mark all tabs as not dirty
+    tabs = tabs.map(tab => ({ ...tab, isDirty: false }));
+  }
+
+  function handleCloseTab() {
+    showMenu = false;
+    if (activeTabId) {
+      closeTab(activeTabId);
+    }
+  }
+
+  function handleCloseAll() {
+    showMenu = false;
+    tabs = [];
+    activeTabId = null;
+    if (editorInstance) {
+      editorInstance.setValue('');
+    }
+  }
+
+  function handleFind() {
+    showMenu = false;
+    if (editorInstance) {
+      editorInstance.trigger('keyboard', 'actions.find', {});
+    }
+  }
+
+  function handleReplace() {
+    showMenu = false;
+    if (editorInstance) {
+      editorInstance.trigger('keyboard', 'editor.action.startFindReplaceAction', {});
+    }
+  }
+
+  async function handleFormat() {
+    showMenu = false;
+    if (editorInstance) {
+      await editorInstance.getAction('editor.action.formatDocument')?.run();
+    }
+  }
+
+  // Click outside directive
+  function clickOutside(node: HTMLElement) {
+    const handleClick = (event: MouseEvent) => {
+      if (node && !node.contains(event.target as Node) && !event.defaultPrevented) {
+        node.dispatchEvent(new CustomEvent('clickoutside'));
+      }
+    };
+
+    document.addEventListener('click', handleClick, true);
+
+    return {
+      destroy() {
+        document.removeEventListener('click', handleClick, true);
+      }
+    };
+  }
+
   // Handle content changes
   function handleContentChange() {
     const currentTab = tabs.find(t => t.id === activeTabId);
@@ -293,8 +488,24 @@
     });
   }
 
-  onMount(() => {
-    initEditor();
+  onMount(async () => {
+    await initEditor();
+    
+    // Load initial file if provided
+    if (filePath) {
+      try {
+        const response = await fetch(`/api/files/read?path=${encodeURIComponent(filePath)}`);
+        if (response.ok) {
+          const data = await response.json();
+          const fileName = filePath.split('/').pop() || 'Untitled';
+          openFile(fileName, data.content, detectLanguage(fileName), filePath);
+        } else {
+          console.error('Failed to load file:', filePath);
+        }
+      } catch (error) {
+        console.error('Error loading file:', error);
+      }
+    }
   });
 
   onDestroy(() => {
@@ -308,12 +519,79 @@
 </script>
 
 <div class="code-editor">
-  <TabBar
-    {tabs}
-    {activeTabId}
-    on:tabClick={(e) => setActiveTab(e.detail.tabId)}
-    on:tabClose={(e) => closeTab(e.detail.tabId)}
-  />
+  <div class="editor-header">
+    <TabBar
+      {tabs}
+      {activeTabId}
+      on:tabClick={(e) => setActiveTab(e.detail.tabId)}
+      on:tabClose={(e) => closeTab(e.detail.tabId)}
+    />
+    <div class="editor-menu">
+      <button class="menu-button" on:click={() => showMenu = !showMenu}>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <circle cx="8" cy="2" r="1.5"/>
+          <circle cx="8" cy="8" r="1.5"/>
+          <circle cx="8" cy="14" r="1.5"/>
+        </svg>
+      </button>
+      {#if showMenu}
+        <div class="menu-dropdown" use:clickOutside on:clickoutside={() => showMenu = false}>
+          <button class="menu-item" on:click={handleNewFile}>
+            <span class="menu-icon">📄</span>
+            <span>New File</span>
+            <span class="menu-shortcut">Ctrl+N</span>
+          </button>
+          <button class="menu-item" on:click={handleOpenFile}>
+            <span class="menu-icon">📂</span>
+            <span>Open File</span>
+            <span class="menu-shortcut">Ctrl+O</span>
+          </button>
+          <div class="menu-divider"></div>
+          <button class="menu-item" on:click={handleSave} disabled={!activeTab || !activeTab.isDirty}>
+            <span class="menu-icon">💾</span>
+            <span>Save</span>
+            <span class="menu-shortcut">Ctrl+S</span>
+          </button>
+          <button class="menu-item" on:click={handleSaveAs} disabled={!activeTab}>
+            <span class="menu-icon">💾</span>
+            <span>Save As...</span>
+            <span class="menu-shortcut">Ctrl+Shift+S</span>
+          </button>
+          <button class="menu-item" on:click={handleSaveAll}>
+            <span class="menu-icon">💾</span>
+            <span>Save All</span>
+          </button>
+          <div class="menu-divider"></div>
+          <button class="menu-item" on:click={handleCloseTab} disabled={!activeTab}>
+            <span class="menu-icon">❌</span>
+            <span>Close</span>
+            <span class="menu-shortcut">Ctrl+W</span>
+          </button>
+          <button class="menu-item" on:click={handleCloseAll}>
+            <span class="menu-icon">❌</span>
+            <span>Close All</span>
+          </button>
+          <div class="menu-divider"></div>
+          <button class="menu-item" on:click={handleFind} disabled={!activeTab}>
+            <span class="menu-icon">🔍</span>
+            <span>Find</span>
+            <span class="menu-shortcut">Ctrl+F</span>
+          </button>
+          <button class="menu-item" on:click={handleReplace} disabled={!activeTab}>
+            <span class="menu-icon">🔄</span>
+            <span>Replace</span>
+            <span class="menu-shortcut">Ctrl+H</span>
+          </button>
+          <div class="menu-divider"></div>
+          <button class="menu-item" on:click={handleFormat} disabled={!activeTab}>
+            <span class="menu-icon">✨</span>
+            <span>Format Document</span>
+            <span class="menu-shortcut">Shift+Alt+F</span>
+          </button>
+        </div>
+      {/if}
+    </div>
+  </div>
   
   <div class="editor-container" bind:this={containerEl}>
     {#if !editorInstance && browser}
@@ -357,5 +635,89 @@
     height: 100%;
     color: #cccccc;
     font-size: 14px;
+  }
+
+  .editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #252526;
+    border-bottom: 1px solid #3e3e42;
+  }
+
+  .editor-menu {
+    position: relative;
+    margin-right: 8px;
+  }
+
+  .menu-button {
+    background: none;
+    border: none;
+    color: #cccccc;
+    padding: 6px 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+  }
+
+  .menu-button:hover {
+    background-color: #3e3e42;
+  }
+
+  .menu-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background-color: #252526;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    min-width: 250px;
+    z-index: 1000;
+  }
+
+  .menu-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    color: #cccccc;
+    text-align: left;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background-color 0.2s;
+  }
+
+  .menu-item:hover:not(:disabled) {
+    background-color: #094771;
+  }
+
+  .menu-item:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .menu-icon {
+    margin-right: 8px;
+    width: 16px;
+    display: inline-block;
+  }
+
+  .menu-shortcut {
+    margin-left: auto;
+    opacity: 0.6;
+    font-size: 11px;
+  }
+
+  .menu-divider {
+    height: 1px;
+    background-color: #3e3e42;
+    margin: 4px 0;
   }
 </style>

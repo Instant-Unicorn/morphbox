@@ -125,6 +125,22 @@ disk: "20GiB"    # Disk size
 
 Then reset the VM: `morphbox --reset`
 
+### Persisting Claude Updates
+
+By default, Claude auto-updates on each launch. To persist updates and avoid re-downloads:
+
+For Docker users, uncomment the persistence volumes in `docker-compose.yml`:
+```yaml
+volumes:
+  # Uncomment these lines:
+  - claude-npm-cache:/usr/local/lib/node_modules
+  - claude-npm-bin:/usr/local/bin
+```
+
+For Lima/WSL2 users, Claude updates are persisted automatically in the VM image.
+
+See [CLAUDE_PERSISTENCE.md](CLAUDE_PERSISTENCE.md) for detailed information.
+
 ## Troubleshooting
 
 ### First run takes too long

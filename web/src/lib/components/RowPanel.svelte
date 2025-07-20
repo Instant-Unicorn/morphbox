@@ -466,27 +466,29 @@
   
   <div class="panel-content">
     {#if component}
-      {#if panel.type === 'terminal' || panel.type === 'claude'}
-        <svelte:component 
-          this={component} 
-          {websocketUrl}
-          panelId={panel.id}
-          {...panel.content}
-        />
-      {:else if panel.type === 'fileExplorer' || panel.type === 'file-explorer'}
-        <svelte:component 
-          this={component} 
-          panelId={panel.id}
-          {...panel.content}
-          on:open={handleOpen}
-        />
-      {:else}
-        <svelte:component 
-          this={component} 
-          panelId={panel.id}
-          {...panel.content}
-        />
-      {/if}
+      {#key panel.type + panel.id}
+        {#if panel.type === 'terminal' || panel.type === 'claude'}
+          <svelte:component 
+            this={component} 
+            {websocketUrl}
+            panelId={panel.id}
+            autoLaunchClaude={panel.type === 'claude'}
+          />
+        {:else if panel.type === 'fileExplorer' || panel.type === 'file-explorer'}
+          <svelte:component 
+            this={component} 
+            panelId={panel.id}
+            {...panel.content}
+            on:open={handleOpen}
+          />
+        {:else}
+          <svelte:component 
+            this={component} 
+            panelId={panel.id}
+            {...panel.content}
+          />
+        {/if}
+      {/key}
     {/if}
   </div>
   
@@ -540,6 +542,7 @@
     border: 1px solid var(--panel-border, #3e3e42);
     overflow: hidden;
     transition: opacity 0.2s, transform 0.2s;
+    box-sizing: border-box;
   }
   
   .row-panel.dragging {

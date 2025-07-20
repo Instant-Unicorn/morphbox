@@ -224,7 +224,7 @@
   .section-tabs {
     background-color: var(--bg-secondary, #252526);
     border-bottom: 1px solid var(--panel-border, #3e3e42);
-    padding: 0 8px;
+    padding: 0;
     overflow: visible; /* Allow dropdown to show */
     position: sticky;
     top: 0;

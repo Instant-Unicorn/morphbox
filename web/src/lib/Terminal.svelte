@@ -3,6 +3,7 @@
   import { browser } from '$app/environment';
   import { settings } from '$lib/panels/Settings/settings-store';
   import { fade } from 'svelte/transition';
+  import logger from '$lib/utils/browser-logger';
   
   let Terminal: any;
   let FitAddon: any;
@@ -10,16 +11,16 @@
   
   // Only import xterm in the browser
   if (browser) {
-    import('xterm').then(module => {
+    import('@xterm/xterm').then(module => {
       Terminal = module.Terminal;
     });
-    import('xterm-addon-fit').then(module => {
+    import('@xterm/addon-fit').then(module => {
       FitAddon = module.FitAddon;
     });
-    import('xterm-addon-web-links').then(module => {
+    import('@xterm/addon-web-links').then(module => {
       WebLinksAddon = module.WebLinksAddon;
     });
-    import('xterm/css/xterm.css');
+    import('@xterm/xterm/css/xterm.css');
   }
 
   export let websocketUrl = 'ws://localhost:3000';
@@ -99,6 +100,15 @@
     writeln('\r\n🔄 Session cleared. Next connection will start fresh.');
   }
   
+  // Test function to verify logging is working
+  export function testLogging() {
+    logger.info('[Terminal] Test log - Info level', { test: true, timestamp: Date.now() });
+    logger.error('[Terminal] Test log - Error level', { test: true, error: 'This is a test error' });
+    logger.warn('[Terminal] Test log - Warning level', { test: true });
+    logger.debug('[Terminal] Test log - Debug level', { test: true });
+    console.log('[Terminal] Test logging completed - check logs/browser-logs.jsonl');
+  }
+  
   function reconnectWithBackoff() {
     const maxDelay = 30000; // Max 30 seconds
     const baseDelay = 1000; // Start with 1 second
@@ -152,6 +162,7 @@
     
     ws.onopen = () => {
       clearTimeout(connectionTimeout);
+      logger.info('[Terminal] WebSocket connected successfully');
       console.log('WebSocket connected');
       connectionStatus = 'connected';
       reconnectAttempts = 0;
@@ -252,11 +263,13 @@
     };
     
     ws.onerror = (error) => {
+      logger.error('[Terminal] WebSocket error:', error);
       console.error('WebSocket error:', error);
       writeln(`\r\nWebSocket error: ${error}`);
     };
     
     ws.onclose = (event) => {
+      logger.info('[Terminal] WebSocket closed', { code: event.code, reason: event.reason });
       console.log('WebSocket closed:', event.code, event.reason);
       connectionStatus = 'disconnected';
       writeln(`\r\nDisconnected from server (code: ${event.code})`);
@@ -281,13 +294,41 @@
     const isSmall = width < 768;
     const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     
-    return { width, height, isSmall, isTouchDevice };
+    const info = { width, height, isSmall, isTouchDevice };
+    
+    // Log viewport info on significant changes
+    if (typeof window !== 'undefined' && window.__lastViewportInfo) {
+      const last = window.__lastViewportInfo;
+      if (last.width !== width || last.height !== height || last.isSmall !== isSmall) {
+        console.log('[Terminal.getViewportInfo] Viewport changed:', {
+          from: last,
+          to: info,
+          delta: {
+            width: width - last.width,
+            height: height - last.height
+          },
+          devicePixelRatio: window.devicePixelRatio
+        });
+      }
+    }
+    
+    if (typeof window !== 'undefined') {
+      window.__lastViewportInfo = info;
+    }
+    
+    return info;
   }
   
   // Calculate appropriate font size and dimensions based on viewport and container
   function getTerminalOptions() {
     const viewport = getViewportInfo();
     const currentSettings = $settings;
+    
+    console.log('[Terminal.getTerminalOptions] Starting calculation:', {
+      viewport,
+      hasContainer: !!terminalContainer,
+      currentSettings: currentSettings?.terminal
+    });
     
     // Dynamic font sizing based on viewport
     let fontSize = currentSettings?.terminal.fontSize || 14;
@@ -303,15 +344,34 @@
       const rect = terminalContainer.getBoundingClientRect();
       containerWidth = rect.width || containerWidth;
       containerHeight = rect.height || containerHeight;
+      
+      console.log('[Terminal.getTerminalOptions] Container dimensions:', {
+        rectWidth: rect.width,
+        rectHeight: rect.height,
+        containerWidth,
+        containerHeight,
+        fallbackToViewport: rect.width === 0 || rect.height === 0
+      });
     }
     
     // Calculate columns and rows based on actual container size
-    const charWidth = fontSize * 0.6; // Approximate character width
+    const charWidth = fontSize * 0.55; // Better approximation for monospace fonts
     const lineHeight = fontSize * (currentSettings?.terminal.lineHeight || 1.2);
     const padding = viewport.isSmall ? 10 : 20;
     
     const cols = Math.max(40, Math.floor((containerWidth - padding * 2) / charWidth));
     const rows = Math.max(10, Math.floor((containerHeight - padding * 2) / lineHeight));
+    
+    console.log('[Terminal.getTerminalOptions] Calculated dimensions:', {
+      fontSize,
+      charWidth,
+      lineHeight,
+      padding,
+      cols,
+      rows,
+      availableWidth: containerWidth - padding * 2,
+      availableHeight: containerHeight - padding * 2
+    });
     
     return {
       fontSize,
@@ -326,6 +386,247 @@
       fastScrollModifier: 'ctrl',
       smoothScrollDuration: viewport.isSmall ? 0 : 125 // Disable smooth scroll on mobile
     };
+  }
+  
+  // Measure terminal dimensions based on actual character sizes
+  function measureTerminal() {
+    console.log('[Terminal.measureTerminal] Starting measurement:', {
+      hasBrowser: browser,
+      hasContainer: !!terminalContainer,
+      hasTerminal: !!terminal,
+      timestamp: new Date().toISOString()
+    });
+    
+    if (!browser || !terminalContainer || !terminal) {
+      console.warn('[Terminal.measureTerminal] Missing required components, returning defaults');
+      return { cols: 80, rows: 24 }; // Default fallback dimensions
+    }
+    
+    try {
+      // Get the actual container dimensions
+      const rect = terminalContainer.getBoundingClientRect();
+      console.log('[Terminal.measureTerminal] Container rect:', {
+        width: rect.width,
+        height: rect.height,
+        top: rect.top,
+        left: rect.left,
+        right: rect.right,
+        bottom: rect.bottom,
+        x: rect.x,
+        y: rect.y
+      });
+      
+      if (rect.width === 0 || rect.height === 0) {
+        console.error('[Terminal.measureTerminal] Container has zero dimensions!', {
+          rect,
+          containerDisplay: window.getComputedStyle(terminalContainer).display,
+          containerVisibility: window.getComputedStyle(terminalContainer).visibility,
+          containerOpacity: window.getComputedStyle(terminalContainer).opacity,
+          parentElement: terminalContainer.parentElement?.getBoundingClientRect()
+        });
+        return { cols: 80, rows: 24 };
+      }
+      
+      // First, try to use xterm's actual renderer dimensions if available
+      if (terminal._core && terminal._core._renderService && terminal._core._renderService.dimensions) {
+        const dimensions = terminal._core._renderService.dimensions;
+        if (dimensions.actualCellWidth && dimensions.actualCellHeight) {
+          // Use the actual measured cell dimensions from the renderer
+          const charWidth = dimensions.actualCellWidth;
+          const charHeight = dimensions.actualCellHeight;
+          
+          // Get the terminal element padding
+          const terminalElement = terminalContainer.querySelector('.xterm');
+          let paddingLeft = 0, paddingRight = 0, paddingTop = 0, paddingBottom = 0;
+          
+          if (terminalElement) {
+            const computedStyle = window.getComputedStyle(terminalElement);
+            paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+            paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+            paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+            paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+          }
+          
+          // Calculate available space
+          const availableWidth = rect.width - paddingLeft - paddingRight;
+          const availableHeight = rect.height - paddingTop - paddingBottom;
+          
+          // Calculate columns and rows
+          const cols = Math.max(40, Math.floor(availableWidth / charWidth));
+          const rows = Math.max(10, Math.floor(availableHeight / charHeight));
+          
+          console.log('[Terminal] Using renderer dimensions:', {
+            actualCellWidth: charWidth,
+            actualCellHeight: charHeight,
+            availableWidth,
+            availableHeight,
+            cols,
+            rows
+          });
+          
+          return { cols, rows };
+        }
+      }
+      
+      // Second, try to use fitAddon's proposeDimensions
+      if (fitAddon) {
+        try {
+          const proposed = fitAddon.proposeDimensions();
+          if (proposed && proposed.cols && proposed.rows) {
+            const cols = Math.max(40, proposed.cols);
+            const rows = Math.max(10, proposed.rows);
+            
+            console.log('[Terminal] Using fitAddon.proposeDimensions:', {
+              proposedCols: proposed.cols,
+              proposedRows: proposed.rows,
+              cols,
+              rows
+            });
+            
+            return { cols, rows };
+          }
+        } catch (e) {
+          console.warn('[Terminal] fitAddon.proposeDimensions failed:', e);
+        }
+      }
+      
+      // Fallback: Use terminal's internal character dimensions if available
+      if (terminal._core && terminal._core._charSizeService) {
+        const charSizeService = terminal._core._charSizeService;
+        if (charSizeService.width && charSizeService.height) {
+          const charWidth = charSizeService.width;
+          const charHeight = charSizeService.height;
+          
+          // Get the terminal element padding
+          const terminalElement = terminalContainer.querySelector('.xterm');
+          let paddingLeft = 0, paddingRight = 0, paddingTop = 0, paddingBottom = 0;
+          
+          if (terminalElement) {
+            const computedStyle = window.getComputedStyle(terminalElement);
+            paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+            paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+            paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+            paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+          }
+          
+          // Calculate available space
+          const availableWidth = rect.width - paddingLeft - paddingRight;
+          const availableHeight = rect.height - paddingTop - paddingBottom;
+          
+          // Calculate columns and rows
+          const cols = Math.max(40, Math.floor(availableWidth / charWidth));
+          const rows = Math.max(10, Math.floor(availableHeight / charHeight));
+          
+          console.log('[Terminal] Using charSizeService dimensions:', {
+            charWidth,
+            charHeight,
+            availableWidth,
+            availableHeight,
+            cols,
+            rows
+          });
+          
+          return { cols, rows };
+        }
+      }
+      
+      // Last resort: Manual measurement
+      console.warn('[Terminal] No xterm dimensions available, using manual measurement');
+      
+      // Get the terminal element
+      const terminalElement = terminalContainer.querySelector('.xterm');
+      if (!terminalElement) {
+        console.warn('[Terminal] Terminal element not found, using rough estimates');
+        const fontSize = terminal.options.fontSize || 14;
+        const charWidth = fontSize * 0.55; // Better approximation for monospace
+        const lineHeight = fontSize * (terminal.options.lineHeight || 1.2);
+        const padding = 20;
+        
+        const cols = Math.max(40, Math.floor((rect.width - padding * 2) / charWidth));
+        const rows = Math.max(10, Math.floor((rect.height - padding * 2) / lineHeight));
+        
+        return { cols, rows };
+      }
+      
+      // Get the computed styles including padding
+      const computedStyle = window.getComputedStyle(terminalElement);
+      const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+      const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+      const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+      const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+      
+      // Calculate available space
+      const availableWidth = rect.width - paddingLeft - paddingRight;
+      const availableHeight = rect.height - paddingTop - paddingBottom;
+      
+      // Create a test element to measure actual character dimensions
+      const testElement = document.createElement('div');
+      testElement.style.position = 'absolute';
+      testElement.style.visibility = 'hidden';
+      testElement.style.left = '-9999px';
+      testElement.style.fontFamily = terminal.options.fontFamily || '"Cascadia Code", "Fira Code", monospace';
+      testElement.style.fontSize = `${terminal.options.fontSize || 14}px`;
+      testElement.style.lineHeight = `${terminal.options.lineHeight || 1.2}`;
+      testElement.style.whiteSpace = 'pre';
+      testElement.style.padding = '0';
+      testElement.style.margin = '0';
+      testElement.style.border = 'none';
+      
+      // Use a more accurate test string for monospace fonts
+      testElement.textContent = '0123456789'; // 10 characters
+      document.body.appendChild(testElement);
+      
+      // Measure the test element
+      const testRect = testElement.getBoundingClientRect();
+      const charWidth = testRect.width / 10;
+      const charHeight = testRect.height;
+      
+      // Clean up test element
+      document.body.removeChild(testElement);
+      
+      // Validate measurements
+      if (charWidth <= 0 || charHeight <= 0) {
+        console.error('[Terminal] Invalid character measurements:', { charWidth, charHeight });
+        return { cols: 80, rows: 24 };
+      }
+      
+      // Calculate columns and rows with minimum bounds
+      const cols = Math.max(40, Math.floor(availableWidth / charWidth));
+      const rows = Math.max(10, Math.floor(availableHeight / charHeight));
+      
+      // Additional validation for reasonable terminal size
+      const maxCols = 300;
+      const maxRows = 100;
+      
+      const finalCols = Math.min(cols, maxCols);
+      const finalRows = Math.min(rows, maxRows);
+      
+      console.log('[Terminal] Manual measurement dimensions:', {
+        containerWidth: rect.width,
+        containerHeight: rect.height,
+        availableWidth,
+        availableHeight,
+        charWidth,
+        charHeight,
+        cols: finalCols,
+        rows: finalRows
+      });
+      
+      return { cols: finalCols, rows: finalRows };
+      
+    } catch (error) {
+      console.error('[Terminal.measureTerminal] Error during measurement:', {
+        error,
+        errorMessage: error.message,
+        errorStack: error.stack,
+        terminalState: {
+          hasContainer: !!terminalContainer,
+          hasTerminal: !!terminal,
+          terminalOptions: terminal?.options
+        }
+      });
+      return { cols: 80, rows: 24 };
+    }
   }
   
   // Update terminal options when settings change
@@ -409,7 +710,23 @@
   onMount(async () => {
     if (!browser) return;
     
+    // Log terminal initialization
+    logger.info('[Terminal] Starting initialization...', {
+      timestamp: new Date().toISOString(),
+      autoLaunchClaude,
+      websocketUrl
+    });
     console.log('[Terminal] Starting initialization...');
+    console.log('[Terminal] Initial viewport:', getViewportInfo());
+    console.log('[Terminal] Parent element info:', {
+      parent: terminalContainer?.parentElement,
+      parentRect: terminalContainer?.parentElement?.getBoundingClientRect(),
+      parentComputed: terminalContainer?.parentElement ? {
+        display: window.getComputedStyle(terminalContainer.parentElement).display,
+        width: window.getComputedStyle(terminalContainer.parentElement).width,
+        height: window.getComputedStyle(terminalContainer.parentElement).height
+      } : null
+    });
     
     // Load terminal session ID from sessionStorage if available
     const savedSessionId = sessionStorage.getItem('morphbox-terminal-session');
@@ -473,16 +790,38 @@
       
       // Open terminal in container
       console.log('[Terminal] Opening terminal in container...');
+      console.log('[Terminal] Container state before open:', {
+        element: terminalContainer,
+        rect: terminalContainer.getBoundingClientRect(),
+        computed: {
+          display: window.getComputedStyle(terminalContainer).display,
+          width: window.getComputedStyle(terminalContainer).width,
+          height: window.getComputedStyle(terminalContainer).height
+        }
+      });
+      
       terminal.open(terminalContainer);
       console.log('[Terminal] Terminal opened successfully');
+      
+      console.log('[Terminal] Container state after open:', {
+        rect: terminalContainer.getBoundingClientRect(),
+        childCount: terminalContainer.children.length,
+        xtermElement: !!terminalContainer.querySelector('.xterm')
+      });
       
       // Mobile-specific check
       if (getViewportInfo().isTouchDevice) {
         console.log('[Terminal] Mobile device detected - applying mobile fixes');
+        console.log('[Terminal] Terminal element dimensions:', {
+          xtermElement: terminalContainer.querySelector('.xterm')?.getBoundingClientRect(),
+          viewportElement: terminalContainer.querySelector('.xterm-viewport')?.getBoundingClientRect(),
+          screenElement: terminalContainer.querySelector('.xterm-screen')?.getBoundingClientRect()
+        });
         // Force terminal to render
         terminal.refresh(0, terminal.rows - 1);
       }
     } catch (error) {
+      logger.error('[Terminal] Failed to initialize terminal', error);
       console.error('[Terminal] Error initializing terminal:', error);
       isInitializing = false;
       if (terminalContainer) {
@@ -498,11 +837,15 @@
     
     // Initial fit after terminal is ready
     setTimeout(() => {
+      console.log('[Terminal] Initial fit timeout triggered');
       // Force initial resize to apply font scaling
       if (handleResize) {
         handleResize();
+      } else {
+        console.error('[Terminal] handleResize not available for initial fit!');
       }
     }, 100);
+    
     
     // Debounce function for performance
     let resizeTimeout: number | null = null;
@@ -513,55 +856,86 @@
       };
     };
     
-    // Handle resize events with performance optimization
+    // Simple resize handler - just measure and resize
     const handleResize = () => {
-      if (fitAddon && terminal && terminalContainer) {
-        try {
-          // CRITICAL: Set absolute minimum columns to prevent character wrapping
-          const MIN_COLS = 80; // Standard terminal width
-          const MIN_ROWS = 24; // Standard terminal height
-          
-          // Get what FitAddon thinks should fit
-          const proposed = fitAddon.proposeDimensions();
-          
-          if (!proposed || proposed.cols < MIN_COLS || proposed.rows < MIN_ROWS) {
-            // Container is too small for minimum terminal size
-            // Keep terminal at minimum size and let container scroll
-            if (terminal.cols !== MIN_COLS || terminal.rows !== MIN_ROWS) {
-              terminal.resize(MIN_COLS, MIN_ROWS);
-              
-              // Send dimensions to PTY
-              if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                  type: 'RESIZE',
-                  payload: { 
-                    cols: MIN_COLS,
-                    rows: MIN_ROWS
-                  }
-                }));
-              }
-            }
-          } else {
-            // Container is large enough, use FitAddon's calculation
-            fitAddon.fit();
-            
-            // Send actual dimensions to PTY
-            if (ws && ws.readyState === WebSocket.OPEN) {
-              const actualDims = fitAddon.proposeDimensions();
-              if (actualDims && actualDims.cols > 0 && actualDims.rows > 0) {
-                ws.send(JSON.stringify({
-                  type: 'RESIZE',
-                  payload: { 
-                    cols: actualDims.cols,
-                    rows: actualDims.rows
-                  }
-                }));
-              }
-            }
+      console.log('[Terminal.handleResize] Starting resize process');
+      
+      if (!terminal || !terminalContainer) {
+        console.warn('[Terminal.handleResize] Missing terminal or container:', {
+          hasTerminal: !!terminal,
+          hasContainer: !!terminalContainer
+        });
+        return;
+      }
+      
+      try {
+        // Log current state before resize
+        const beforeRect = terminalContainer.getBoundingClientRect();
+        const beforeTerminalSize = {
+          cols: terminal.cols,
+          rows: terminal.rows,
+          fontSize: terminal.options.fontSize
+        };
+        
+        console.log('[Terminal.handleResize] Before resize:', {
+          container: {
+            width: beforeRect.width,
+            height: beforeRect.height
+          },
+          terminal: beforeTerminalSize,
+          viewport: getViewportInfo()
+        });
+        
+        // Measure the terminal dimensions
+        const { cols, rows } = measureTerminal();
+        
+        console.log('[Terminal.handleResize] New dimensions calculated:', {
+          cols,
+          rows,
+          oldCols: terminal.cols,
+          oldRows: terminal.rows,
+          changed: cols !== terminal.cols || rows !== terminal.rows
+        });
+        
+        // Resize the terminal to fill its container
+        terminal.resize(cols, rows);
+        
+        // Log state after resize
+        const afterRect = terminalContainer.getBoundingClientRect();
+        console.log('[Terminal.handleResize] After resize:', {
+          container: {
+            width: afterRect.width,
+            height: afterRect.height,
+            changed: beforeRect.width !== afterRect.width || beforeRect.height !== afterRect.height
+          },
+          terminal: {
+            cols: terminal.cols,
+            rows: terminal.rows,
+            actuallyResized: terminal.cols === cols && terminal.rows === rows
           }
-        } catch (err) {
-          console.error('Error during terminal resize:', err);
+        });
+        
+        // Send the resize message to the websocket
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'RESIZE',
+            payload: { cols, rows }
+          }));
+          console.log('[Terminal.handleResize] Sent resize to websocket:', { cols, rows });
         }
+      } catch (err) {
+        const errorDetails = {
+          error: err,
+          errorMessage: err.message,
+          errorStack: err.stack,
+          terminalState: {
+            cols: terminal?.cols,
+            rows: terminal?.rows,
+            containerExists: !!terminalContainer
+          }
+        };
+        logger.error('[Terminal.handleResize] Resize error', errorDetails);
+        console.error('[Terminal.handleResize] Error during resize:', errorDetails);
       }
     };
     
@@ -569,19 +943,90 @@
     const debouncedResize = debounce(handleResize, 150);
     
     // Use ResizeObserver for container-based responsiveness
-    const resizeObserver = new ResizeObserver(debouncedResize);
+    const resizeObserver = new ResizeObserver((entries) => {
+      console.log('[Terminal.ResizeObserver] Resize event detected:', {
+        entries: entries.map(entry => ({
+          target: entry.target === terminalContainer ? 'terminalContainer' : 'other',
+          contentRect: {
+            width: entry.contentRect.width,
+            height: entry.contentRect.height,
+            top: entry.contentRect.top,
+            left: entry.contentRect.left
+          },
+          borderBoxSize: entry.borderBoxSize?.[0] ? {
+            blockSize: entry.borderBoxSize[0].blockSize,
+            inlineSize: entry.borderBoxSize[0].inlineSize
+          } : null,
+          devicePixelContentBoxSize: entry.devicePixelContentBoxSize?.[0] ? {
+            blockSize: entry.devicePixelContentBoxSize[0].blockSize,
+            inlineSize: entry.devicePixelContentBoxSize[0].inlineSize
+          } : null
+        }))
+      });
+      debouncedResize();
+    });
     resizeObserver.observe(terminalContainer);
     
     // Also listen to window resize for viewport changes
-    window.addEventListener('resize', debouncedResize);
+    window.addEventListener('resize', () => {
+      console.log('[Terminal] Window resize event detected:', {
+        viewport: getViewportInfo(),
+        timestamp: new Date().toISOString(),
+        documentDimensions: {
+          width: document.documentElement.clientWidth,
+          height: document.documentElement.clientHeight
+        }
+      });
+      debouncedResize();
+    });
     
     // Handle orientation changes on mobile
     window.addEventListener('orientationchange', () => {
+      const orientation = window.screen?.orientation?.type || 'unknown';
+      console.log('[Terminal] Orientation change detected:', {
+        orientation,
+        angle: window.screen?.orientation?.angle,
+        viewport: getViewportInfo(),
+        screen: {
+          width: window.screen.width,
+          height: window.screen.height,
+          availWidth: window.screen.availWidth,
+          availHeight: window.screen.availHeight
+        }
+      });
       setTimeout(handleResize, 100); // Small delay for orientation to settle
     });
     
     // Trigger immediate resize to apply scaling
+    console.log('[Terminal] Triggering initial resize after mount');
     handleResize();
+    
+    // Add MutationObserver to detect DOM/style changes
+    const mutationObserver = new MutationObserver((mutations) => {
+      const relevantMutation = mutations.find(m => 
+        m.type === 'attributes' && (m.attributeName === 'style' || m.attributeName === 'class') ||
+        m.type === 'childList'
+      );
+      
+      if (relevantMutation) {
+        console.log('[Terminal.MutationObserver] DOM change detected:', {
+          type: relevantMutation.type,
+          target: relevantMutation.target,
+          attributeName: relevantMutation.attributeName,
+          addedNodes: relevantMutation.addedNodes?.length || 0,
+          removedNodes: relevantMutation.removedNodes?.length || 0,
+          containerRect: terminalContainer.getBoundingClientRect(),
+          xtermRect: terminalContainer.querySelector('.xterm')?.getBoundingClientRect()
+        });
+      }
+    });
+    
+    mutationObserver.observe(terminalContainer, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+      attributeFilter: ['style', 'class']
+    });
     
     // Handle terminal input - send directly to Claude without buffering
     terminal.onData((data: string) => {
@@ -614,11 +1059,28 @@
     // Mobile-specific fix: Force a resize after initialization
     if (getViewportInfo().isTouchDevice) {
       setTimeout(() => {
-        console.log('[Terminal] Mobile detected - forcing resize');
+        const viewport = getViewportInfo();
+        console.log('[Terminal] Mobile resize fix triggered:', {
+          viewport,
+          userAgent: navigator.userAgent,
+          containerRect: terminalContainer?.getBoundingClientRect(),
+          terminalSize: {
+            cols: terminal?.cols,
+            rows: terminal?.rows
+          },
+          pixelRatio: window.devicePixelRatio
+        });
+        
         handleResize();
         // Also force fit addon to recalculate
         if (fitAddon) {
-          fitAddon.fit();
+          console.log('[Terminal] Calling fitAddon.fit() for mobile');
+          try {
+            fitAddon.fit();
+            console.log('[Terminal] fitAddon.fit() completed successfully');
+          } catch (e) {
+            console.error('[Terminal] fitAddon.fit() failed:', e);
+          }
         }
         
         // Adjust terminal to show only actual content
@@ -648,10 +1110,24 @@
       updateTerminalSettings();
     });
     
+    // Log final terminal state
+    console.log('[Terminal] Mount complete. Final state:', {
+      terminal: {
+        cols: terminal?.cols,
+        rows: terminal?.rows,
+        fontSize: terminal?.options?.fontSize
+      },
+      container: terminalContainer?.getBoundingClientRect(),
+      viewport: getViewportInfo()
+    });
+    
     // Cleanup function
     return () => {
       window.removeEventListener('resize', handleResize);
       resizeObserver.disconnect();
+      if (mutationObserver) {
+        mutationObserver.disconnect();
+      }
       if (settingsUnsubscribe) {
         settingsUnsubscribe();
       }
@@ -705,18 +1181,15 @@
     position: relative;
     overflow: hidden;
     max-height: 100%;
+    box-sizing: border-box;
   }
   
   .terminal-container {
     width: 100%;
     height: 100%;
     background-color: #1e1e1e;
-    /* Enable container queries */
-    container-type: inline-size;
-    /* Handle overflow for small containers */
-    min-width: 0;
-    overflow: auto;
     position: relative;
+    box-sizing: border-box;
   }
   
   .terminal-container.loading {
@@ -789,21 +1262,9 @@
   :global(.terminal-wrapper .xterm) {
     padding: 10px;
     height: 100%;
-    /* Remove constraints to allow natural sizing */
+    width: 100%;
     display: block;
-  }
-  
-  /* Scale padding with container size */
-  @container (max-width: 400px) {
-    :global(.terminal-wrapper .xterm) {
-      padding: 4px !important;
-    }
-  }
-  
-  @container (max-width: 600px) {
-    :global(.terminal-wrapper .xterm) {
-      padding: 6px !important;
-    }
+    box-sizing: border-box;
   }
   
   :global(.xterm-viewport) {
@@ -825,13 +1286,9 @@
   
   /* Let terminal maintain its natural size */
   :global(.xterm) {
-    /* Remove width constraints to prevent forced fitting */
-    height: 100% !important;
-  }
-  
-  /* Let terminal handle its own sizing */
-  :global(.xterm-screen) {
-    /* Don't force width */
+    height: 100%;
+    width: 100%;
+    box-sizing: border-box;
   }
   
   /* Ensure canvas renders properly at all sizes */
@@ -853,104 +1310,8 @@
     font-size: 16px !important;
   }
   
-  /* Container-based responsive styles */
-  @container (max-width: 600px) {
-    :global(.terminal-wrapper .xterm) {
-      padding: var(--spacing-sm);
-    }
-    
-    :global(.xterm-viewport) {
-      /* Optimize scrolling on small containers */
-      scroll-behavior: auto;
-    }
-  }
-  
-  /* Viewport-based responsive styles */
-  @media (max-width: 768px) {
-    :global(.terminal-wrapper .xterm) {
-      padding: 5px !important; /* Reduce padding on mobile */
-      height: auto !important; /* Let content determine height */
-      min-height: 0 !important; /* Remove minimum height constraints */
-    }
-    
-    /* Fix loading opacity on mobile only */
-    .terminal-container.loading {
-      opacity: 1;
-    }
-    
-    /* Debug: ensure container is visible */
-    .terminal-container {
-      background-color: #1e1e1e !important;
-    }
-    
-    /* Mobile-specific viewport fixes */
-    :global(.xterm-viewport) {
-      /* Only fix positioning issues */
-      left: 0 !important;
-      transform: none !important;
-      /* Keep native touch scrolling */
-      -webkit-overflow-scrolling: touch;
-    }
-    
-    /* Keep terminal content visible but don't override display properties */
-    :global(.xterm-screen),
-    :global(.xterm .xterm-text-layer),
-    :global(.xterm .xterm-cursor-layer) {
-      opacity: 1 !important;
-    }
-    
-    /* Allow xterm screen to size based on content */
-    :global(.xterm-screen) {
-      height: auto !important;
-    }
-    
-    .terminal-container {
-      /* Remove fixed positioning that was causing issues */
-      position: relative;
-      /* Let content determine height but constrain to viewport */
-      height: auto !important;
-      max-height: calc(100vh - 100px); /* Prevent overflow beyond viewport */
-      /* Reset any transforms */
-      transform: none !important;
-      left: 0 !important;
-      right: 0 !important;
-    }
-    
-    :global(.xterm-rows) {
-      /* Allow horizontal scroll for long lines on mobile */
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-    
-    :global(.xterm-cursor-layer) {
-      /* Make cursor more visible on mobile */
-      z-index: 10;
-    }
-    
-    /* Connection status adjustments */
-    .connection-status {
-      font-size: var(--font-size-sm);
-      padding: var(--spacing-xs) var(--spacing-sm);
-    }
-  }
-  
-  /* Touch-friendly adjustments */
-  @media (pointer: coarse) {
-    :global(.xterm-screen) {
-      /* Increase line height for better touch selection */
-      line-height: 1.3;
-    }
-    
-    :global(.xterm-selection-layer) {
-      /* Make selection more visible on touch devices */
-      opacity: 0.4;
-    }
-  }
-  
   /* Prevent zoom on input focus for iOS */
-  @media (hover: none) and (pointer: coarse) {
-    :global(.xterm-helper-textarea) {
-      font-size: 16px !important;
-    }
+  :global(.xterm-helper-textarea) {
+    font-size: 16px !important;
   }
 </style>

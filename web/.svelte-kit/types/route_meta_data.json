@@ -60,6 +60,9 @@
 	"/code-editor-demo": [
 		"src/routes/+layout.server.ts"
 	],
+	"/color-picker-test": [
+		"src/routes/+layout.server.ts"
+	],
 	"/command-palette-demo": [
 		"src/routes/+layout.server.ts"
 	],

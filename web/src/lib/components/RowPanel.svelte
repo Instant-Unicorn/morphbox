@@ -13,11 +13,11 @@
   
   const dispatch = createEventDispatcher();
   
-  let showColorPicker = false;
-  let colorInput: HTMLInputElement;
+  let showColorPopup = false;
+  let colorPopupElement: HTMLDivElement;
+  let headerColorInput: HTMLInputElement;
   let backgroundColorInput: HTMLInputElement;
   let borderColorInput: HTMLInputElement;
-  let activeColorPicker: 'header' | 'background' | 'border' | null = null;
   let dropZone: 'before' | 'after' | 'center' | null = null;
   
   // Resize state
@@ -82,6 +82,11 @@
       
       return () => {
         resizeObserver.disconnect();
+        document.removeEventListener('click', handleClickOutside);
+      };
+    } else {
+      return () => {
+        document.removeEventListener('click', handleClickOutside);
       };
     }
   });
@@ -126,43 +131,28 @@
     dispatch('close', { panelId: panel.id });
   }
   
-  let lastColorPickerClick = 0;
-  
-  function toggleColorPicker(type: 'header' | 'background' | 'border', event?: Event) {
-    // Prevent double firing on mobile
-    const now = Date.now();
-    if (event && event.type === 'touchend' && now - lastColorPickerClick < 100) {
-      return;
-    }
-    lastColorPickerClick = now;
+  function toggleColorPopup() {
+    showColorPopup = !showColorPopup;
     
-    activeColorPicker = activeColorPicker === type ? null : type;
-    showColorPicker = activeColorPicker !== null;
-    
-    if (showColorPicker) {
-      // Use requestAnimationFrame for better mobile compatibility
-      requestAnimationFrame(() => {
-        try {
-          if (type === 'header' && colorInput) {
-            colorInput.showPicker?.() || colorInput.click();
-          } else if (type === 'background' && backgroundColorInput) {
-            backgroundColorInput.showPicker?.() || backgroundColorInput.click();
-          } else if (type === 'border' && borderColorInput) {
-            borderColorInput.showPicker?.() || borderColorInput.click();
-          }
-        } catch (e) {
-          // Fallback for browsers that don't support showPicker
-          if (type === 'header' && colorInput) colorInput.click();
-          else if (type === 'background' && backgroundColorInput) backgroundColorInput.click();
-          else if (type === 'border' && borderColorInput) borderColorInput.click();
-        }
-      });
+    if (showColorPopup) {
+      // Add click outside handler
+      setTimeout(() => {
+        document.addEventListener('click', handleClickOutside);
+      }, 0);
+    } else {
+      document.removeEventListener('click', handleClickOutside);
     }
   }
   
-  function handleColorChange(e: Event, type: 'header' | 'background' | 'border') {
-    const color = (e.target as HTMLInputElement).value;
-    
+  function handleClickOutside(e: MouseEvent) {
+    if (colorPopupElement && !colorPopupElement.contains(e.target as Node) && 
+        !(e.target as Element).closest('.color-palette-btn')) {
+      showColorPopup = false;
+      document.removeEventListener('click', handleClickOutside);
+    }
+  }
+  
+  function handleColorChange(type: 'header' | 'background' | 'border', color: string) {
     if (type === 'header') {
       panelStore.updatePanel(panel.id, { headerColor: color });
     } else if (type === 'background') {
@@ -170,9 +160,14 @@
     } else if (type === 'border') {
       panelStore.updatePanel(panel.id, { borderColor: color });
     }
-    
-    showColorPicker = false;
-    activeColorPicker = null;
+  }
+  
+  function resetColors() {
+    panelStore.updatePanel(panel.id, {
+      headerColor: '#636363',
+      backgroundColor: '#2a2a2a',
+      borderColor: '#444'
+    });
   }
   
   function handleDragStart(e: DragEvent) {
@@ -463,48 +458,100 @@
     <h3 class="panel-title">{panel.title}</h3>
     
     <div class="panel-controls">
-      <!-- Color pickers group -->
-      <div class="color-picker-group">
-        <!-- Color inputs styled as buttons for mobile compatibility -->
-        <label class="color-input-label {activeColorPicker === 'header' ? 'active' : ''}" title="Change header color">
-          <input
-            bind:this={colorInput}
-            type="color"
-            class="color-input"
-            value={panel.headerColor || '#636363'}
-            on:change={(e) => handleColorChange(e, 'header')}
-            on:click={() => activeColorPicker = 'header'}
-          />
-          <span class="color-display" style="background-color: {panel.headerColor || '#636363'};">
-            <span class="color-label">H</span>
-          </span>
-        </label>
-        <label class="color-input-label {activeColorPicker === 'background' ? 'active' : ''}" title="Change background color">
-          <input
-            bind:this={backgroundColorInput}
-            type="color"
-            class="color-input"
-            value={panel.backgroundColor || '#2a2a2a'}
-            on:change={(e) => handleColorChange(e, 'background')}
-            on:click={() => activeColorPicker = 'background'}
-          />
-          <span class="color-display" style="background-color: {panel.backgroundColor || '#2a2a2a'};">
-            <span class="color-label">B</span>
-          </span>
-        </label>
-        <label class="color-input-label {activeColorPicker === 'border' ? 'active' : ''}" title="Change border color">
-          <input
-            bind:this={borderColorInput}
-            type="color"
-            class="color-input"
-            value={panel.borderColor || '#444'}
-            on:change={(e) => handleColorChange(e, 'border')}
-            on:click={() => activeColorPicker = 'border'}
-          />
-          <span class="color-display" style="background-color: {panel.borderColor || '#444'};">
-            <span class="color-label">E</span>
-          </span>
-        </label>
+      <!-- Color palette button -->
+      <div class="color-palette-container">
+        <button 
+          class="control-btn color-palette-btn {showColorPopup ? 'active' : ''}"
+          on:click={toggleColorPopup}
+          title="Change panel colors"
+        >
+          <Palette size={16} />
+        </button>
+        
+        {#if showColorPopup}
+          <!-- Mobile backdrop -->
+          <div class="color-popup-backdrop" on:click={() => showColorPopup = false}></div>
+          <div class="color-popup" bind:this={colorPopupElement}>
+            <div class="color-popup-header">
+              <h4>Panel Colors</h4>
+              <button 
+                class="reset-btn"
+                on:click={resetColors}
+                title="Reset to default colors"
+              >
+                Reset
+              </button>
+            </div>
+            
+            <div class="color-options">
+              <!-- Header Color -->
+              <div class="color-option">
+                <label for="header-color-{panel.id}">Header</label>
+                <div class="color-input-wrapper">
+                  <input
+                    id="header-color-{panel.id}"
+                    bind:this={headerColorInput}
+                    type="color"
+                    value={panel.headerColor || '#636363'}
+                    on:input={(e) => handleColorChange('header', e.currentTarget.value)}
+                    class="color-picker-input"
+                  />
+                  <button 
+                    class="color-preview"
+                    style="background-color: {panel.headerColor || '#636363'};"
+                    on:click={() => headerColorInput?.click()}
+                    type="button"
+                    aria-label="Choose header color"
+                  ></button>
+                </div>
+              </div>
+              
+              <!-- Background Color -->
+              <div class="color-option">
+                <label for="bg-color-{panel.id}">Background</label>
+                <div class="color-input-wrapper">
+                  <input
+                    id="bg-color-{panel.id}"
+                    bind:this={backgroundColorInput}
+                    type="color"
+                    value={panel.backgroundColor || '#2a2a2a'}
+                    on:input={(e) => handleColorChange('background', e.currentTarget.value)}
+                    class="color-picker-input"
+                  />
+                  <button 
+                    class="color-preview"
+                    style="background-color: {panel.backgroundColor || '#2a2a2a'};"
+                    on:click={() => backgroundColorInput?.click()}
+                    type="button"
+                    aria-label="Choose background color"
+                  ></button>
+                </div>
+              </div>
+              
+              <!-- Border Color -->
+              <div class="color-option">
+                <label for="border-color-{panel.id}">Border</label>
+                <div class="color-input-wrapper">
+                  <input
+                    id="border-color-{panel.id}"
+                    bind:this={borderColorInput}
+                    type="color"
+                    value={panel.borderColor || '#444'}
+                    on:input={(e) => handleColorChange('border', e.currentTarget.value)}
+                    class="color-picker-input"
+                  />
+                  <button 
+                    class="color-preview"
+                    style="background-color: {panel.borderColor || '#444'};"
+                    on:click={() => borderColorInput?.click()}
+                    type="button"
+                    aria-label="Choose border color"
+                  ></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        {/if}
       </div>
       
       <!-- Keyboard emulation buttons for terminal panels -->
@@ -714,20 +761,146 @@
     color: var(--panel-title-color, #cccccc);
   }
   
-  .color-picker-group {
-    display: flex;
-    gap: 2px;
-    align-items: center;
+  /* Color palette button and popup */
+  .color-palette-container {
+    position: relative;
   }
   
+  .color-palette-btn {
+    transition: all 0.2s;
+  }
   
-  .color-label {
-    font-size: 10px;
-    font-weight: bold;
+  .color-palette-btn.active {
+    background-color: rgba(255, 255, 255, 0.2);
     color: white;
-    text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+  }
+  
+  .color-popup {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background-color: var(--popup-bg, #1e1e1e);
+    border: 1px solid var(--popup-border, #3e3e42);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    padding: 12px;
+    z-index: 1000;
+    min-width: 220px;
+  }
+  
+  .color-popup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--popup-border, #3e3e42);
+  }
+  
+  .color-popup-header h4 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary, #cccccc);
+  }
+  
+  .reset-btn {
+    background: none;
+    border: 1px solid var(--popup-border, #3e3e42);
+    color: var(--text-secondary, #858585);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .reset-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary, #cccccc);
+    border-color: var(--text-secondary, #858585);
+  }
+  
+  .color-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .color-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  
+  .color-option label {
+    font-size: 12px;
+    color: var(--text-secondary, #858585);
+    min-width: 70px;
+  }
+  
+  .color-input-wrapper {
     position: relative;
-    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+  
+  .color-picker-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+  
+  .color-preview {
+    width: 100%;
+    height: 28px;
+    border: 1px solid var(--popup-border, #3e3e42);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+    padding: 0;
+    background: none;
+  }
+  
+  .color-preview:hover {
+    border-color: var(--accent-color, #0e639c);
+    transform: scale(1.02);
+  }
+  
+  .color-preview::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, transparent 100%);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  
+  .color-preview:hover::after {
+    opacity: 1;
+  }
+  
+  /* Mobile backdrop */
+  .color-popup-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+  }
+  
+  @media (hover: none) and (pointer: coarse) {
+    .color-popup-backdrop {
+      display: block;
+    }
   }
   
   .close-btn:hover {
@@ -768,63 +941,26 @@
     line-height: 1;
   }
   
-  /* Color input labels styled as buttons */
-  .color-input-label {
-    position: relative;
-    display: inline-block;
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-  }
-  
-  .color-input-label.active .color-display {
-    border-color: var(--accent-color, #0e639c);
-    box-shadow: 0 0 3px var(--accent-color, #0e639c);
-  }
-  
-  /* Hide the actual color input */
-  .color-input {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    cursor: pointer;
-    border: 0;
-    padding: 0;
-    margin: 0;
-  }
-  
-  /* The visible color display */
-  .color-display {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 2px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-  }
-  
-  .color-input-label:hover .color-display {
-    border-color: rgba(255, 255, 255, 0.4);
-    transform: scale(1.1);
-  }
   
   /* Mobile-specific improvements */
   @media (hover: none) and (pointer: coarse) {
-    .color-input-label {
-      width: 24px;
-      height: 24px;
-      min-width: 24px;
-      min-height: 24px;
+    .color-popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      right: auto;
+      transform: translate(-50%, -50%);
+      width: 90%;
+      max-width: 320px;
+      padding: 16px;
     }
     
-    .color-picker-group {
-      gap: 4px;
+    .color-option {
+      gap: 16px;
+    }
+    
+    .color-preview {
+      height: 36px;
     }
     
     .keyboard-btn {
@@ -1008,9 +1144,9 @@
       font-size: var(--font-size-xs);
     }
     
-    /* Hide color picker on very small panels */
-    .color-btn {
-      display: none;
+    /* Keep color palette button visible even on small panels */
+    .color-palette-btn {
+      min-width: 20px;
     }
   }
   

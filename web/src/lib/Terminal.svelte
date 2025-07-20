@@ -718,6 +718,182 @@
     });
     console.log('[Terminal] Starting initialization...');
     console.log('[Terminal] Initial viewport:', getViewportInfo());
+    
+    // COMPREHENSIVE DOM INSPECTION
+    console.log('=== COMPREHENSIVE DOM INSPECTION ===');
+    
+    // 1. Terminal container itself
+    console.log('[DOM] Terminal container:', {
+      element: terminalContainer,
+      rect: terminalContainer?.getBoundingClientRect(),
+      computed: terminalContainer ? {
+        display: window.getComputedStyle(terminalContainer).display,
+        width: window.getComputedStyle(terminalContainer).width,
+        height: window.getComputedStyle(terminalContainer).height,
+        position: window.getComputedStyle(terminalContainer).position,
+        flexGrow: window.getComputedStyle(terminalContainer).flexGrow,
+        flexShrink: window.getComputedStyle(terminalContainer).flexShrink,
+        flexBasis: window.getComputedStyle(terminalContainer).flexBasis,
+        minWidth: window.getComputedStyle(terminalContainer).minWidth,
+        maxWidth: window.getComputedStyle(terminalContainer).maxWidth
+      } : null
+    });
+    
+    // 2. Inspect all parent elements up to body
+    let currentElement = terminalContainer?.parentElement;
+    let parentLevel = 1;
+    while (currentElement && currentElement !== document.body) {
+      const computedStyles = window.getComputedStyle(currentElement);
+      console.log(`[DOM] Parent Level ${parentLevel}:`, {
+        tagName: currentElement.tagName,
+        className: currentElement.className,
+        id: currentElement.id,
+        rect: currentElement.getBoundingClientRect(),
+        computed: {
+          display: computedStyles.display,
+          width: computedStyles.width,
+          height: computedStyles.height,
+          position: computedStyles.position,
+          flexDirection: computedStyles.flexDirection,
+          flexWrap: computedStyles.flexWrap,
+          alignItems: computedStyles.alignItems,
+          justifyContent: computedStyles.justifyContent,
+          grid: computedStyles.display === 'grid' ? {
+            gridTemplateColumns: computedStyles.gridTemplateColumns,
+            gridTemplateRows: computedStyles.gridTemplateRows,
+            gap: computedStyles.gap
+          } : null
+        }
+      });
+      
+      // Check for siblings at each level
+      const siblings = Array.from(currentElement.children);
+      console.log(`[DOM] Siblings at Level ${parentLevel}:`, {
+        count: siblings.length,
+        siblings: siblings.map(sibling => ({
+          tagName: sibling.tagName,
+          className: sibling.className,
+          id: sibling.id,
+          rect: sibling.getBoundingClientRect(),
+          isTerminalContainer: sibling === terminalContainer,
+          computed: {
+            display: window.getComputedStyle(sibling).display,
+            width: window.getComputedStyle(sibling).width,
+            position: window.getComputedStyle(sibling).position,
+            flex: window.getComputedStyle(sibling).flex,
+            flexGrow: window.getComputedStyle(sibling).flexGrow
+          }
+        }))
+      });
+      
+      currentElement = currentElement.parentElement;
+      parentLevel++;
+    }
+    
+    // 3. Check for SectionTabs specifically
+    const sectionTabs = document.querySelector('.section-tabs');
+    if (sectionTabs) {
+      const sectionTabsComputed = window.getComputedStyle(sectionTabs);
+      console.log('[DOM] SectionTabs found:', {
+        element: sectionTabs,
+        rect: sectionTabs.getBoundingClientRect(),
+        computed: {
+          display: sectionTabsComputed.display,
+          width: sectionTabsComputed.width,
+          height: sectionTabsComputed.height,
+          position: sectionTabsComputed.position,
+          float: sectionTabsComputed.float,
+          flexDirection: sectionTabsComputed.flexDirection
+        },
+        parent: sectionTabs.parentElement?.className,
+        parentRect: sectionTabs.parentElement?.getBoundingClientRect()
+      });
+    }
+    
+    // 4. Look for any element taking up horizontal space
+    const terminalRect = terminalContainer?.getBoundingClientRect();
+    if (terminalRect) {
+      console.log('[DOM] Looking for elements taking horizontal space...');
+      const allElements = document.querySelectorAll('*');
+      const horizontalNeighbors = Array.from(allElements).filter(el => {
+        const rect = el.getBoundingClientRect();
+        // Check if element is at same vertical level and takes up horizontal space
+        return rect.top < terminalRect.bottom && 
+               rect.bottom > terminalRect.top && 
+               rect.width > 50 && // At least 50px wide
+               el !== terminalContainer &&
+               !terminalContainer.contains(el);
+      });
+      
+      console.log('[DOM] Potential horizontal neighbors:', {
+        count: horizontalNeighbors.length,
+        elements: horizontalNeighbors.slice(0, 10).map(el => ({
+          tagName: el.tagName,
+          className: el.className,
+          id: el.id,
+          rect: el.getBoundingClientRect(),
+          computed: {
+            display: window.getComputedStyle(el).display,
+            width: window.getComputedStyle(el).width,
+            position: window.getComputedStyle(el).position
+          }
+        }))
+      });
+    }
+    
+    // 5. Specifically check for row layout information
+    const rowPanel = terminalContainer?.closest('.row-panel');
+    const row = terminalContainer?.closest('.row');
+    if (row) {
+      console.log('[DOM] Row Layout Analysis:');
+      console.log('Row element:', {
+        id: row.id,
+        className: row.className,
+        rect: row.getBoundingClientRect(),
+        computed: {
+          display: window.getComputedStyle(row).display,
+          flexDirection: window.getComputedStyle(row).flexDirection,
+          width: window.getComputedStyle(row).width,
+          maxWidth: window.getComputedStyle(row).maxWidth
+        }
+      });
+      
+      // Find all panel containers in the same row
+      const panelContainers = row.querySelectorAll('.panel-container');
+      console.log(`[DOM] Panels in same row: ${panelContainers.length}`);
+      panelContainers.forEach((pc, index) => {
+        const panelId = pc.getAttribute('data-panel-id');
+        const panelElement = pc.querySelector('.row-panel');
+        console.log(`[DOM] Panel ${index + 1} in row:`, {
+          panelId,
+          containerStyle: pc.getAttribute('style'),
+          containerRect: pc.getBoundingClientRect(),
+          panelType: panelElement?.querySelector('.panel-title')?.textContent || 'Unknown',
+          computed: {
+            width: window.getComputedStyle(pc).width,
+            flex: window.getComputedStyle(pc).flex,
+            maxWidth: window.getComputedStyle(pc).maxWidth
+          }
+        });
+      });
+    }
+    
+    // 6. Check the panel container wrapping the terminal
+    const panelContainer = terminalContainer?.closest('.panel-container');
+    if (panelContainer) {
+      console.log('[DOM] Terminal\'s Panel Container:', {
+        style: panelContainer.getAttribute('style'),
+        rect: panelContainer.getBoundingClientRect(),
+        computed: {
+          width: window.getComputedStyle(panelContainer).width,
+          maxWidth: window.getComputedStyle(panelContainer).maxWidth,
+          flex: window.getComputedStyle(panelContainer).flex
+        }
+      });
+    }
+    
+    console.log('=== END DOM INSPECTION ===');
+    
     console.log('[Terminal] Parent element info:', {
       parent: terminalContainer?.parentElement,
       parentRect: terminalContainer?.parentElement?.getBoundingClientRect(),
@@ -1058,7 +1234,8 @@
     
     // Mobile-specific fix: Force a resize after initialization
     if (getViewportInfo().isTouchDevice) {
-      setTimeout(() => {
+      // Use requestAnimationFrame to ensure DOM is ready
+      requestAnimationFrame(() => {
         const viewport = getViewportInfo();
         console.log('[Terminal] Mobile resize fix triggered:', {
           viewport,

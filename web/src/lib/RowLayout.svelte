@@ -191,6 +191,13 @@
     
     // Load saved layout from server OR initialize if empty
     setTimeout(async () => {
+      // Clear any stale sessionStorage data that might conflict
+      if (browser && sessionStorage.getItem('morphbox-panel-state')) {
+        const staleData = sessionStorage.getItem('morphbox-panel-state');
+        console.log('⚠️ Clearing potentially stale sessionStorage data:', staleData);
+        sessionStorage.removeItem('morphbox-panel-state');
+      }
+      
       const loaded = await loadLayoutFromServer();
       if (!loaded && $panels.length === 0) {
         initializeLayout();
@@ -252,6 +259,14 @@
     
     console.log('🔍 organizePanelsIntoRows: Starting organization');
     console.log('Total panels:', $panels.length);
+    console.log('All panels details:', $panels.map(p => ({
+      id: p.id,
+      type: p.type,
+      title: p.title,
+      rowIndex: p.rowIndex,
+      widthPercent: p.widthPercent,
+      orderInRow: p.orderInRow
+    })));
     console.log('Call stack:', new Error().stack?.split('\n').slice(2, 5).join('\n'));
     
     // Group panels by row index
@@ -264,6 +279,7 @@
       
       console.log(`Panel ${panel.id}:`, {
         type: panel.type,
+        title: panel.title,
         rowIndex: panel.rowIndex,
         widthPercent: panel.widthPercent,
         orderInRow: panel.orderInRow
@@ -412,6 +428,7 @@
     // Only recalculate widths if this was an actual drag operation (not initial load)
     // The widthPercent should already be set correctly for the moved panel
     if (draggedPanelId) {
+      console.log('📐 Recalculating widths after drag operation');
       setTimeout(() => {
         recalculateRowWidths();
       }, 0);
@@ -419,8 +436,8 @@
   }
   
   // Recalculate panel widths within rows
-  function recalculateRowWidths(forceEqualWidths = false) {
-    console.log('🔄 recalculateRowWidths called:', { forceEqualWidths });
+  function recalculateRowWidths(forceEqualWidths = false, isInitialLoad = false) {
+    console.log('🔄 recalculateRowWidths called:', { forceEqualWidths, isInitialLoad });
     
     rows.forEach(row => {
       const panelCount = row.panels.length;
@@ -436,7 +453,13 @@
           panels: row.panels.map(p => ({ id: p.id, width: p.widthPercent }))
         });
         
-        if (needsRecalculation) {
+        // During initial load, if there's only one panel with 100% width, don't recalculate
+        if (isInitialLoad && panelCount === 1 && Math.abs(totalWidth - 100) < 0.1) {
+          console.log(`  ✅ Single panel with correct width, skipping recalculation`);
+          return;
+        }
+        
+        if (needsRecalculation && !isInitialLoad) {
           const widthPerPanel = 100 / panelCount;
           console.log(`  ⚠️ Recalculating widths to ${widthPerPanel}% per panel`);
           row.panels.forEach((panel, index) => {
@@ -587,6 +610,8 @@
             panelStore.addPanel(panel.type, panelWithoutId);
           });
           organizePanelsIntoRows();
+          // Don't recalculate widths on initial load - preserve saved widths
+          console.log('📥 Loaded layout from server, preserving saved widths');
           return true;
         }
       }
@@ -633,6 +658,9 @@
   // Update rows when panels change
   $: if ($panels && browser) {
     try {
+      console.log('🔄 Reactive: panels changed, organizing into rows');
+      console.log('Panel count:', $panels.length);
+      console.log('draggedPanelId:', draggedPanelId);
       organizePanelsIntoRows();
       // Log after reactive update
       setTimeout(() => {
@@ -653,7 +681,12 @@
     console.log('Layout container:', {
       width: layoutContainer.offsetWidth,
       clientWidth: layoutContainer.clientWidth,
-      scrollWidth: layoutContainer.scrollWidth
+      scrollWidth: layoutContainer.scrollWidth,
+      computedStyle: {
+        width: window.getComputedStyle(layoutContainer).width,
+        maxWidth: window.getComputedStyle(layoutContainer).maxWidth,
+        padding: window.getComputedStyle(layoutContainer).padding
+      }
     });
     
     rows.forEach(row => {
@@ -661,19 +694,26 @@
       if (rowElement) {
         console.log(`Row ${row.id}:`, {
           width: rowElement.offsetWidth,
-          computedWidth: window.getComputedStyle(rowElement).width
+          computedWidth: window.getComputedStyle(rowElement).width,
+          computedFlex: window.getComputedStyle(rowElement).flex,
+          computedDisplay: window.getComputedStyle(rowElement).display
         });
         
         row.panels.forEach(panel => {
-          const panelElement = rowElement.querySelector(`[data-panel-id="${panel.id}"]`);
-          if (panelElement) {
-            const parentContainer = panelElement.closest('.panel-container');
+          const panelContainer = rowElement.querySelector(`[data-panel-id="${panel.id}"]`);
+          if (panelContainer) {
+            const panelElement = panelContainer.querySelector('.row-panel');
             console.log(`  Panel ${panel.id} (${panel.type}):`, {
               widthPercent: panel.widthPercent,
-              containerWidth: parentContainer?.offsetWidth,
-              containerComputedWidth: parentContainer ? window.getComputedStyle(parentContainer).width : 'N/A',
-              panelWidth: panelElement.offsetWidth,
-              panelComputedWidth: window.getComputedStyle(panelElement).width
+              containerStyle: panelContainer.getAttribute('style'),
+              containerWidth: panelContainer.offsetWidth,
+              containerComputedStyle: {
+                width: window.getComputedStyle(panelContainer).width,
+                flex: window.getComputedStyle(panelContainer).flex,
+                maxWidth: window.getComputedStyle(panelContainer).maxWidth
+              },
+              panelWidth: panelElement?.offsetWidth,
+              panelComputedWidth: panelElement ? window.getComputedStyle(panelElement).width : 'N/A'
             });
           }
         });
@@ -684,24 +724,28 @@
   // Load components for panels
   let panelComponentMap: Record<string, any> = {};
   
-  $: {
-    $panels.forEach(async (panel) => {
-      if (!panelComponentMap[panel.id]) {
+  // Use a more stable approach to prevent component remounting
+  async function loadPanelComponents() {
+    const newMap: Record<string, any> = {};
+    
+    for (const panel of $panels) {
+      // Reuse existing component if available
+      if (panelComponentMap[panel.id]) {
+        newMap[panel.id] = panelComponentMap[panel.id];
+      } else {
         const component = await getComponentForPanel(panel.type);
         if (component) {
-          panelComponentMap = { ...panelComponentMap, [panel.id]: component };
+          newMap[panel.id] = component;
         }
       }
-    });
+    }
     
-    const currentPanelIds = new Set($panels.map(p => p.id));
-    Object.keys(panelComponentMap).forEach(id => {
-      if (!currentPanelIds.has(id)) {
-        const newMap = { ...panelComponentMap };
-        delete newMap[id];
-        panelComponentMap = newMap;
-      }
-    });
+    panelComponentMap = newMap;
+  }
+  
+  // Only reload components when panels change
+  $: if ($panels) {
+    loadPanelComponents();
   }
 </script>
 
@@ -744,21 +788,23 @@
             {#if panelComponentMap[panel.id]}
               <div 
                 class="panel-container"
-                style="width: {panel.widthPercent}%; flex: 0 1 {panel.widthPercent}%; max-width: {panel.widthPercent}%;"
+                style="width: {panel.widthPercent}%; flex: 1 0 {panel.widthPercent}%; max-width: {panel.widthPercent}%;"
                 data-panel-id={panel.id}
               >
-                <RowPanel 
-                  {panel}
-                  component={panelComponentMap[panel.id]}
-                  {websocketUrl}
-                  isDragging={draggedPanelId === panel.id}
-                  on:dragstart={handleDragStart}
-                  on:dragend={handleDragEnd}
-                  on:drop={handlePanelDrop}
-                  on:resize={handlePanelResize}
-                  on:open={handleFileOpen}
-                  on:close={handlePanelClose}
-                />
+                {#key panel.id}
+                  <RowPanel 
+                    {panel}
+                    component={panelComponentMap[panel.id]}
+                    {websocketUrl}
+                    isDragging={draggedPanelId === panel.id}
+                    on:dragstart={handleDragStart}
+                    on:dragend={handleDragEnd}
+                    on:drop={handlePanelDrop}
+                    on:resize={handlePanelResize}
+                    on:open={handleFileOpen}
+                    on:close={handlePanelClose}
+                  />
+                {/key}
               </div>
             {/if}
           {/each}
@@ -830,6 +876,8 @@
     transition: margin 0.3s ease;
     /* Remove padding to maximize panel width */
     padding: 0;
+    /* Ensure row takes full width */
+    max-width: 100%;
   }
   
   .panel-container {
@@ -842,6 +890,8 @@
     min-width: 0; /* Allow flex items to shrink below content size */
     overflow: hidden;
     transition: width 0.3s ease, flex 0.3s ease;
+    /* Ensure panel takes its allocated width */
+    flex-shrink: 0;
   }
   
   .empty-row {

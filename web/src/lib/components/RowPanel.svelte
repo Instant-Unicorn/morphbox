@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   import type { Panel } from '$lib/stores/panels';
   import { panelStore } from '$lib/stores/panels';
   import { X, GripVertical, Palette } from 'lucide-svelte';
@@ -27,6 +27,59 @@
   let resizeStartWidth = 0;
   let resizeStartHeight = 0;
   let panelElement: HTMLElement;
+  
+  // Log panel dimensions on mount and when panel changes
+  onMount(() => {
+    logPanelDimensions();
+    
+    // Set up a resize observer to log when dimensions change
+    if (panelElement && 'ResizeObserver' in window) {
+      const resizeObserver = new ResizeObserver(() => {
+        logPanelDimensions();
+      });
+      resizeObserver.observe(panelElement);
+      
+      return () => {
+        resizeObserver.disconnect();
+      };
+    }
+  });
+  
+  $: if (panel && panelElement) {
+    // Log when panel data changes
+    console.log(`📄 Panel ${panel.id} (${panel.type}) data:`, {
+      widthPercent: panel.widthPercent,
+      heightPixels: panel.heightPixels,
+      rowIndex: panel.rowIndex,
+      orderInRow: panel.orderInRow
+    });
+  }
+  
+  function logPanelDimensions() {
+    if (!panelElement) return;
+    
+    const parentContainer = panelElement.parentElement;
+    const row = panelElement.closest('.row');
+    
+    console.log(`📦 RowPanel ${panel.id} (${panel.type}) dimensions:`, {
+      panelElement: {
+        offsetWidth: panelElement.offsetWidth,
+        clientWidth: panelElement.clientWidth,
+        computedWidth: window.getComputedStyle(panelElement).width
+      },
+      parentContainer: parentContainer ? {
+        offsetWidth: parentContainer.offsetWidth,
+        clientWidth: parentContainer.clientWidth,
+        computedWidth: window.getComputedStyle(parentContainer).width,
+        computedFlex: window.getComputedStyle(parentContainer).flex
+      } : 'No parent',
+      row: row ? {
+        offsetWidth: row.offsetWidth,
+        clientWidth: row.clientWidth,
+        computedWidth: window.getComputedStyle(row).width
+      } : 'No row'
+    });
+  }
   
   function handleClose() {
     dispatch('close', { panelId: panel.id });
@@ -329,6 +382,7 @@
 <div 
   class="row-panel"
   bind:this={panelElement}
+  data-panel-id={panel.id}
   class:dragging={isDragging}
   class:drop-before={dropZone === 'before'}
   class:drop-after={dropZone === 'after'}

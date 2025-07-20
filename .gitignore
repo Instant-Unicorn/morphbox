@@ -1,4 +1,5 @@
 *.log
+logs/
 data/
 web/node_modules/
 server/node_modules/

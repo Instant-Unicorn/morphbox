@@ -133,19 +133,43 @@
   
   // Initialize on mount
   onMount(async () => {
-    setTimeout(() => {
-      showLoadingOverlay = false;
-    }, 750);
+    console.log('🚀 RowLayout: Component mounted');
     
-    settings.load();
-    const unsubscribe = settings.subscribe($settings => {
-      applyTheme($settings.theme, $settings.customTheme);
-      
-      // Apply panel spacing
-      if ($settings.panels?.panelSpacing !== undefined) {
-        document.documentElement.style.setProperty('--panel-spacing', `${$settings.panels.panelSpacing}px`);
+    // Ensure loading overlay is removed even if there's an error
+    const removeLoadingOverlay = () => {
+      showLoadingOverlay = false;
+      console.log('🎭 Loading overlay removed');
+    };
+    
+    // Set timeout to remove overlay
+    const timeoutId = setTimeout(removeLoadingOverlay, 750);
+    
+    // Failsafe: Remove overlay after 3 seconds no matter what
+    const failsafeTimeoutId = setTimeout(() => {
+      if (showLoadingOverlay) {
+        console.warn('⚠️ Failsafe: Forcing loading overlay removal after 3 seconds');
+        removeLoadingOverlay();
       }
-    });
+    }, 3000);
+    
+    let unsubscribe: (() => void) | undefined;
+    
+    try {
+      settings.load();
+      unsubscribe = settings.subscribe($settings => {
+        applyTheme($settings.theme, $settings.customTheme);
+        
+        // Apply panel spacing
+        if ($settings.panels?.panelSpacing !== undefined) {
+          document.documentElement.style.setProperty('--panel-spacing', `${$settings.panels.panelSpacing}px`);
+        }
+      });
+    } catch (error) {
+      console.error('❌ Error during initialization:', error);
+      // Make sure overlay is removed even on error
+      clearTimeout(timeoutId);
+      removeLoadingOverlay();
+    }
     
     // Set up responsive handling
     updateResponsiveState();
@@ -173,10 +197,20 @@
       }
       // Update responsive state after layout loads
       updateResponsiveState();
+      
+      // Log actual rendered dimensions after DOM updates
+      setTimeout(() => {
+        logRenderedDimensions();
+      }, 100);
     }, 50);
     
     return () => {
-      unsubscribe();
+      clearTimeout(timeoutId);
+      clearTimeout(failsafeTimeoutId);
+      
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
       window.removeEventListener('resize', debouncedResize);
       if (resizeObserver) {
         resizeObserver.disconnect();
@@ -216,6 +250,10 @@
     const currentSettings = $settings;
     const defaultRowHeight = currentSettings.panels?.rowHeight || 400;
     
+    console.log('🔍 organizePanelsIntoRows: Starting organization');
+    console.log('Total panels:', $panels.length);
+    console.log('Call stack:', new Error().stack?.split('\n').slice(2, 5).join('\n'));
+    
     // Group panels by row index
     $panels.forEach(panel => {
       const rowIndex = panel.rowIndex ?? 0;
@@ -223,6 +261,13 @@
         rowMap.set(rowIndex, []);
       }
       rowMap.get(rowIndex)!.push(panel);
+      
+      console.log(`Panel ${panel.id}:`, {
+        type: panel.type,
+        rowIndex: panel.rowIndex,
+        widthPercent: panel.widthPercent,
+        orderInRow: panel.orderInRow
+      });
     });
     
     // Sort panels within each row by orderInRow
@@ -238,6 +283,13 @@
         panels,
         height: panels[0]?.heightPixels ?? defaultRowHeight
       }));
+      
+    console.log('📊 Organized rows:', rows.map(row => ({
+      id: row.id,
+      panelCount: row.panels.length,
+      totalWidth: row.panels.reduce((sum, p) => sum + (p.widthPercent || 0), 0),
+      height: row.height
+    })));
   }
   
   // Handle panel drag start
@@ -357,24 +409,50 @@
     // Reorganize first to update row structures
     organizePanelsIntoRows();
     
-    // Recalculate widths for affected rows
-    setTimeout(() => {
-      recalculateRowWidths();
-    }, 0);
+    // Only recalculate widths if this was an actual drag operation (not initial load)
+    // The widthPercent should already be set correctly for the moved panel
+    if (draggedPanelId) {
+      setTimeout(() => {
+        recalculateRowWidths();
+      }, 0);
+    }
   }
   
   // Recalculate panel widths within rows
-  function recalculateRowWidths() {
+  function recalculateRowWidths(forceEqualWidths = false) {
+    console.log('🔄 recalculateRowWidths called:', { forceEqualWidths });
+    
     rows.forEach(row => {
       const panelCount = row.panels.length;
       if (panelCount > 0) {
-        const widthPerPanel = 100 / panelCount;
-        row.panels.forEach((panel, index) => {
-          panelStore.updatePanel(panel.id, {
-            widthPercent: widthPerPanel,
-            orderInRow: index
-          });
+        // Check if we need to recalculate widths
+        const totalWidth = row.panels.reduce((sum, p) => sum + (p.widthPercent || 0), 0);
+        const needsRecalculation = forceEqualWidths || Math.abs(totalWidth - 100) > 0.1;
+        
+        console.log(`  Row ${row.id}:`, {
+          panelCount,
+          totalWidth,
+          needsRecalculation,
+          panels: row.panels.map(p => ({ id: p.id, width: p.widthPercent }))
         });
+        
+        if (needsRecalculation) {
+          const widthPerPanel = 100 / panelCount;
+          console.log(`  ⚠️ Recalculating widths to ${widthPerPanel}% per panel`);
+          row.panels.forEach((panel, index) => {
+            panelStore.updatePanel(panel.id, {
+              widthPercent: widthPerPanel,
+              orderInRow: index
+            });
+          });
+        } else {
+          // Just update orderInRow without changing widths
+          row.panels.forEach((panel, index) => {
+            panelStore.updatePanel(panel.id, {
+              orderInRow: index
+            });
+          });
+        }
       }
     });
   }
@@ -439,7 +517,7 @@
   function handlePanelClose(event: CustomEvent) {
     const { panelId } = event.detail;
     panelStore.removePanel(panelId);
-    recalculateRowWidths();
+    recalculateRowWidths(true); // Force equal widths when closing a panel
     organizePanelsIntoRows();
     saveLayoutToServer();
   }
@@ -553,8 +631,54 @@
   }
   
   // Update rows when panels change
-  $: if ($panels) {
-    organizePanelsIntoRows();
+  $: if ($panels && browser) {
+    try {
+      organizePanelsIntoRows();
+      // Log after reactive update
+      setTimeout(() => {
+        logRenderedDimensions();
+      }, 0);
+    } catch (error) {
+      console.error('❌ Error organizing panels:', error);
+      // Initialize with empty rows to prevent UI from being stuck
+      rows = [];
+    }
+  }
+  
+  // Function to log actual rendered dimensions
+  function logRenderedDimensions() {
+    if (!browser || !layoutContainer) return;
+    
+    console.log('📐 Rendered Dimensions:');
+    console.log('Layout container:', {
+      width: layoutContainer.offsetWidth,
+      clientWidth: layoutContainer.clientWidth,
+      scrollWidth: layoutContainer.scrollWidth
+    });
+    
+    rows.forEach(row => {
+      const rowElement = document.getElementById(row.id);
+      if (rowElement) {
+        console.log(`Row ${row.id}:`, {
+          width: rowElement.offsetWidth,
+          computedWidth: window.getComputedStyle(rowElement).width
+        });
+        
+        row.panels.forEach(panel => {
+          const panelElement = rowElement.querySelector(`[data-panel-id="${panel.id}"]`);
+          if (panelElement) {
+            const parentContainer = panelElement.closest('.panel-container');
+            console.log(`  Panel ${panel.id} (${panel.type}):`, {
+              widthPercent: panel.widthPercent,
+              containerWidth: parentContainer?.offsetWidth,
+              containerComputedWidth: parentContainer ? window.getComputedStyle(parentContainer).width : 'N/A',
+              panelWidth: panelElement.offsetWidth,
+              panelComputedWidth: window.getComputedStyle(panelElement).width
+            });
+          }
+        });
+      }
+    });
   }
   
   // Load components for panels
@@ -621,6 +745,7 @@
               <div 
                 class="panel-container"
                 style="width: {panel.widthPercent}%; flex: 0 1 {panel.widthPercent}%; max-width: {panel.widthPercent}%;"
+                data-panel-id={panel.id}
               >
                 <RowPanel 
                   {panel}
@@ -688,7 +813,8 @@
     overflow-y: auto;
     scroll-behavior: smooth;
     background-color: var(--bg-secondary, #252526);
-    padding: var(--spacing-sm);
+    /* Reduce padding to maximize space for panels */
+    padding: 0;
     box-sizing: border-box;
     container-type: inline-size;
   }
@@ -702,12 +828,16 @@
     overflow: hidden; /* Prevent panels from extending beyond row */
     flex-wrap: nowrap;
     transition: margin 0.3s ease;
+    /* Remove padding to maximize panel width */
+    padding: 0;
   }
   
   .panel-container {
-    padding: 0 var(--spacing-xs);
+    /* Remove horizontal padding to maximize panel width */
+    /* padding: 0 var(--spacing-xs); */
     box-sizing: border-box;
     height: 100%;
+    width: 100%;
     display: flex;
     min-width: 0; /* Allow flex items to shrink below content size */
     overflow: hidden;
@@ -803,7 +933,8 @@
   /* Viewport-based responsive styles */
   @media (max-width: 768px) {
     .row-layout {
-      padding: var(--spacing-xs);
+      /* Remove padding on mobile to maximize space */
+      padding: 0;
     }
     
     .row {
@@ -816,6 +947,7 @@
       width: 100% !important;
       max-width: 100% !important;
       flex: 1 1 100% !important;
+      /* padding: 0; Keep this to ensure no padding on mobile */
       padding: 0;
       margin-bottom: var(--spacing-xs);
     }

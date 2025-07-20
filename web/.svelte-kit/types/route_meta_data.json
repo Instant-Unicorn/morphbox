@@ -27,6 +27,9 @@
 	"/api/files/write": [
 		"src/routes/api/files/write/+server.ts"
 	],
+	"/api/log/browser": [
+		"src/routes/api/log/browser/+server.ts"
+	],
 	"/api/panels": [
 		"src/routes/api/panels/+server.ts"
 	],

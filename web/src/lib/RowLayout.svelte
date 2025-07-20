@@ -788,7 +788,7 @@
             {#if panelComponentMap[panel.id]}
               <div 
                 class="panel-container"
-                style="width: {panel.widthPercent}%; flex: 1 0 {panel.widthPercent}%; max-width: {panel.widthPercent}%;"
+                style="width: {panel.widthPercent}%; flex: 0 0 {panel.widthPercent}%; max-width: {panel.widthPercent}%;"
                 data-panel-id={panel.id}
               >
                 {#key panel.id}

@@ -140,6 +140,11 @@
     settings.load();
     const unsubscribe = settings.subscribe($settings => {
       applyTheme($settings.theme, $settings.customTheme);
+      
+      // Apply panel spacing
+      if ($settings.panels?.panelSpacing !== undefined) {
+        document.documentElement.style.setProperty('--panel-spacing', `${$settings.panels.panelSpacing}px`);
+      }
     });
     
     // Set up responsive handling
@@ -182,11 +187,16 @@
   // Initialize layout with Claude
   function initializeLayout() {
     panelStore.clear();
+    
+    // Get row height from settings
+    const currentSettings = $settings;
+    const rowHeight = currentSettings.panels?.rowHeight || 400;
+    
     const newPanel = panelStore.addPanel('claude', { 
       title: 'Claude',
       rowIndex: 0,
       widthPercent: 100,
-      heightPixels: 400,
+      heightPixels: rowHeight,
       orderInRow: 0
     });
     
@@ -194,13 +204,17 @@
     rows = [{
       id: 'row-0',
       panels: [$panels[0]],
-      height: 400
+      height: rowHeight
     }];
   }
   
   // Organize panels into rows
   function organizePanelsIntoRows() {
     const rowMap = new Map<number, Panel[]>();
+    
+    // Get default row height from settings
+    const currentSettings = $settings;
+    const defaultRowHeight = currentSettings.panels?.rowHeight || 400;
     
     // Group panels by row index
     $panels.forEach(panel => {
@@ -222,7 +236,7 @@
       .map(([index, panels]) => ({
         id: `row-${index}`,
         panels,
-        height: panels[0]?.heightPixels ?? 400
+        height: panels[0]?.heightPixels ?? defaultRowHeight
       }));
   }
   
@@ -449,11 +463,15 @@
     // Always create a new row at the bottom for new panels
     const newRowIndex = rows.length > 0 ? Math.max(...rows.map(r => parseInt(r.id.split('-')[1]))) + 1 : 0;
     
+    // Get row height from settings
+    const currentSettings = $settings;
+    const rowHeight = currentSettings.panels?.rowHeight || 400;
+    
     panelStore.addPanel(type, {
       ...data,
       rowIndex: newRowIndex,
       widthPercent: 100, // New panels take full width of new row
-      heightPixels: 400,
+      heightPixels: rowHeight,
       orderInRow: 0
     });
     

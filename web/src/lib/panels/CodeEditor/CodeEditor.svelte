@@ -5,6 +5,8 @@
   import { loadMonaco } from './monaco-loader';
   import TabBar from './TabBar.svelte';
   import type { EditorTab, EditorTheme } from './types';
+  import { settings as settingsStore } from '$lib/panels/Settings/settings-store';
+  import { get } from 'svelte/store';
 
   export let theme: EditorTheme = 'vs-dark';
   export let fontSize = 14;
@@ -422,15 +424,21 @@
         }
       });
 
+      // Get editor settings
+      const currentSettings = get(settingsStore);
+      const editorSettings = currentSettings.editor || {};
+      
       // Create editor instance
       editorInstance = monaco.editor.create(containerEl, {
         value: '',
         language: 'plaintext',
-        theme: theme,
-        fontSize: fontSize,
+        theme: editorSettings.theme || theme,
+        fontSize: editorSettings.fontSize || fontSize,
+        fontFamily: editorSettings.fontFamily || undefined,
+        lineHeight: editorSettings.lineHeight || undefined,
         minimap: { enabled: minimap },
         lineNumbers: lineNumbers ? 'on' : 'off',
-        wordWrap: wordWrap ? 'on' : 'off',
+        wordWrap: editorSettings.wordWrap ? 'on' : 'off',
         automaticLayout: true,
         scrollBeyondLastLine: false,
         folding: true,
@@ -439,7 +447,7 @@
         quickSuggestions: true,
         suggestOnTriggerCharacters: true,
         acceptSuggestionOnEnter: 'on',
-        tabSize: 2,
+        tabSize: editorSettings.tabSize || 2,
         insertSpaces: true,
         formatOnPaste: true,
         formatOnType: true,
@@ -488,8 +496,30 @@
     });
   }
 
+  let settingsUnsubscribe: (() => void) | null = null;
+  
   onMount(async () => {
     await initEditor();
+    
+    // Subscribe to settings changes
+    settingsUnsubscribe = settingsStore.subscribe($settings => {
+      if (editorInstance && $settings.editor && monaco) {
+        // Update editor options when settings change
+        editorInstance.updateOptions({
+          fontSize: $settings.editor.fontSize,
+          fontFamily: $settings.editor.fontFamily,
+          lineHeight: $settings.editor.lineHeight,
+          wordWrap: $settings.editor.wordWrap ? 'on' : 'off',
+          tabSize: $settings.editor.tabSize,
+          theme: $settings.editor.theme
+        });
+        
+        // Update theme if changed
+        if ($settings.editor.theme) {
+          monaco.editor.setTheme($settings.editor.theme);
+        }
+      }
+    });
     
     // Load initial file if provided
     if (filePath) {
@@ -514,6 +544,9 @@
     }
     if (editorInstance) {
       editorInstance.dispose();
+    }
+    if (settingsUnsubscribe) {
+      settingsUnsubscribe();
     }
   });
 </script>
@@ -608,7 +641,7 @@
     flex-direction: column;
     height: 100%;
     width: 100%;
-    background-color: #1e1e1e;
+    background-color: var(--editor-bg, #1e1e1e);
     min-height: 0; /* Fix flexbox height issues */
     position: relative;
   }
@@ -625,7 +658,7 @@
   }
 
   :global(.monaco-editor .margin) {
-    background-color: #1e1e1e !important;
+    background-color: var(--editor-bg, #1e1e1e) !important;
   }
 
   .editor-loading {
@@ -633,7 +666,7 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: #cccccc;
+    color: var(--text-color, #cccccc);
     font-size: 14px;
   }
 
@@ -641,8 +674,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background-color: #252526;
-    border-bottom: 1px solid #3e3e42;
+    background-color: var(--surface, #252526);
+    border-bottom: 1px solid var(--border-color, #3e3e42);
   }
 
   .editor-menu {
@@ -653,7 +686,7 @@
   .menu-button {
     background: none;
     border: none;
-    color: #cccccc;
+    color: var(--text-color, #cccccc);
     padding: 6px 10px;
     cursor: pointer;
     display: flex;
@@ -664,7 +697,7 @@
   }
 
   .menu-button:hover {
-    background-color: #3e3e42;
+    background-color: var(--hover-bg, #3e3e42);
   }
 
   .menu-dropdown {
@@ -672,8 +705,8 @@
     top: 100%;
     right: 0;
     margin-top: 4px;
-    background-color: #252526;
-    border: 1px solid #3e3e42;
+    background-color: var(--surface, #252526);
+    border: 1px solid var(--border-color, #3e3e42);
     border-radius: 4px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
     min-width: 250px;
@@ -687,7 +720,7 @@
     padding: 8px 12px;
     background: none;
     border: none;
-    color: #cccccc;
+    color: var(--text-color, #cccccc);
     text-align: left;
     cursor: pointer;
     font-size: 13px;
@@ -695,7 +728,7 @@
   }
 
   .menu-item:hover:not(:disabled) {
-    background-color: #094771;
+    background-color: var(--accent-color, #094771);
   }
 
   .menu-item:disabled {
@@ -717,7 +750,7 @@
 
   .menu-divider {
     height: 1px;
-    background-color: #3e3e42;
+    background-color: var(--border-color, #3e3e42);
     margin: 4px 0;
   }
 </style>

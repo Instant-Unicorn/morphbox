@@ -138,12 +138,12 @@ export function isAuthenticated(event: RequestEvent): boolean {
   const { token, username, password } = extractAuthCredentials(event);
   
   // Check token auth
-  if (config.token && validateToken(token)) {
+  if (config.token && validateToken(token || null)) {
     return true;
   }
   
   // Check basic auth
-  if (config.username && config.password && validateBasicAuth(username, password)) {
+  if (config.username && config.password && validateBasicAuth(username || '', password || '')) {
     return true;
   }
   

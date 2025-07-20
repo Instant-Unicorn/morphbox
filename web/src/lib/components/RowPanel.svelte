@@ -2,12 +2,14 @@
   import { createEventDispatcher, onMount } from 'svelte';
   import type { Panel } from '$lib/stores/panels';
   import { panelStore } from '$lib/stores/panels';
-  import { X, GripVertical, Palette } from 'lucide-svelte';
+  import { X, GripVertical, Palette, Keyboard, CornerDownLeft } from 'lucide-svelte';
   
   export let panel: Panel;
   export let component: any;
   export let websocketUrl: string = '';
   export let isDragging: boolean = false;
+  
+  let componentInstance: any;
   
   const dispatch = createEventDispatcher();
   
@@ -31,6 +33,45 @@
   // Log panel dimensions on mount and when panel changes
   onMount(() => {
     logPanelDimensions();
+    
+    // Add immediate check for width issue
+    setTimeout(() => {
+      if (panelElement) {
+        const rect = panelElement.getBoundingClientRect();
+        const parentRect = panelElement.parentElement?.getBoundingClientRect();
+        const computedStyle = window.getComputedStyle(panelElement);
+        
+        console.log(`🔍 [PANEL WIDTH DEBUG] Panel ${panel.id} (${panel.type}):`, {
+          panel: {
+            widthPercent: panel.widthPercent,
+            elementWidth: rect.width,
+            computedWidth: computedStyle.width,
+            flex: computedStyle.flex,
+            flexGrow: computedStyle.flexGrow,
+            flexShrink: computedStyle.flexShrink,
+            flexBasis: computedStyle.flexBasis
+          },
+          parent: parentRect ? {
+            width: parentRect.width,
+            flex: window.getComputedStyle(panelElement.parentElement!).flex
+          } : null,
+          viewportWidth: window.innerWidth,
+          percentageOfViewport: (rect.width / window.innerWidth * 100).toFixed(1) + '%'
+        });
+        
+        // Check for siblings
+        const siblings = Array.from(panelElement.parentElement?.children || [])
+          .filter(el => el !== panelElement && el.classList.contains('panel-container'));
+        
+        if (siblings.length > 0) {
+          console.log(`⚠️ Found ${siblings.length} sibling panels in same container!`);
+          siblings.forEach((sib, i) => {
+            const sibRect = sib.getBoundingClientRect();
+            console.log(`  Sibling ${i}: width=${sibRect.width}px`);
+          });
+        }
+      }
+    }, 100);
     
     // Set up a resize observer to log when dimensions change
     if (panelElement && 'ResizeObserver' in window) {
@@ -377,6 +418,21 @@
     console.log('RowPanel handleOpen:', event.detail);
     dispatch('open', event.detail);
   }
+  
+  // Keyboard emulation functions for terminal
+  function sendEscape() {
+    if (componentInstance && (panel.type === 'terminal' || panel.type === 'claude') && componentInstance.sendInput) {
+      // ESC key is ASCII 27
+      componentInstance.sendInput('\x1b');
+    }
+  }
+  
+  function sendShiftTab() {
+    if (componentInstance && (panel.type === 'terminal' || panel.type === 'claude') && componentInstance.sendInput) {
+      // Shift+Tab is ESC[Z
+      componentInstance.sendInput('\x1b[Z');
+    }
+  }
 </script>
 
 <div 
@@ -451,6 +507,26 @@
         </label>
       </div>
       
+      <!-- Keyboard emulation buttons for terminal panels -->
+      {#if panel.type === 'terminal' || panel.type === 'claude'}
+        <div class="keyboard-buttons">
+          <button 
+            class="control-btn keyboard-btn"
+            on:click={sendEscape}
+            title="Send ESC key"
+          >
+            <span class="key-label">ESC</span>
+          </button>
+          <button 
+            class="control-btn keyboard-btn"
+            on:click={sendShiftTab}
+            title="Send Shift+Tab"
+          >
+            <span class="key-label">⇧⇥</span>
+          </button>
+        </div>
+      {/if}
+      
       <!-- Close button -->
       {#if !panel.persistent}
         <button 
@@ -470,6 +546,7 @@
         {#if panel.type === 'terminal' || panel.type === 'claude'}
           <svelte:component 
             this={component} 
+            bind:this={componentInstance}
             {websocketUrl}
             panelId={panel.id}
             autoLaunchClaude={panel.type === 'claude'}
@@ -612,7 +689,7 @@
   
   .panel-controls {
     display: flex;
-    gap: 4px;
+    gap: 6px;
     align-items: center;
     margin-left: auto;
   }
@@ -656,6 +733,39 @@
   .close-btn:hover {
     background-color: var(--panel-close-hover-bg, #f14c4c);
     color: white;
+  }
+  
+  /* Keyboard emulation buttons */
+  .keyboard-buttons {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+  }
+  
+  .keyboard-btn {
+    width: auto;
+    min-width: 28px;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .keyboard-btn:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+  
+  .keyboard-btn:active {
+    background-color: var(--accent-color, #0e639c);
+    color: white;
+  }
+  
+  .key-label {
+    font-family: monospace;
+    font-size: 10px;
+    line-height: 1;
   }
   
   /* Color input labels styled as buttons */
@@ -714,6 +824,17 @@
     }
     
     .color-picker-group {
+      gap: 4px;
+    }
+    
+    .keyboard-btn {
+      min-width: 36px;
+      height: 24px;
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+    
+    .keyboard-buttons {
       gap: 4px;
     }
   }
@@ -857,6 +978,17 @@
     
     .drag-handle {
       padding: 4px;
+    }
+    
+    .keyboard-btn {
+      min-width: 32px;
+      height: 26px;
+      padding: 3px 6px;
+      font-size: 11px;
+    }
+    
+    .keyboard-buttons {
+      gap: 3px;
     }
     
     /* Hide resize handles on mobile as panels stack */

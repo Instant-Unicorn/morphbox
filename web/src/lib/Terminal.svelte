@@ -100,6 +100,20 @@
     writeln('\r\n🔄 Session cleared. Next connection will start fresh.');
   }
   
+  export function sendInput(input: string) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      const message = JSON.stringify({
+        type: 'SEND_INPUT',
+        payload: { input }
+      });
+      ws.send(message);
+      // Also write to terminal for visual feedback
+      if (terminal) {
+        terminal.write(input);
+      }
+    }
+  }
+  
   // Test function to verify logging is working
   export function testLogging() {
     logger.info('[Terminal] Test log - Info level', { test: true, timestamp: Date.now() });
@@ -979,6 +993,40 @@
       terminal.open(terminalContainer);
       console.log('[Terminal] Terminal opened successfully');
       
+      // Check for xterm wrapper structure
+      const xtermElement = terminalContainer.querySelector('.xterm');
+      const xtermScreen = terminalContainer.querySelector('.xterm-screen');
+      const xtermViewport = terminalContainer.querySelector('.xterm-viewport');
+      
+      if (xtermElement) {
+        const xtermRect = xtermElement.getBoundingClientRect();
+        const xtermStyle = window.getComputedStyle(xtermElement);
+        console.log('[Terminal] Xterm element analysis:', {
+          dimensions: {
+            width: xtermRect.width,
+            height: xtermRect.height,
+            left: xtermRect.left,
+            right: xtermRect.right
+          },
+          styles: {
+            width: xtermStyle.width,
+            maxWidth: xtermStyle.maxWidth,
+            margin: xtermStyle.margin,
+            padding: xtermStyle.padding,
+            transform: xtermStyle.transform,
+            position: xtermStyle.position
+          }
+        });
+        
+        // Check if xterm has a wrapper div
+        if (xtermElement.parentElement !== terminalContainer) {
+          console.warn('[Terminal] Xterm has unexpected wrapper!', {
+            wrapper: xtermElement.parentElement?.className,
+            wrapperWidth: xtermElement.parentElement?.getBoundingClientRect().width
+          });
+        }
+      }
+      
       console.log('[Terminal] Container state after open:', {
         rect: terminalContainer.getBoundingClientRect(),
         childCount: terminalContainer.children.length,
@@ -1453,6 +1501,7 @@
   
   :global(.xterm-screen) {
     margin: 0;
+    width: 100% !important;
   }
   
   /* Allow terminal to handle its own layout */
@@ -1466,6 +1515,11 @@
     height: 100%;
     width: 100%;
     box-sizing: border-box;
+  }
+  
+  /* Terminal wrapper styles */
+  :global(.terminal-wrapper) {
+    width: 100% !important;
   }
   
   /* Ensure canvas renders properly at all sizes */

@@ -113,16 +113,34 @@ export function applyTheme(theme: Settings['theme'], customTheme?: Settings['cus
       root.style.setProperty('--input-bg', '#ffffff');
       root.style.setProperty('--accent-color', '#0066cc');
       root.style.setProperty('--text-secondary', '#6e6e6e');
+      root.style.setProperty('--surface', '#ffffff');
+      root.style.setProperty('--hover-bg', '#e8e8e8');
+      root.style.setProperty('--hover-border', '#d0d0d0');
+      root.style.setProperty('--error-color', '#d73a49');
+      root.style.setProperty('--error-bg-hover', '#ffdce0');
+      root.style.setProperty('--scrollbar-thumb', '#c0c0c0');
+      root.style.setProperty('--scrollbar-thumb-hover', '#a0a0a0');
+      root.style.setProperty('--editor-bg', '#ffffff');
+      root.style.setProperty('--text-color-bright', '#000000');
       break;
     case 'custom':
       if (customTheme) {
         root.style.setProperty('--bg-color', customTheme.background);
         root.style.setProperty('--text-color', customTheme.foreground);
         root.style.setProperty('--accent-color', customTheme.accent);
+        root.style.setProperty('--surface', customTheme.surface || adjustColor(customTheme.background, 10));
+        root.style.setProperty('--border-color', customTheme.border || adjustColor(customTheme.background, 20));
         // Derive other colors from the custom theme
-        root.style.setProperty('--border-color', adjustColor(customTheme.background, 20));
         root.style.setProperty('--input-bg', adjustColor(customTheme.background, 10));
         root.style.setProperty('--text-secondary', adjustColor(customTheme.foreground, -40));
+        root.style.setProperty('--hover-bg', adjustColor(customTheme.background, 15));
+        root.style.setProperty('--hover-border', adjustColor(customTheme.border, 10));
+        root.style.setProperty('--error-color', '#f48771');
+        root.style.setProperty('--error-bg-hover', adjustColor('#5a1d1d', 10));
+        root.style.setProperty('--scrollbar-thumb', adjustColor(customTheme.background, 30));
+        root.style.setProperty('--scrollbar-thumb-hover', adjustColor(customTheme.background, 40));
+        root.style.setProperty('--editor-bg', customTheme.background);
+        root.style.setProperty('--text-color-bright', customTheme.foreground);
       }
       break;
     default: // dark
@@ -132,6 +150,15 @@ export function applyTheme(theme: Settings['theme'], customTheme?: Settings['cus
       root.style.setProperty('--input-bg', '#3c3c3c');
       root.style.setProperty('--accent-color', '#007acc');
       root.style.setProperty('--text-secondary', '#858585');
+      root.style.setProperty('--surface', '#252526');
+      root.style.setProperty('--hover-bg', '#3e3e42');
+      root.style.setProperty('--hover-border', '#5a5a5c');
+      root.style.setProperty('--error-color', '#f48771');
+      root.style.setProperty('--error-bg-hover', '#5a1d1d');
+      root.style.setProperty('--scrollbar-thumb', '#424242');
+      root.style.setProperty('--scrollbar-thumb-hover', '#4e4e4e');
+      root.style.setProperty('--editor-bg', '#1e1e1e');
+      root.style.setProperty('--text-color-bright', '#ffffff');
   }
 }
 

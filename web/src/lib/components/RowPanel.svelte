@@ -32,16 +32,37 @@
     dispatch('close', { panelId: panel.id });
   }
   
-  function toggleColorPicker(type: 'header' | 'background' | 'border') {
+  let lastColorPickerClick = 0;
+  
+  function toggleColorPicker(type: 'header' | 'background' | 'border', event?: Event) {
+    // Prevent double firing on mobile
+    const now = Date.now();
+    if (event && event.type === 'touchend' && now - lastColorPickerClick < 100) {
+      return;
+    }
+    lastColorPickerClick = now;
+    
     activeColorPicker = activeColorPicker === type ? null : type;
     showColorPicker = activeColorPicker !== null;
     
     if (showColorPicker) {
-      setTimeout(() => {
-        if (type === 'header' && colorInput) colorInput.click();
-        else if (type === 'background' && backgroundColorInput) backgroundColorInput.click();
-        else if (type === 'border' && borderColorInput) borderColorInput.click();
-      }, 0);
+      // Use requestAnimationFrame for better mobile compatibility
+      requestAnimationFrame(() => {
+        try {
+          if (type === 'header' && colorInput) {
+            colorInput.showPicker?.() || colorInput.click();
+          } else if (type === 'background' && backgroundColorInput) {
+            backgroundColorInput.showPicker?.() || backgroundColorInput.click();
+          } else if (type === 'border' && borderColorInput) {
+            borderColorInput.showPicker?.() || borderColorInput.click();
+          }
+        } catch (e) {
+          // Fallback for browsers that don't support showPicker
+          if (type === 'header' && colorInput) colorInput.click();
+          else if (type === 'background' && backgroundColorInput) backgroundColorInput.click();
+          else if (type === 'border' && borderColorInput) borderColorInput.click();
+        }
+      });
     }
   }
   
@@ -332,59 +353,49 @@
     <h3 class="panel-title">{panel.title}</h3>
     
     <div class="panel-controls">
-      <!-- Color pickers -->
+      <!-- Color pickers group -->
       <div class="color-picker-group">
-        <button 
-          class="control-btn color-btn {activeColorPicker === 'header' ? 'active' : ''}"
-          on:click={() => toggleColorPicker('header')}
-          title="Change header color"
-          style="background-color: {panel.headerColor || '#636363'};"
-        >
-          <span class="color-label">H</span>
-        </button>
-        <button 
-          class="control-btn color-btn {activeColorPicker === 'background' ? 'active' : ''}"
-          on:click={() => toggleColorPicker('background')}
-          title="Change background color"
-          style="background-color: {panel.backgroundColor || '#2a2a2a'};"
-        >
-          <span class="color-label">B</span>
-        </button>
-        <button 
-          class="control-btn color-btn {activeColorPicker === 'border' ? 'active' : ''}"
-          on:click={() => toggleColorPicker('border')}
-          title="Change border color"
-          style="background-color: {panel.borderColor || '#444'};"
-        >
-          <span class="color-label">E</span>
-        </button>
+        <!-- Color inputs styled as buttons for mobile compatibility -->
+        <label class="color-input-label {activeColorPicker === 'header' ? 'active' : ''}" title="Change header color">
+          <input
+            bind:this={colorInput}
+            type="color"
+            class="color-input"
+            value={panel.headerColor || '#636363'}
+            on:change={(e) => handleColorChange(e, 'header')}
+            on:click={() => activeColorPicker = 'header'}
+          />
+          <span class="color-display" style="background-color: {panel.headerColor || '#636363'};">
+            <span class="color-label">H</span>
+          </span>
+        </label>
+        <label class="color-input-label {activeColorPicker === 'background' ? 'active' : ''}" title="Change background color">
+          <input
+            bind:this={backgroundColorInput}
+            type="color"
+            class="color-input"
+            value={panel.backgroundColor || '#2a2a2a'}
+            on:change={(e) => handleColorChange(e, 'background')}
+            on:click={() => activeColorPicker = 'background'}
+          />
+          <span class="color-display" style="background-color: {panel.backgroundColor || '#2a2a2a'};">
+            <span class="color-label">B</span>
+          </span>
+        </label>
+        <label class="color-input-label {activeColorPicker === 'border' ? 'active' : ''}" title="Change border color">
+          <input
+            bind:this={borderColorInput}
+            type="color"
+            class="color-input"
+            value={panel.borderColor || '#444'}
+            on:change={(e) => handleColorChange(e, 'border')}
+            on:click={() => activeColorPicker = 'border'}
+          />
+          <span class="color-display" style="background-color: {panel.borderColor || '#444'};">
+            <span class="color-label">E</span>
+          </span>
+        </label>
       </div>
-      
-      <!-- Hidden color inputs -->
-      <input
-        bind:this={colorInput}
-        type="color"
-        class="color-input"
-        value={panel.headerColor || '#636363'}
-        on:change={(e) => handleColorChange(e, 'header')}
-        style="display: none;"
-      />
-      <input
-        bind:this={backgroundColorInput}
-        type="color"
-        class="color-input"
-        value={panel.backgroundColor || '#2a2a2a'}
-        on:change={(e) => handleColorChange(e, 'background')}
-        style="display: none;"
-      />
-      <input
-        bind:this={borderColorInput}
-        type="color"
-        class="color-input"
-        value={panel.borderColor || '#444'}
-        on:change={(e) => handleColorChange(e, 'border')}
-        style="display: none;"
-      />
       
       <!-- Close button -->
       {#if !panel.persistent}
@@ -575,23 +586,6 @@
     align-items: center;
   }
   
-  .color-btn {
-    width: 18px;
-    height: 18px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    position: relative;
-    overflow: hidden;
-  }
-  
-  .color-btn.active {
-    border-color: var(--accent-color, #0e639c);
-    box-shadow: 0 0 3px var(--accent-color, #0e639c);
-  }
-  
-  .color-btn:hover {
-    border-color: rgba(255, 255, 255, 0.4);
-    transform: scale(1.1);
-  }
   
   .color-label {
     font-size: 10px;
@@ -605,6 +599,66 @@
   .close-btn:hover {
     background-color: var(--panel-close-hover-bg, #f14c4c);
     color: white;
+  }
+  
+  /* Color input labels styled as buttons */
+  .color-input-label {
+    position: relative;
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+  }
+  
+  .color-input-label.active .color-display {
+    border-color: var(--accent-color, #0e639c);
+    box-shadow: 0 0 3px var(--accent-color, #0e639c);
+  }
+  
+  /* Hide the actual color input */
+  .color-input {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    border: 0;
+    padding: 0;
+    margin: 0;
+  }
+  
+  /* The visible color display */
+  .color-display {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  
+  .color-input-label:hover .color-display {
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: scale(1.1);
+  }
+  
+  /* Mobile-specific improvements */
+  @media (hover: none) and (pointer: coarse) {
+    .color-input-label {
+      width: 24px;
+      height: 24px;
+      min-width: 24px;
+      min-height: 24px;
+    }
+    
+    .color-picker-group {
+      gap: 4px;
+    }
   }
   
   .panel-content {

@@ -181,11 +181,11 @@
   }
   
   .tree-item-content:hover {
-    background-color: #2a2d2e;
+    background-color: var(--hover-bg, #2a2d2e);
   }
   
   .tree-item-content.selected {
-    background-color: #094771;
+    background-color: var(--accent-color, #094771);
   }
   
   .tree-arrow {
@@ -236,9 +236,9 @@
   
   .rename-input {
     flex: 1;
-    background-color: #3c3c3c;
-    border: 1px solid #007acc;
-    color: #cccccc;
+    background-color: var(--input-bg, #3c3c3c);
+    border: 1px solid var(--accent-color, #007acc);
+    color: var(--text-color, #cccccc);
     padding: 0 4px;
     margin-right: 8px;
     height: 18px;

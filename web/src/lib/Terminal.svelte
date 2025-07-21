@@ -42,6 +42,17 @@
   
   const dispatch = createEventDispatcher();
   
+  // Dispatch ready event when component is mounted with methods
+  onMount(() => {
+    dispatch('ready', {
+      sendInput,
+      write,
+      writeln,
+      clear,
+      clearSession
+    });
+  });
+  
   // Output buffering for performance
   let outputBuffer: string[] = [];
   let flushTimeout: number | null = null;

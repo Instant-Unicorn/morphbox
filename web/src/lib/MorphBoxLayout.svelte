@@ -13,6 +13,8 @@
   import BasePanel from '$lib/panels/BasePanel.svelte';
   import { settings, applyTheme } from '$lib/panels/Settings/settings-store';
   import { fade } from 'svelte/transition';
+  import { initializeCustomPanels, loadedCustomPanels } from '$lib/panels/custom-loader';
+  import CustomPanelWrapper from '$lib/panels/CustomPanelWrapper.svelte';
   
   let terminal: Terminal;
   let mounted = false;
@@ -59,6 +61,9 @@
     const unsubscribe = settings.subscribe($settings => {
       applyTheme($settings.theme, $settings.customTheme);
     });
+    
+    // Initialize custom panels system
+    initializeCustomPanels();
     
     // Initialize default panels (without clearing - we'll do that differently)
     panelStore.initializeDefaults();
@@ -198,7 +203,6 @@
             
             <!-- Floating panels (non-terminal) -->
             {#each $panels.filter(p => p.type !== 'terminal') as panel (panel.id)}
-              {#if panelComponents[panel.type]}
               {#if !panel.minimized}
                 <BasePanel
                   config={{
@@ -229,9 +233,18 @@
                   onMove={(x, y) => panelStore.updatePanel(panel.id, { position: { x, y } })}
                   onResize={(width, height) => panelStore.updatePanel(panel.id, { size: { width, height } })}
                 >
-                  <svelte:component this={panelComponents[panel.type]} {...panel.content} />
+                  {#if panelComponents[panel.type]}
+                    <svelte:component this={panelComponents[panel.type]} {...panel.content} />
+                  {:else}
+                    <!-- Custom panel -->
+                    {@const customPanel = $loadedCustomPanels.find(p => p.metadata.id === panel.type)}
+                    {#if customPanel}
+                      <CustomPanelWrapper {panel} panelId={panel.id} data={panel.content} />
+                    {:else}
+                      <div class="panel-error">Unknown panel type: {panel.type}</div>
+                    {/if}
+                  {/if}
                 </BasePanel>
-              {/if}
               {/if}
             {/each}
           </div>
@@ -261,7 +274,6 @@
         
         <!-- Floating panels (non-terminal) -->
         {#each $panels.filter(p => p.type !== 'terminal') as panel (panel.id)}
-          {#if panelComponents[panel.type]}
           {#if !panel.minimized}
             <BasePanel
               config={{
@@ -292,9 +304,18 @@
               onMove={(x, y) => panelStore.updatePanel(panel.id, { position: { x, y } })}
               onResize={(width, height) => panelStore.updatePanel(panel.id, { size: { width, height } })}
             >
-              <svelte:component this={panelComponents[panel.type]} {...panel.content} />
+              {#if panelComponents[panel.type]}
+                <svelte:component this={panelComponents[panel.type]} {...panel.content} />
+              {:else}
+                <!-- Custom panel -->
+                {@const customPanel = $loadedCustomPanels.find(p => p.metadata.id === panel.type)}
+                {#if customPanel}
+                  <CustomPanelWrapper {panel} panelId={panel.id} data={panel.content} />
+                {:else}
+                  <div class="panel-error">Unknown panel type: {panel.type}</div>
+                {/if}
+              {/if}
             </BasePanel>
-          {/if}
           {/if}
         {/each}
       </div>
@@ -401,6 +422,14 @@
     color: var(--text-primary, #d4d4d4);
     font-family: "Cascadia Code", "Fira Code", monospace;
     font-size: 16px;
+  }
+
+  /* Panel error state */
+  .panel-error {
+    padding: 20px;
+    color: var(--error-color, #f44336);
+    text-align: center;
+    font-size: 14px;
   }
 
   /* Mobile Responsive Styles */

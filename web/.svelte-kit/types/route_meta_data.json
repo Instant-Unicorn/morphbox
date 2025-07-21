@@ -6,6 +6,18 @@
 	"/api/auth/login": [
 		"src/routes/api/auth/login/+server.ts"
 	],
+	"/api/custom-panels/create": [
+		"src/routes/api/custom-panels/create/+server.ts"
+	],
+	"/api/custom-panels/list": [
+		"src/routes/api/custom-panels/list/+server.ts"
+	],
+	"/api/custom-panels/load": [
+		"src/routes/api/custom-panels/load/+server.ts"
+	],
+	"/api/custom-panels/watch": [
+		"src/routes/api/custom-panels/watch/+server.ts"
+	],
 	"/api/files": [
 		"src/routes/api/files/+server.ts"
 	],

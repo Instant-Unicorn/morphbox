@@ -753,17 +753,19 @@
     if (!browser) return;
     
     // Store instance globally for debugging
-    if (!window.morphboxTerminals) {
-      window.morphboxTerminals = {};
+    if (typeof window !== 'undefined') {
+      if (!window.morphboxTerminals) {
+        window.morphboxTerminals = {};
+      }
+      window.morphboxTerminals[panelId] = {
+        sendInput,
+        write,
+        writeln,
+        clear,
+        clearSession
+      };
+      console.log('[Terminal] Registered instance globally:', panelId);
     }
-    window.morphboxTerminals[panelId] = {
-      sendInput,
-      write,
-      writeln,
-      clear,
-      clearSession
-    };
-    console.log('[Terminal] Registered instance globally:', panelId);
     
     // Log terminal initialization
     logger.info('[Terminal] Starting initialization...', {
@@ -1101,6 +1103,21 @@
       return;
     }
     
+    // Register terminal instance globally for keyboard emulation
+    if (browser && panelId) {
+      if (!window.morphboxTerminals) {
+        window.morphboxTerminals = {};
+      }
+      window.morphboxTerminals[panelId] = {
+        sendInput,
+        write,
+        writeln,
+        clear,
+        clearSession
+      };
+      console.log('[Terminal] Registered terminal globally for panel:', panelId);
+    }
+    
     // Initial fit after terminal is ready
     setTimeout(() => {
       console.log('[Terminal] Initial fit timeout triggered');
@@ -1407,6 +1424,12 @@
       cancelAnimationFrame(flushTimeout);
     }
     outputBuffer = [];
+    
+    // Clean up global registration
+    if (browser && panelId && window.morphboxTerminals && window.morphboxTerminals[panelId]) {
+      delete window.morphboxTerminals[panelId];
+      console.log('[Terminal] Unregistered terminal globally for panel:', panelId);
+    }
     
     if (ws) {
       ws.close();

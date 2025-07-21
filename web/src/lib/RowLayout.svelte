@@ -866,6 +866,8 @@
     padding: 0;
     box-sizing: border-box;
     container-type: inline-size;
+    /* Add padding at bottom to ensure last panel's resize handle is accessible */
+    padding-bottom: 30px;
   }
   
   .row {
@@ -874,7 +876,7 @@
     margin-bottom: var(--spacing-sm);
     position: relative;
     box-sizing: border-box;
-    overflow: hidden; /* Prevent panels from extending beyond row */
+    overflow: visible; /* Changed to visible to allow resize handles to extend beyond */
     flex-wrap: nowrap;
     transition: margin 0.3s ease;
     /* Remove padding to maximize panel width */
@@ -994,6 +996,8 @@
       flex-direction: column;
       margin-bottom: var(--spacing-xs);
       min-height: auto;
+      /* Add extra padding at bottom for resize handles */
+      padding-bottom: 20px;
     }
     
     .panel-container {

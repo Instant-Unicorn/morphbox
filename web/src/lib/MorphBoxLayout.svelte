@@ -9,6 +9,7 @@
   import FileExplorer from '$lib/panels/FileExplorer/FileExplorer.svelte';
   import CodeEditor from '$lib/panels/CodeEditor/CodeEditor.svelte';
   import Settings from '$lib/panels/Settings/Settings.svelte';
+  import SessionManager from '$lib/panels/SessionManager/SessionManager.svelte';
   import BasePanel from '$lib/panels/BasePanel.svelte';
   import { settings, applyTheme } from '$lib/panels/Settings/settings-store';
   import { fade } from 'svelte/transition';
@@ -37,7 +38,9 @@
     'file-explorer': FileExplorer,  // Support both naming conventions
     codeEditor: CodeEditor,
     'code-editor': CodeEditor,      // Support both naming conventions
-    settings: Settings
+    settings: Settings,
+    sessionManager: SessionManager,
+    'session-manager': SessionManager  // Support both naming conventions
   };
   
   

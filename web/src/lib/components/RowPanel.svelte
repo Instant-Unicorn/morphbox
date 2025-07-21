@@ -427,20 +427,7 @@
     dispatch('open', event.detail);
   }
   
-  // Keyboard emulation functions for terminal
-  function sendEscape() {
-    if (componentInstance && (panel.type === 'terminal' || panel.type === 'claude') && componentInstance.sendInput) {
-      // ESC key is ASCII 27
-      componentInstance.sendInput('\x1b');
-    }
-  }
-  
-  function sendShiftTab() {
-    if (componentInstance && (panel.type === 'terminal' || panel.type === 'claude') && componentInstance.sendInput) {
-      // Shift+Tab is ESC[Z
-      componentInstance.sendInput('\x1b[Z');
-    }
-  }
+  // These keyboard emulation functions are already defined earlier in the file
 </script>
 
 <div 

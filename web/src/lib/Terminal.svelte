@@ -95,7 +95,7 @@
   export function clearSession() {
     terminalSessionId = null;
     if (browser) {
-      sessionStorage.removeItem('morphbox-terminal-session');
+      localStorage.removeItem('morphbox-terminal-session');
     }
     writeln('\r\n🔄 Session cleared. Next connection will start fresh.');
   }
@@ -151,6 +151,7 @@
         urlObj.searchParams.set('terminalSessionId', terminalSessionId);
       }
       urlObj.searchParams.set('autoLaunchClaude', autoLaunchClaude.toString());
+      urlObj.searchParams.set('persistent', 'true'); // Enable persistent sessions
       url = urlObj.toString();
     }
     
@@ -225,9 +226,9 @@
             if (message.payload?.sessionId) {
               const isNewSession = terminalSessionId !== message.payload.sessionId;
               terminalSessionId = message.payload.sessionId;
-              // Store in sessionStorage for persistence
+              // Store in localStorage for persistence across browser restarts
               if (browser) {
-                sessionStorage.setItem('morphbox-terminal-session', terminalSessionId);
+                localStorage.setItem('morphbox-terminal-session', terminalSessionId);
               }
               if (isNewSession) {
                 writeln(`\r\n✨ New session created: ${terminalSessionId.substring(0, 8)}...`);
@@ -918,8 +919,8 @@
       } : null
     });
     
-    // Load terminal session ID from sessionStorage if available
-    const savedSessionId = sessionStorage.getItem('morphbox-terminal-session');
+    // Load terminal session ID from localStorage if available
+    const savedSessionId = localStorage.getItem('morphbox-terminal-session');
     if (savedSessionId) {
       terminalSessionId = savedSessionId;
       console.log('Restored terminal session ID:', terminalSessionId);

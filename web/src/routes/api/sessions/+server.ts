@@ -1,17 +1,22 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getSessionManager } from '$lib/server/session-manager';
+import { getPersistentSessionManager } from '$lib/server/persistent-session-manager';
 
 export const GET: RequestHandler = async () => {
   try {
-    const sessionManager = getSessionManager();
+    const sessionManager = getPersistentSessionManager();
     const sessions = sessionManager.listSessions();
     
     return json({
-      sessions,
-      count: sessions.length,
-      maxSessions: 100,
-      sessionTimeout: 30 * 60 * 1000 // 30 minutes
+      sessions: sessions.map(session => ({
+        id: session.id,
+        type: session.type,
+        status: session.status,
+        createdAt: session.createdAt,
+        lastActivity: session.lastActivity,
+        metadata: session.metadata
+      })),
+      count: sessions.length
     });
   } catch (error) {
     console.error('Error listing sessions:', error);
@@ -27,16 +32,12 @@ export const DELETE: RequestHandler = async ({ url }) => {
       return json({ error: 'Session ID required' }, { status: 400 });
     }
     
-    const sessionManager = getSessionManager();
-    const success = sessionManager.closeSession(sessionId);
+    const sessionManager = getPersistentSessionManager();
+    await sessionManager.killSession(sessionId);
     
-    if (success) {
-      return json({ success: true, message: 'Session closed' });
-    } else {
-      return json({ error: 'Session not found' }, { status: 404 });
-    }
+    return json({ success: true, message: 'Session terminated' });
   } catch (error) {
-    console.error('Error closing session:', error);
-    return json({ error: 'Failed to close session' }, { status: 500 });
+    console.error('Error terminating session:', error);
+    return json({ error: 'Failed to terminate session' }, { status: 500 });
   }
 };

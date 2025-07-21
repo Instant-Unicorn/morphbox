@@ -1,5 +1,38 @@
 # Changelog
 
+## 2025-07-21
+
+### Added
+- **Persistent Terminal Sessions**: Implemented full session persistence using GNU Screen
+  - Terminal sessions continue running even when browser is closed or mobile device switches tabs
+  - Sessions persist across browser restarts and network disconnections
+  - Automatic reconnection to existing sessions when returning
+  - Session IDs stored in localStorage for persistence across browser restarts
+  - New `PersistentSessionManager` class manages screen sessions in Docker container
+  - Created `PersistentSSHAgent` and `PersistentBashAgent` for persistent terminal support
+  
+- **Session Manager Panel**: New UI panel to manage persistent sessions
+  - View all active, detached, and dead sessions
+  - Monitor session status and last activity time
+  - Kill sessions that are no longer needed
+  - Auto-refresh every 10 seconds
+  - Shows session metadata (command, size, creation time)
+  - REST API endpoint `/api/sessions` for session management
+
+### Changed
+- Terminal now uses persistent agents by default (can be disabled via URL parameter)
+- Terminal session IDs moved from sessionStorage to localStorage for better persistence
+- WebSocket connection includes `persistent=true` flag by default
+- Agent manager now supports both regular and persistent agent types
+
+### Technical Details
+- GNU Screen is automatically installed in container if not present
+- Sessions use unique IDs (e.g., `morphbox-a1b2c3d4e5f6`)
+- Screen sessions configured with 10,000 line scrollback buffer
+- Session health checked every 30 seconds
+- Recent output retrieved when reconnecting to show context
+- Supports both attached and detached session states
+
 ## 2025-07-18
 
 ### Added

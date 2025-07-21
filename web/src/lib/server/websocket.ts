@@ -2,6 +2,7 @@ import type { WebSocket } from 'ws';
 import type { IncomingMessage } from 'http';
 import type { AgentManager } from './agent-manager';
 import type { StateManager } from './state-manager';
+import type { PersistentSessionManager } from './persistent-session-manager';
 import { validateWebSocketAuth, getAuthConfig } from './auth';
 
 interface WebSocketMessage {
@@ -12,6 +13,7 @@ interface WebSocketMessage {
 interface WebSocketContext {
   agentManager: AgentManager;
   stateManager: StateManager;
+  sessionManager?: PersistentSessionManager;
 }
 
 export function handleWebSocketConnection(
@@ -28,6 +30,7 @@ export function handleWebSocketConnection(
   const url = new URL(request.url || '', `http://${request.headers.host}`);
   const providedTerminalSessionId = url.searchParams.get('terminalSessionId');
   const autoLaunchClaude = url.searchParams.get('autoLaunchClaude') === 'true';
+  const usePersistentSessions = url.searchParams.get('persistent') !== 'false'; // Default to true
   
   // Check authentication
   const authConfig = getAuthConfig();
@@ -79,9 +82,10 @@ export function handleWebSocketConnection(
       const vmPort = parseInt(process.env.MORPHBOX_VM_PORT || '22');
       const vmUser = process.env.MORPHBOX_VM_USER || 'morphbox';
       
-      // Launch SSH connection to VM
-      console.log('Launching SSH agent with config:', { vmHost, vmPort, vmUser });
-      currentAgentId = await agentManager.launchAgent('ssh', {
+      // Launch SSH connection to VM (use persistent agent if enabled)
+      const agentType = usePersistentSessions ? 'persistent-ssh' : 'ssh';
+      console.log(`Launching ${agentType} agent with config:`, { vmHost, vmPort, vmUser, persistent: usePersistentSessions });
+      currentAgentId = await agentManager.launchAgent(agentType, {
         sessionId: currentSessionId,
         terminalSessionId: providedTerminalSessionId || undefined,
         vmHost,
@@ -158,8 +162,9 @@ export function handleWebSocketConnection(
         currentSessionId = await stateManager.createSession(process.cwd(), 'bash');
         send('SESSION_CREATED', { sessionId: currentSessionId });
         
-        // Launch bash agent
-        currentAgentId = await agentManager.launchAgent('bash', {
+        // Launch bash agent (use persistent agent if enabled)
+        const agentType = usePersistentSessions ? 'persistent-bash' : 'bash';
+        currentAgentId = await agentManager.launchAgent(agentType, {
           sessionId: currentSessionId,
           workspacePath: process.cwd()
         });
@@ -381,8 +386,9 @@ export function handleWebSocketConnection(
             send('SESSION_CREATED', { sessionId: currentSessionId });
           }
           
-          // Launch bash agent
-          currentAgentId = await agentManager.launchAgent('bash', {
+          // Launch bash agent (use persistent agent if enabled)
+          const bashAgentType = usePersistentSessions ? 'persistent-bash' : 'bash';
+          currentAgentId = await agentManager.launchAgent(bashAgentType, {
             sessionId: currentSessionId,
             workspacePath: process.cwd()
           });

@@ -2,6 +2,8 @@ import { EventEmitter } from 'events';
 import * as pty from 'node-pty';
 import { SSHAgent } from './agents/ssh-agent';
 import { BashAgent } from './agents/bash-agent';
+import { PersistentSSHAgent } from './agents/persistent-ssh-agent';
+import { PersistentBashAgent } from './agents/persistent-bash-agent';
 
 export interface AgentOptions {
   workspacePath?: string;
@@ -33,6 +35,10 @@ export class AgentManager extends EventEmitter {
     // Register available agent types
     this.registerAgentType('ssh', SSHAgent);
     this.registerAgentType('bash', BashAgent);
+    
+    // Register persistent agent types for session persistence
+    this.registerAgentType('persistent-ssh', PersistentSSHAgent);
+    this.registerAgentType('persistent-bash', PersistentBashAgent);
     
     // Future agent types can be registered here
     // this.registerAgentType('openai', OpenAIAgent);

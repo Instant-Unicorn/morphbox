@@ -1,7 +1,8 @@
 import { EventEmitter } from 'events';
 import * as pty from 'node-pty';
 import type { Agent, AgentOptions } from '../agent-manager';
-import { getPersistentSessionManager, PersistentSession } from '../persistent-session-manager';
+import { getPersistentSessionManager } from '../persistent-session-manager';
+import type { PersistentSession } from '../persistent-session-manager';
 
 export class PersistentBashAgent extends EventEmitter implements Agent {
   id: string;

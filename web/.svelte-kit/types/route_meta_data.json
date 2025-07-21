@@ -82,6 +82,24 @@
 		"src/routes/+layout.server.ts",
 		"src/routes/+layout.server.ts"
 	],
+	"/docs/api-reference/overview": [
+		"src/routes/+layout.server.ts"
+	],
+	"/docs/getting-started/installation": [
+		"src/routes/+layout.server.ts"
+	],
+	"/docs/user-guide/custom-panels": [
+		"src/routes/+layout.server.ts"
+	],
+	"/docs/user-guide/keyboard-shortcuts": [
+		"src/routes/+layout.server.ts"
+	],
+	"/docs/user-guide/mobile-usage": [
+		"src/routes/+layout.server.ts"
+	],
+	"/docs/user-guide/terminal-persistence": [
+		"src/routes/+layout.server.ts"
+	],
 	"/docs/[...slug]": [
 		"src/routes/docs/[...slug]/+page.server.ts",
 		"src/routes/+layout.server.ts"

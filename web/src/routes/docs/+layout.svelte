@@ -8,6 +8,7 @@
       title: 'Getting Started',
       path: '/docs/getting-started',
       children: [
+        { title: 'Overview', path: '/docs/getting-started/overview' },
         { title: 'Installation', path: '/docs/getting-started/installation' },
         { title: 'Quick Start', path: '/docs/getting-started/quick-start' },
         { title: 'System Requirements', path: '/docs/getting-started/requirements' }
@@ -17,11 +18,15 @@
       title: 'User Guide',
       path: '/docs/user-guide',
       children: [
-        { title: 'Authentication Setup', path: '/docs/user-guide/authentication' },
         { title: 'Terminal Persistence', path: '/docs/user-guide/terminal-persistence' },
+        { title: 'Custom Panels', path: '/docs/user-guide/custom-panels' },
+        { title: 'Keyboard Shortcuts', path: '/docs/user-guide/keyboard-shortcuts' },
+        { title: 'Mobile Usage', path: '/docs/user-guide/mobile-usage' },
         { title: 'Panel System', path: '/docs/user-guide/panels' },
-        { title: 'Docker Management', path: '/docs/user-guide/docker' },
-        { title: 'External Access', path: '/docs/user-guide/external-access' }
+        { title: 'Built-in Panels', path: '/docs/user-guide/builtin-panels' },
+        { title: 'File Explorer', path: '/docs/user-guide/file-explorer' },
+        { title: 'Code Editor', path: '/docs/user-guide/code-editor' },
+        { title: 'Settings & Themes', path: '/docs/user-guide/settings-themes' }
       ]
     },
     {
@@ -29,19 +34,22 @@
       path: '/docs/features',
       children: [
         { title: 'Overview', path: '/docs/features/overview' },
+        { title: 'Session Persistence', path: '/docs/features/session-persistence' },
+        { title: 'Custom Panels', path: '/docs/features/custom-panels' },
         { title: 'Security', path: '/docs/features/security' },
-        { title: 'Performance', path: '/docs/features/performance' },
-        { title: 'Customization', path: '/docs/features/customization' }
+        { title: 'Performance', path: '/docs/features/performance' }
       ]
     },
     {
       title: 'API Reference',
       path: '/docs/api',
       children: [
+        { title: 'Overview', path: '/docs/api-reference/overview' },
         { title: 'REST API', path: '/docs/api/rest' },
         { title: 'WebSocket API', path: '/docs/api/websocket' },
         { title: 'File Operations', path: '/docs/api/files' },
-        { title: 'Panel Management', path: '/docs/api/panels' }
+        { title: 'Session Management', path: '/docs/api/sessions' },
+        { title: 'Panel API', path: '/docs/api/panels' }
       ]
     },
     {
@@ -49,8 +57,9 @@
       path: '/docs/contributing',
       children: [
         { title: 'Development Setup', path: '/docs/contributing/development' },
+        { title: 'Architecture', path: '/docs/contributing/architecture' },
+        { title: 'Creating Panels', path: '/docs/contributing/creating-panels' },
         { title: 'Code Guidelines', path: '/docs/contributing/code-guidelines' },
-        { title: 'Issue Reporting', path: '/docs/contributing/issues' },
         { title: 'Pull Requests', path: '/docs/contributing/pull-requests' }
       ]
     },
@@ -60,16 +69,8 @@
       children: [
         { title: 'Troubleshooting', path: '/docs/support/troubleshooting' },
         { title: 'FAQ', path: '/docs/support/faq' },
+        { title: 'Known Issues', path: '/docs/support/known-issues' },
         { title: 'Community', path: '/docs/support/community' }
-      ]
-    },
-    {
-      title: 'Legal',
-      path: '/docs/legal',
-      children: [
-        { title: 'License', path: '/docs/legal/license' },
-        { title: 'Third-party Licenses', path: '/docs/legal/third-party' },
-        { title: 'Privacy Policy', path: '/docs/legal/privacy' }
       ]
     }
   ];

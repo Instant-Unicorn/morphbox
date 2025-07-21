@@ -1,7 +1,7 @@
 ---
 title: Installation Guide
 description: Complete guide to installing MorphBox on your system
-lastModified: 2024-12-19
+lastModified: 2025-07-21
 ---
 
 # Installation Guide

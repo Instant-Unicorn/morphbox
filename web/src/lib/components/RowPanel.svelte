@@ -170,6 +170,19 @@
     });
   }
   
+  // Keyboard emulation functions
+  function sendEscape() {
+    if (componentInstance && typeof componentInstance.sendInput === 'function') {
+      componentInstance.sendInput('\x1b'); // ESC character
+    }
+  }
+  
+  function sendShiftTab() {
+    if (componentInstance && typeof componentInstance.sendInput === 'function') {
+      componentInstance.sendInput('\x1b[Z'); // Shift+Tab sequence
+    }
+  }
+  
   function handleDragStart(e: DragEvent) {
     e.dataTransfer!.effectAllowed = 'move';
     e.dataTransfer!.setData('panelId', panel.id);

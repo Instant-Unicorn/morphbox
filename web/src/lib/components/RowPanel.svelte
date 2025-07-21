@@ -4,6 +4,19 @@
   import { panelStore } from '$lib/stores/panels';
   import { X, GripVertical, Palette, Keyboard, CornerDownLeft } from 'lucide-svelte';
   
+  // Global terminal instances declaration
+  declare global {
+    interface Window {
+      morphboxTerminals?: Record<string, {
+        sendInput: (input: string) => void;
+        write: (data: string) => void;
+        writeln: (data: string) => void;
+        clear: () => void;
+        clearSession: () => void;
+      }>;
+    }
+  }
+  
   export let panel: Panel;
   export let component: any;
   export let websocketUrl: string = '';
@@ -222,8 +235,16 @@
     } else if (componentInstance && typeof componentInstance.sendInput === 'function') {
       console.log('Sending ESC via componentInstance');
       componentInstance.sendInput('\x1b'); // ESC character
+    } else if (window.morphboxTerminals && window.morphboxTerminals[panel.id]) {
+      console.log('Sending ESC via global terminal instance');
+      window.morphboxTerminals[panel.id].sendInput('\x1b'); // ESC character
     } else {
-      console.warn('No sendInput function available');
+      console.warn('No sendInput function available', {
+        terminalMethods,
+        componentInstance,
+        globalTerminals: window.morphboxTerminals,
+        panelId: panel.id
+      });
     }
     
     // Blur the button to prevent it from staying focused
@@ -259,8 +280,16 @@
     } else if (componentInstance && typeof componentInstance.sendInput === 'function') {
       console.log('Sending Shift+Tab via componentInstance');
       componentInstance.sendInput('\x1b[Z'); // Shift+Tab sequence
+    } else if (window.morphboxTerminals && window.morphboxTerminals[panel.id]) {
+      console.log('Sending Shift+Tab via global terminal instance');
+      window.morphboxTerminals[panel.id].sendInput('\x1b[Z'); // Shift+Tab sequence
     } else {
-      console.warn('No sendInput function available');
+      console.warn('No sendInput function available', {
+        terminalMethods,
+        componentInstance,
+        globalTerminals: window.morphboxTerminals,
+        panelId: panel.id
+      });
     }
     
     // Blur the button to prevent it from staying focused

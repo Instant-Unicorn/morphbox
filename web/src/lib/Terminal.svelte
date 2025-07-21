@@ -5,6 +5,19 @@
   import { fade } from 'svelte/transition';
   import logger from '$lib/utils/browser-logger';
   
+  // Global terminal instances for debugging
+  declare global {
+    interface Window {
+      morphboxTerminals?: Record<string, {
+        sendInput: (input: string) => void;
+        write: (data: string) => void;
+        writeln: (data: string) => void;
+        clear: () => void;
+        clearSession: () => void;
+      }>;
+    }
+  }
+  
   let Terminal: any;
   let FitAddon: any;
   let WebLinksAddon: any;
@@ -113,14 +126,18 @@
   }
   
   export function sendInput(input: string) {
+    console.log('[Terminal.sendInput] Called with:', input, 'WebSocket state:', ws?.readyState);
     if (ws && ws.readyState === WebSocket.OPEN) {
       const message = JSON.stringify({
         type: 'SEND_INPUT',
         payload: { input }
       });
+      console.log('[Terminal.sendInput] Sending message:', message);
       ws.send(message);
       // Don't write to terminal here - let the server echo it back
       // This ensures the input goes through the proper terminal/shell processing
+    } else {
+      console.warn('[Terminal.sendInput] WebSocket not ready:', ws?.readyState);
     }
   }
   
@@ -735,11 +752,25 @@
   onMount(async () => {
     if (!browser) return;
     
+    // Store instance globally for debugging
+    if (!window.morphboxTerminals) {
+      window.morphboxTerminals = {};
+    }
+    window.morphboxTerminals[panelId] = {
+      sendInput,
+      write,
+      writeln,
+      clear,
+      clearSession
+    };
+    console.log('[Terminal] Registered instance globally:', panelId);
+    
     // Log terminal initialization
     logger.info('[Terminal] Starting initialization...', {
       timestamp: new Date().toISOString(),
       autoLaunchClaude,
-      websocketUrl
+      websocketUrl,
+      panelId
     });
     console.log('[Terminal] Starting initialization...');
     console.log('[Terminal] Initial viewport:', getViewportInfo());

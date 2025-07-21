@@ -25,61 +25,61 @@
       icon: '⚡'
     },
     {
-      title: 'Authentication',
-      description: 'Set up Claude authentication and persistence',
-      href: '/docs/user-guide/authentication',
-      icon: '🔐'
+      title: 'Panel System',
+      description: 'Learn about MorphBox\'s flexible panel-based UI',
+      href: '/docs/user-guide/panels',
+      icon: '📊'
     },
     {
-      title: 'Terminal Persistence',
-      description: 'Keep your sessions alive across reconnections',
+      title: 'Custom Panels',
+      description: 'Create and share custom panels stored in ~/morphbox/panels',
+      href: '/docs/user-guide/custom-panels',
+      icon: '🎨'
+    },
+    {
+      title: 'Terminal Sessions',
+      description: 'Persistent terminal sessions that survive browser restarts',
       href: '/docs/user-guide/terminal-persistence',
-      icon: '💾'
+      icon: '🖥️'
     },
     {
-      title: 'API Reference',
-      description: 'Complete API documentation for developers',
-      href: '/docs/api',
-      icon: '📚'
-    },
-    {
-      title: 'Troubleshooting',
-      description: 'Common issues and solutions',
-      href: '/docs/support/troubleshooting',
-      icon: '🔧'
+      title: 'Keyboard Shortcuts',
+      description: 'Master MorphBox with keyboard shortcuts and emulation',
+      href: '/docs/user-guide/keyboard-shortcuts',
+      icon: '⌨️'
     }
   ];
 
   const features = [
     {
       title: 'Persistent Sessions',
-      description: 'Your terminal sessions survive disconnections and restarts using tmux',
+      description: 'Terminal sessions continue running with GNU Screen, surviving disconnections and browser restarts. Access sessions from Session Manager panel.',
       icon: '🔄'
     },
     {
-      title: 'Docker Isolation',
-      description: 'Secure, containerized environment with Claude CLI pre-installed',
-      icon: '🐳'
+      title: 'Custom Panels',
+      description: 'Create single-file Svelte panels stored in ~/morphbox/panels. Use morphbox-panel CLI for easy creation with templates.',
+      icon: '🎨'
     },
     {
-      title: 'Panel System',
-      description: 'Flexible panel-based UI for managing multiple tools and views',
-      icon: '📊'
+      title: 'Keyboard Emulation',
+      description: 'ESC and Shift+Tab buttons in terminal headers for better navigation. Keys sent directly to terminal emulation.',
+      icon: '⌨️'
     },
     {
-      title: 'External Access',
-      description: 'Securely expose MorphBox to external networks when needed',
-      icon: '🌐'
+      title: 'Mobile-First Design',
+      description: 'Touch-friendly resize handles, mobile-optimized code editor, responsive panels with bottom-up height dragging.',
+      icon: '📱'
     },
     {
-      title: 'Authentication Persistence',
-      description: 'Claude authentication persists between sessions automatically',
-      icon: '🎫'
+      title: 'Claude Persistence',
+      description: 'Claude auto-updates cached in Docker image. Multiple persistence strategies for faster startup.',
+      icon: '🚀'
     },
     {
-      title: 'Developer Tools',
-      description: 'Built-in file explorer, code editor, and terminal access',
-      icon: '🛠️'
+      title: 'Panel Customization',
+      description: 'Single palette icon for all color settings. Customize header, background, and border colors easily.',
+      icon: '🎨'
     }
   ];
 </script>
@@ -99,7 +99,7 @@
       </p>
       <div class="hero-stats">
         <div class="stat">
-          <strong>Version 2.0.0</strong>
+          <strong>Version 3.0.0</strong>
           <span>Latest Release</span>
         </div>
         <div class="stat">

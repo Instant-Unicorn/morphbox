@@ -1,7 +1,7 @@
 ---
 title: Quick Start Guide
 description: Get up and running with MorphBox in 5 minutes
-lastModified: 2024-12-19
+lastModified: 2025-07-21
 ---
 
 # Quick Start Guide
@@ -22,270 +22,343 @@ cd morphbox
 
 You should see output like:
 ```
-[INFO] Starting MorphBox VM...
-[INFO] Starting WebSocket server...
-[INFO] Starting MorphBox web interface...
-[INFO] MorphBox is running!
-- Web interface: http://localhost:8008
+Starting MorphBox web interface...
+MorphBox is running at http://localhost:3000
 ```
 
 ## Step 2: Access the Web Interface
 
-Open your browser and go to **http://localhost:8008**
+Open your browser and go to **http://localhost:3000**
 
 You'll see the MorphBox interface with:
-- **Header**: Connection status and controls
-- **Terminal Panel**: Your persistent terminal session
-- **Status Bar**: System information and panel count
+- **Clean workspace**: Ready for your panels
+- **Panel dropdown**: Top-right menu to add panels
+- **Responsive layout**: Works on desktop and mobile
 
-## Step 3: Authenticate with Claude
+## Step 3: Create Your First Panel
 
-For the best experience, set up Claude authentication:
+### Using the Panel Dropdown
 
-### Option A: Using the Web Interface
-1. The terminal will show Claude authentication prompts automatically
-2. Follow the on-screen instructions to log in
+1. Click the **panel icon** (▼) in the top-right corner
+2. Select a panel type:
+   - **Terminal**: Interactive bash shell
+   - **Claude**: AI assistant interface
+   - **File Explorer**: Browse and manage files
+   - **Code Editor**: Edit code with syntax highlighting
+   - **Settings**: Customize MorphBox
+   - **Session Manager**: View persistent sessions
 
-### Option B: Using VM Manager (Recommended)
+### Understanding the Panel System
+
+- **Grid Layout**: Panels arrange in a flexible grid
+- **Resizable**: Drag panel edges to resize
+- **Tabs**: Multiple panels can share the same space
+- **Mobile Friendly**: Automatically adapts to screen size
+
+## Step 4: Working with Terminal
+
+### Open a Terminal Panel
+
+1. Click the panel dropdown → Select "Terminal"
+2. A new terminal panel appears with a bash shell
+
+### Key Terminal Features
+
+- **Persistent Sessions**: Uses GNU Screen for session persistence
+- **Auto-reconnect**: Sessions survive browser refreshes
+- **Full bash shell**: All standard Linux commands available
+- **Claude CLI**: Pre-installed and ready to use
+
+### Terminal Commands
+
 ```bash
-# Open a new terminal and navigate to MorphBox directory
-cd morphbox
+# Check your environment
+pwd
+ls -la
 
-# Start authentication process
-./scripts/vm-manager.sh login
+# Test persistence (your session ID will differ)
+echo "Session ID: $MORPHBOX_SESSION_ID"
 
-# In the SSH session, run:
-claude auth login
-
-# Follow the prompts, then detach with Ctrl+B then D
+# Use Claude CLI
+claude --version
 ```
 
-## Step 4: Explore the Interface
+## Step 5: Authenticate with Claude
 
-### Terminal Panel
-- **Persistent sessions**: Your terminal survives disconnections
-- **Command history**: Previous commands are preserved
-- **Claude integration**: Run `claude` to start the AI assistant
+To use Claude AI features:
 
-### Panel System
-- **Panel Manager**: Click the grid icon (📊) in the header
-- **Available panels**: Terminal, File Explorer, Code Editor, Settings
-- **Add panels**: Use the Panel Manager to open additional tools
-
-### Key Features to Try
-
-#### 1. File Explorer
 ```bash
-# Open Panel Manager and select "File Explorer"
-# Or use the Files button in the header
+# In any terminal panel
+claude login
+
+# Follow the authentication prompts
+# Your login persists across sessions
 ```
 
-- Browse your workspace files
-- Create, edit, and delete files
-- Navigate directory structure
+## Step 6: File Management
 
-#### 2. Code Editor
+### Open File Explorer
+
+1. Panel dropdown → Select "File Explorer"
+2. Browse your workspace files
+3. Double-click files to open in Code Editor
+
+### File Explorer Features
+
+- **Tree view**: Navigate directory structure
+- **Context menu**: Right-click for file operations
+- **Target selection**: Choose where files open
+- **Create/Delete/Rename**: Full file management
+
+### Working with Files
+
 ```bash
-# Open a file from File Explorer
-# Or create a new file and open it in the editor
+# In terminal, create some files
+mkdir my-project
+cd my-project
+echo "# My Project" > README.md
+echo "console.log('Hello, MorphBox!');" > app.js
 ```
 
-- Syntax highlighting for multiple languages
-- Auto-completion and error detection
-- Integrated with file system
+Then refresh File Explorer to see your new files!
 
-#### 3. Settings Panel
-```bash
-# Open Panel Manager and select "Settings"
-```
+## Step 7: Code Editing
 
-- Configure themes (dark/light)
-- Adjust terminal settings
-- Customize keyboard shortcuts
+### Open Code Editor
 
-## Step 5: Working with Persistent Sessions
+1. Double-click any file in File Explorer
+2. Or Panel dropdown → Select "Code Editor"
 
-### Understanding tmux
-MorphBox uses tmux for session persistence:
+### Editor Features
 
-- **Detach**: `Ctrl+B` then `D` (keeps session running)
-- **Exit**: Type `exit` (terminates session)
-- **Always detach** instead of exiting to preserve your work!
+- **Monaco Editor**: Same engine as VS Code
+- **Syntax highlighting**: For 50+ languages
+- **IntelliSense**: Auto-completion and hints
+- **Multiple tabs**: Work with several files
+- **Keyboard shortcuts**: Full productivity
 
-### Session Management
-```bash
-# Connect to your persistent session
-./scripts/vm-manager.sh connect
+### Try It Out
 
-# List active sessions
-./scripts/vm-manager.sh sessions
+1. Open the `app.js` file you created
+2. Edit the code
+3. Save with `Ctrl+S` (or `Cmd+S` on Mac)
+4. Run it in terminal: `node app.js`
 
-# Check overall status
-./scripts/vm-manager.sh status
-```
+## Step 8: Custom Panels
 
-## Step 6: Basic tmux Commands
+### Create Your Own Panel
 
-Once connected to your terminal session:
+1. Panel dropdown → Select "Settings"
+2. Navigate to "Custom Panels" section
+3. Click "Create New Panel"
 
-### Window Management
-- **New window**: `Ctrl+B` then `C`
-- **Next window**: `Ctrl+B` then `N`
-- **Previous window**: `Ctrl+B` then `P`
-- **List windows**: `Ctrl+B` then `W`
+### Panel Builder Features
 
-### Pane Management
-- **Split horizontally**: `Ctrl+B` then `"`
-- **Split vertically**: `Ctrl+B` then `%`
-- **Navigate panes**: `Ctrl+B` then arrow keys
-- **Close pane**: `Ctrl+B` then `X`
+- **Visual builder**: No coding required
+- **Templates**: Start from pre-built examples
+- **Live preview**: See changes instantly
+- **Component library**: Buttons, forms, displays
+- **Save and share**: Export your panels
 
-### Session Management
-- **Detach session**: `Ctrl+B` then `D`
-- **List sessions**: `tmux list-sessions`
+### Example: Create a Todo Panel
 
-## Step 7: Working with Claude
+1. Choose "Form & Display" template
+2. Add input field for tasks
+3. Add button to submit
+4. Add list to display tasks
+5. Save as "My Todo List"
 
-### Starting Claude
-```bash
-# In the terminal, simply run:
-claude
+## Step 9: Session Persistence
 
-# Or for specific tasks:
-claude chat
-claude edit filename.py
-claude analyze project/
-```
+### Understanding Persistence
 
-### Claude Commands
-- **Interactive chat**: `claude`
-- **Edit files**: `claude edit <filename>`
-- **Analyze code**: `claude analyze <directory>`
-- **Help**: `claude --help`
+MorphBox uses GNU Screen to maintain terminal sessions:
 
-## Step 8: Development Workflow
+- Sessions continue running when you close the browser
+- Reconnect to the same session when you return
+- Multiple sessions can run simultaneously
+- Session IDs stored in browser localStorage
 
-### Typical Workflow
-1. **Start MorphBox**: `./morphbox-start`
-2. **Open panels**: File Explorer, Terminal, Code Editor
-3. **Connect to persistent session**: Auto-connects or use VM manager
-4. **Work with files**: Edit, run, test your code
-5. **Use Claude**: Get AI assistance with development tasks
-6. **Detach when done**: `Ctrl+B` then `D` to preserve session
+### Check Your Sessions
+
+1. Panel dropdown → Select "Session Manager"
+2. View all active sessions
+3. See session details: ID, status, last activity
+4. Kill sessions you no longer need
+
+### Test Persistence
+
+1. Run a long command in terminal:
+   ```bash
+   # Start a counter
+   for i in {1..1000}; do echo $i; sleep 1; done
+   ```
+2. Close your browser completely
+3. Reopen MorphBox
+4. Open a new Terminal panel
+5. Your counter is still running!
+
+## Step 10: Mobile Usage
+
+### Accessing on Mobile
+
+1. Find your computer's IP address:
+   ```bash
+   ip addr show | grep inet
+   # or on Mac: ifconfig | grep inet
+   ```
+
+2. On your mobile device, navigate to:
+   ```
+   http://YOUR_IP_ADDRESS:3000
+   ```
+
+### Mobile Features
+
+- **Responsive panels**: Automatically adjust to screen size
+- **Touch gestures**: Swipe and tap navigation
+- **Virtual keyboard**: Works with terminal
+- **Session persistence**: Switch apps without losing work
+
+## Keyboard Shortcuts
+
+### Global Shortcuts
+
+- **Ctrl+P**: Open panel dropdown
+- **Ctrl+S**: Save in Code Editor
+- **Ctrl+F**: Find in Code Editor
+- **Esc**: Close dropdowns/menus
+
+### Terminal Shortcuts
+
+- **Ctrl+C**: Cancel current command
+- **Ctrl+D**: Exit shell (use Screen detach instead!)
+- **Ctrl+L**: Clear screen
+- **Tab**: Auto-complete
+
+### Screen Session Shortcuts
+
+- **Ctrl+A, D**: Detach from session (recommended)
+- **Ctrl+A, C**: Create new window
+- **Ctrl+A, N**: Next window
+- **Ctrl+A, P**: Previous window
+
+## Tips for Success
 
 ### Best Practices
-- **Always detach**: Use `Ctrl+B` + `D` instead of `exit`
-- **Organize with windows**: Create separate tmux windows for different projects
-- **Save frequently**: Your session persists, but save your files regularly
-- **Use panels**: Take advantage of the multi-panel interface
 
-## Step 9: External Access (Optional)
+1. **Use Session Manager**: Monitor your active sessions
+2. **Detach, don't exit**: Preserve your work
+3. **Organize with panels**: Create task-specific layouts
+4. **Save layouts**: Settings → Save current layout
+5. **Explore themes**: Try different color schemes
 
-To access MorphBox from other devices on your network:
+### Performance Tips
 
-```bash
-# Stop MorphBox first
-Ctrl+C
-
-# Start with external access
-./morphbox-start --external
-
-# Access from other devices at:
-# http://YOUR_IP_ADDRESS:8008
-```
-
-⚠️ **Security Warning**: Only use external access on trusted networks.
+1. **Limit active panels**: Close unused panels
+2. **Use tabs**: Group related panels
+3. **Monitor sessions**: Clean up old sessions
+4. **Browser choice**: Chrome/Edge perform best
 
 ## Common Tasks
 
-### Creating a New Project
+### Web Development Setup
+
 ```bash
-# Create project directory
-mkdir my-project
-cd my-project
+# Create project
+mkdir my-app && cd my-app
+npm init -y
 
-# Initialize git repository
-git init
+# Install dependencies
+npm install express
 
-# Create initial files
-touch README.md
-echo "# My Project" > README.md
+# Create server
+cat > server.js << 'EOF'
+const express = require('express');
+const app = express();
+app.get('/', (req, res) => res.send('Hello from MorphBox!'));
+app.listen(3001, () => console.log('Server running on port 3001'));
+EOF
 
-# Open in code editor (via File Explorer)
+# Run server
+node server.js
 ```
 
-### Running Code
+### Python Development
+
 ```bash
-# Python
-python3 script.py
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
 
-# Node.js
-node app.js
+# Install packages
+pip install requests flask
 
-# General
-./my-script.sh
+# Create script
+cat > app.py << 'EOF'
+from flask import Flask
+app = Flask(__name__)
+
+@app.route('/')
+def hello():
+    return "Hello from MorphBox Flask app!"
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
+EOF
+
+# Run app
+python app.py
 ```
 
-### Managing Files
+### Using Claude for Development
+
 ```bash
-# List files
-ls -la
+# Get coding help
+claude "How do I create a REST API in Node.js?"
 
-# Create directories
-mkdir src tests docs
+# Code review
+claude "Review this code for best practices" < server.js
 
-# Copy files
-cp source.txt destination.txt
-
-# Move files
-mv old-name.txt new-name.txt
+# Debug assistance
+claude "Why is my Flask app not starting?"
 ```
 
 ## Troubleshooting Quick Fixes
 
-### Terminal Not Responding
-```bash
-# Check VM status
-./scripts/vm-manager.sh status
+### Terminal Not Connecting
 
-# Restart if needed
-./scripts/vm-manager.sh restart
-```
+1. Check Session Manager for active sessions
+2. Refresh the browser
+3. Create a new Terminal panel
 
-### Lost Session
-```bash
-# Connect to existing session
-./scripts/vm-manager.sh connect
+### Files Not Showing
 
-# If no session exists, start MorphBox again
-./morphbox-start
-```
+1. Refresh File Explorer (click refresh icon)
+2. Check you're in the right directory
+3. Verify file permissions in terminal
 
-### Authentication Issues
-```bash
-# Check Claude authentication
-./scripts/vm-manager.sh check-auth
+### Panel Not Responding
 
-# Re-authenticate if needed
-./scripts/vm-manager.sh login
-```
+1. Close and reopen the panel
+2. Check browser console for errors (F12)
+3. Refresh the page
 
-### Port Conflicts
-```bash
-# Use different port
-export MORPHBOX_PORT=8009
-./morphbox-start
-```
+### Session Lost
+
+- Sessions persist in the container
+- Check Session Manager
+- Your work is likely still there!
 
 ## Next Steps
 
 Now that you're familiar with the basics:
 
-1. **[Authentication Setup](/docs/user-guide/authentication)** - Learn about persistent authentication
-2. **[Terminal Persistence](/docs/user-guide/terminal-persistence)** - Master session management
-3. **[Panel System](/docs/user-guide/panels)** - Explore all available panels
-4. **[API Reference](/docs/api)** - For advanced integrations
-5. **[Features Overview](/docs/features)** - Discover all MorphBox capabilities
+1. **[Panel System Guide](/docs/user-guide/panels)** - Master the panel system
+2. **[Custom Panels](/docs/user-guide/custom-panels)** - Build your own tools
+3. **[Terminal Sessions](/docs/user-guide/terminal-sessions)** - Advanced session management
+4. **[Keyboard Shortcuts](/docs/user-guide/keyboard-shortcuts)** - Boost productivity
+5. **[API Reference](/docs/api)** - Integrate with MorphBox
 
 ## Getting Help
 
@@ -294,4 +367,4 @@ Now that you're familiar with the basics:
 - **Community**: Join our [community forums](/docs/support/community)
 - **Issues**: Report bugs on [GitHub](https://github.com/morphbox/morphbox/issues)
 
-Happy coding with MorphBox! 🚀
+Welcome to MorphBox - Happy coding! 🚀

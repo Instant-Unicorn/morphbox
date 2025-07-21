@@ -113,7 +113,9 @@
   <div class="header">
     <h2>Persistent Sessions</h2>
     <button class="refresh-btn" on:click={loadSessions} disabled={loading}>
-      <RefreshCw size={16} class:spinning={loading} />
+      <span class:spinning={loading}>
+        <RefreshCw size={16} />
+      </span>
       Refresh
     </button>
   </div>

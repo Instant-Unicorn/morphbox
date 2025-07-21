@@ -174,14 +174,22 @@
   
   // Keyboard emulation functions
   function sendEscape() {
+    console.log('ESC button clicked, componentInstance:', componentInstance);
     if (componentInstance && typeof componentInstance.sendInput === 'function') {
+      console.log('Sending ESC character to terminal');
       componentInstance.sendInput('\x1b'); // ESC character
+    } else {
+      console.warn('No sendInput function available on component instance');
     }
   }
   
   function sendShiftTab() {
+    console.log('Shift+Tab button clicked, componentInstance:', componentInstance);
     if (componentInstance && typeof componentInstance.sendInput === 'function') {
+      console.log('Sending Shift+Tab sequence to terminal');
       componentInstance.sendInput('\x1b[Z'); // Shift+Tab sequence
+    } else {
+      console.warn('No sendInput function available on component instance');
     }
   }
   

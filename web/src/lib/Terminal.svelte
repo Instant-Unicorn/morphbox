@@ -25,6 +25,7 @@
 
   export let websocketUrl = 'ws://localhost:3000';
   export let autoLaunchClaude = false;
+  export let panelId: string = '';
   
   let terminalContainer: HTMLDivElement;
   let terminal: Terminal;
@@ -107,10 +108,8 @@
         payload: { input }
       });
       ws.send(message);
-      // Also write to terminal for visual feedback
-      if (terminal) {
-        terminal.write(input);
-      }
+      // Don't write to terminal here - let the server echo it back
+      // This ensures the input goes through the proper terminal/shell processing
     }
   }
   

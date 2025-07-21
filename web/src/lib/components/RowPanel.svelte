@@ -10,8 +10,31 @@
   export let isDragging: boolean = false;
   
   let componentInstance: any;
+  let terminalMethods: any = null;
   
   const dispatch = createEventDispatcher();
+  
+  // Log when componentInstance changes
+  $: if (componentInstance) {
+    console.log(`Component instance bound for panel ${panel.id}:`, componentInstance);
+    console.log(`Has sendInput method:`, typeof componentInstance.sendInput === 'function');
+  }
+  
+  // Also check after a delay to ensure component is fully mounted
+  $: if (component && (panel.type === 'terminal' || panel.type === 'claude')) {
+    setTimeout(() => {
+      console.log(`Delayed check for panel ${panel.id}:`, {
+        componentInstance,
+        hasSendInput: componentInstance && typeof componentInstance.sendInput === 'function'
+      });
+    }, 500);
+  }
+  
+  // Handle terminal ready event
+  function handleTerminalReady(event: CustomEvent) {
+    console.log('Terminal ready event received:', event.detail);
+    terminalMethods = event.detail;
+  }
   
   let showColorPopup = false;
   let colorPopupElement: HTMLDivElement;
@@ -174,22 +197,42 @@
   
   // Keyboard emulation functions
   function sendEscape() {
-    console.log('ESC button clicked, componentInstance:', componentInstance);
-    if (componentInstance && typeof componentInstance.sendInput === 'function') {
-      console.log('Sending ESC character to terminal');
+    console.log('ESC button clicked', {
+      componentInstance,
+      terminalMethods,
+      component,
+      panelType: panel.type
+    });
+    
+    // Try terminalMethods first (from ready event)
+    if (terminalMethods && typeof terminalMethods.sendInput === 'function') {
+      console.log('Sending ESC via terminalMethods');
+      terminalMethods.sendInput('\x1b'); // ESC character
+    } else if (componentInstance && typeof componentInstance.sendInput === 'function') {
+      console.log('Sending ESC via componentInstance');
       componentInstance.sendInput('\x1b'); // ESC character
     } else {
-      console.warn('No sendInput function available on component instance');
+      console.warn('No sendInput function available');
     }
   }
   
   function sendShiftTab() {
-    console.log('Shift+Tab button clicked, componentInstance:', componentInstance);
-    if (componentInstance && typeof componentInstance.sendInput === 'function') {
-      console.log('Sending Shift+Tab sequence to terminal');
+    console.log('Shift+Tab button clicked', {
+      componentInstance,
+      terminalMethods,
+      component,
+      panelType: panel.type
+    });
+    
+    // Try terminalMethods first (from ready event)
+    if (terminalMethods && typeof terminalMethods.sendInput === 'function') {
+      console.log('Sending Shift+Tab via terminalMethods');
+      terminalMethods.sendInput('\x1b[Z'); // Shift+Tab sequence
+    } else if (componentInstance && typeof componentInstance.sendInput === 'function') {
+      console.log('Sending Shift+Tab via componentInstance');
       componentInstance.sendInput('\x1b[Z'); // Shift+Tab sequence
     } else {
-      console.warn('No sendInput function available on component instance');
+      console.warn('No sendInput function available');
     }
   }
   
@@ -611,30 +654,31 @@
   
   <div class="panel-content">
     {#if component}
-      {#key panel.type + panel.id}
-        {#if panel.type === 'terminal' || panel.type === 'claude'}
-          <svelte:component 
-            this={component} 
-            bind:this={componentInstance}
-            {websocketUrl}
-            panelId={panel.id}
-            autoLaunchClaude={panel.type === 'claude'}
-          />
-        {:else if panel.type === 'fileExplorer' || panel.type === 'file-explorer'}
-          <svelte:component 
-            this={component} 
-            panelId={panel.id}
-            {...panel.content}
-            on:open={handleOpen}
-          />
-        {:else}
-          <svelte:component 
-            this={component} 
-            panelId={panel.id}
-            {...panel.content}
-          />
-        {/if}
-      {/key}
+      {#if panel.type === 'terminal' || panel.type === 'claude'}
+        <svelte:component 
+          this={component} 
+          bind:this={componentInstance}
+          {websocketUrl}
+          panelId={panel.id}
+          autoLaunchClaude={panel.type === 'claude'}
+          on:ready={handleTerminalReady}
+        />
+      {:else if panel.type === 'fileExplorer' || panel.type === 'file-explorer'}
+        <svelte:component 
+          this={component} 
+          bind:this={componentInstance}
+          panelId={panel.id}
+          {...panel.content}
+          on:open={handleOpen}
+        />
+      {:else}
+        <svelte:component 
+          this={component} 
+          bind:this={componentInstance}
+          panelId={panel.id}
+          {...panel.content}
+        />
+      {/if}
     {/if}
   </div>
   

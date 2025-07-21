@@ -2,6 +2,19 @@
 
 ## 2025-07-21
 
+### Fixed
+- **Code Editor Mobile Display**: Fixed critical issue where Monaco Editor was not displaying on mobile devices
+  - Added proper mobile detection using user agent and viewport width
+  - Implemented responsive height calculations for mobile viewports
+  - Added mobile-specific Monaco Editor configuration (disabled minimap, enabled word wrap, larger scrollbars)
+  - Fixed flexbox layout issues preventing editor from sizing correctly
+  - Added touch-friendly configurations for better mobile interaction
+  - Implemented proper resize handling with debouncing for performance
+  - Added explicit width/height styles to Monaco's DOM elements on mobile
+  - Fixed tab bar to be scrollable and touch-friendly on mobile devices
+  - Added mobile-specific CSS media queries for proper panel sizing
+  - Created mobile test page at `/mobile-test` for debugging
+
 ### Added
 - **Persistent Terminal Sessions**: Implemented full session persistence using GNU Screen
   - Terminal sessions continue running even when browser is closed or mobile device switches tabs

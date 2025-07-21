@@ -227,6 +227,13 @@
           {...panel.content}
           on:open={handleOpen}
         />
+      {:else if panel.type === 'codeEditor' || panel.type === 'code-editor'}
+        <svelte:component 
+          this={component} 
+          panelId={panel.id}
+          panelConfig={panel.content}
+          {...panel.content}
+        />
       {:else}
         <svelte:component 
           this={component} 
@@ -426,6 +433,15 @@
     flex: 1;
     overflow: hidden;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* Ensure child components fill the space */
+  .panel-content > :global(*) {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
   }
   
   /* Mobile optimizations */

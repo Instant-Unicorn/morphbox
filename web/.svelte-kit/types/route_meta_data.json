@@ -95,6 +95,9 @@
 	"/login": [
 		"src/routes/+layout.server.ts"
 	],
+	"/mobile-test": [
+		"src/routes/+layout.server.ts"
+	],
 	"/panel-menu-demo": [
 		"src/routes/+layout.server.ts"
 	],

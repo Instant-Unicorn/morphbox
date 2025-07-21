@@ -196,13 +196,24 @@
   }
   
   // Keyboard emulation functions
-  function sendEscape() {
+  function sendEscape(event: MouseEvent) {
+    // Prevent default browser behavior and stop propagation
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    
     console.log('ESC button clicked', {
       componentInstance,
       terminalMethods,
       component,
       panelType: panel.type
     });
+    
+    // Focus the terminal to ensure it receives the input
+    const terminalEl = panelElement?.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement;
+    if (terminalEl) {
+      terminalEl.focus();
+    }
     
     // Try terminalMethods first (from ready event)
     if (terminalMethods && typeof terminalMethods.sendInput === 'function') {
@@ -214,15 +225,32 @@
     } else {
       console.warn('No sendInput function available');
     }
+    
+    // Blur the button to prevent it from staying focused
+    (event.currentTarget as HTMLButtonElement).blur();
+    
+    // Return false to further prevent any default behavior
+    return false;
   }
   
-  function sendShiftTab() {
+  function sendShiftTab(event: MouseEvent) {
+    // Prevent default browser behavior and stop propagation
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    
     console.log('Shift+Tab button clicked', {
       componentInstance,
       terminalMethods,
       component,
       panelType: panel.type
     });
+    
+    // Focus the terminal to ensure it receives the input
+    const terminalEl = panelElement?.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement;
+    if (terminalEl) {
+      terminalEl.focus();
+    }
     
     // Try terminalMethods first (from ready event)
     if (terminalMethods && typeof terminalMethods.sendInput === 'function') {
@@ -234,6 +262,12 @@
     } else {
       console.warn('No sendInput function available');
     }
+    
+    // Blur the button to prevent it from staying focused
+    (event.currentTarget as HTMLButtonElement).blur();
+    
+    // Return false to further prevent any default behavior
+    return false;
   }
   
   function handleDragStart(e: DragEvent) {
@@ -624,15 +658,19 @@
         <div class="keyboard-buttons">
           <button 
             class="control-btn keyboard-btn"
-            on:click={sendEscape}
+            on:click|preventDefault|stopPropagation={sendEscape}
+            on:mousedown|preventDefault|stopPropagation
             title="Send ESC key"
+            type="button"
           >
             <span class="key-label">ESC</span>
           </button>
           <button 
             class="control-btn keyboard-btn"
-            on:click={sendShiftTab}
+            on:click|preventDefault|stopPropagation={sendShiftTab}
+            on:mousedown|preventDefault|stopPropagation
             title="Send Shift+Tab"
+            type="button"
           >
             <span class="key-label">⇧⇥</span>
           </button>

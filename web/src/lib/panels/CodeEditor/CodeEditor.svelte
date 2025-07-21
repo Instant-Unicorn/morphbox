@@ -413,6 +413,8 @@
       }
       
       console.log('Monaco loaded successfully');
+      console.log('Is mobile:', isMobile);
+      console.log('Container dimensions:', containerEl.getBoundingClientRect());
       
       // Configure Monaco
       monaco.editor.defineTheme('custom-dark', {
@@ -428,33 +430,51 @@
       const currentSettings = get(settingsStore);
       const editorSettings = currentSettings.editor || {};
       
-      // Create editor instance
+      // Detect if we're on a mobile device
+      isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+      
+      // Create editor instance with mobile-friendly options
       editorInstance = monaco.editor.create(containerEl, {
         value: '',
         language: 'plaintext',
         theme: editorSettings.theme || theme,
-        fontSize: editorSettings.fontSize || fontSize,
+        fontSize: isMobile ? 12 : (editorSettings.fontSize || fontSize),
         fontFamily: editorSettings.fontFamily || undefined,
         lineHeight: editorSettings.lineHeight || undefined,
-        minimap: { enabled: minimap },
+        minimap: { enabled: isMobile ? false : minimap },
         lineNumbers: lineNumbers ? 'on' : 'off',
-        wordWrap: editorSettings.wordWrap ? 'on' : 'off',
+        wordWrap: isMobile ? 'on' : (editorSettings.wordWrap ? 'on' : 'off'),
         automaticLayout: true,
         scrollBeyondLastLine: false,
-        folding: true,
-        glyphMargin: true,
+        folding: !isMobile,
+        glyphMargin: !isMobile,
         contextmenu: true,
-        quickSuggestions: true,
-        suggestOnTriggerCharacters: true,
+        quickSuggestions: !isMobile,
+        suggestOnTriggerCharacters: !isMobile,
         acceptSuggestionOnEnter: 'on',
         tabSize: editorSettings.tabSize || 2,
         insertSpaces: true,
-        formatOnPaste: true,
-        formatOnType: true,
+        formatOnPaste: !isMobile,
+        formatOnType: !isMobile,
         scrollbar: {
-          verticalScrollbarSize: 10,
-          horizontalScrollbarSize: 10
-        }
+          verticalScrollbarSize: isMobile ? 14 : 10,
+          horizontalScrollbarSize: isMobile ? 14 : 10,
+          useShadows: false,
+          verticalHasArrows: false,
+          horizontalHasArrows: false
+        },
+        // Mobile-specific options
+        dragAndDrop: !isMobile,
+        accessibilitySupport: isMobile ? 'off' : 'auto',
+        renderWhitespace: 'none',
+        renderControlCharacters: false,
+        snippetSuggestions: isMobile ? 'none' : 'inline',
+        suggestSelection: 'first',
+        suggestFontSize: isMobile ? 12 : 0,
+        // Touch support
+        mouseWheelZoom: false,
+        multiCursorModifier: 'alt',
+        fixedOverflowWidgets: true
       });
 
       // Register keyboard shortcuts
@@ -471,13 +491,60 @@
         editorInstance.onDidChangeModelContent(handleContentChange);
       }
 
-      // Handle resize
-      const resizeObserver = new ResizeObserver(() => {
-        editorInstance?.layout();
-      });
+      // Handle resize with debouncing for mobile performance
+      let resizeTimeout: number;
+      const handleResize = () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          if (editorInstance && containerEl) {
+            const rect = containerEl.getBoundingClientRect();
+            console.log('Editor container dimensions:', rect.width, 'x', rect.height);
+            
+            // Force layout with specific dimensions on mobile
+            if (rect.width > 0 && rect.height > 0) {
+              editorInstance.layout({ width: rect.width, height: rect.height });
+              
+              // Double-check on mobile that the editor is visible
+              const editorDom = editorInstance.getDomNode();
+              if (editorDom && isMobile) {
+                editorDom.style.width = `${rect.width}px`;
+                editorDom.style.height = `${rect.height}px`;
+              }
+            } else {
+              // Fallback: force recalculation
+              requestAnimationFrame(() => {
+                const newRect = containerEl.getBoundingClientRect();
+                if (newRect.width > 0 && newRect.height > 0) {
+                  editorInstance.layout({ width: newRect.width, height: newRect.height });
+                }
+              });
+            }
+          }
+        }, 100);
+      };
+      
+      const resizeObserver = new ResizeObserver(handleResize);
       resizeObserver.observe(containerEl);
+      
+      // Also listen to window resize for mobile orientation changes
+      window.addEventListener('resize', handleResize);
+      window.addEventListener('orientationchange', handleResize);
+      
+      // Initial layout after a short delay to ensure container is sized
+      setTimeout(handleResize, 200);
 
       dispatch('ready', { editor: editorInstance, monaco });
+      
+      // Force initial layout on mobile after DOM settles
+      if (isMobile) {
+        setTimeout(() => {
+          const rect = containerEl.getBoundingClientRect();
+          console.log('Mobile initial layout:', rect);
+          if (rect.width > 0 && rect.height > 0) {
+            editorInstance.layout({ width: rect.width, height: rect.height });
+          }
+        }, 300);
+      }
 
     } catch (error) {
       console.error('Failed to initialize Monaco Editor:', error);
@@ -497,8 +564,11 @@
   }
 
   let settingsUnsubscribe: (() => void) | null = null;
+  let isMobile = false;
   
   onMount(async () => {
+    // Small delay to ensure container is properly sized on mobile
+    await new Promise(resolve => setTimeout(resolve, 50));
     await initEditor();
     
     // Subscribe to settings changes
@@ -633,6 +703,13 @@
       </div>
     {/if}
   </div>
+  
+  <!-- Mobile debug info -->
+  {#if browser && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)}
+    <div class="mobile-debug" style="position: absolute; bottom: 0; right: 0; background: rgba(0,0,0,0.8); color: white; padding: 4px; font-size: 10px; z-index: 9999;">
+      Mobile: {window.innerWidth}x{window.innerHeight}
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -644,17 +721,51 @@
     background-color: var(--editor-bg, #1e1e1e);
     min-height: 0; /* Fix flexbox height issues */
     position: relative;
+    overflow: hidden; /* Ensure proper containment */
   }
 
   .editor-container {
-    flex: 1;
+    flex: 1 1 auto;
     overflow: hidden;
-    min-height: 0; /* Fix flexbox height issues */
     position: relative;
+    width: 100%;
+    /* Ensure minimum height on mobile */
+    min-height: 200px;
+    container-type: size; /* Enable container queries */
+  }
+  
+  /* Mobile-specific adjustments */
+  @media (max-width: 768px) {
+    .editor-container {
+      min-height: 300px;
+      height: calc(100vh - 120px); /* Account for header and other UI elements */
+    }
+    
+    .code-editor {
+      height: 100vh;
+      max-height: 100vh;
+    }
   }
 
   :global(.monaco-editor) {
     position: absolute !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100% !important;
+    height: 100% !important;
+  }
+  
+  /* Ensure Monaco's internal containers are sized properly */
+  :global(.monaco-editor .overflow-guard) {
+    width: 100% !important;
+    height: 100% !important;
+  }
+  
+  :global(.monaco-editor .monaco-scrollable-element) {
+    width: 100% !important;
+    height: 100% !important;
   }
 
   :global(.monaco-editor .margin) {
@@ -711,6 +822,32 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
     min-width: 250px;
     z-index: 1000;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  
+  /* Mobile menu adjustments */
+  @media (max-width: 768px) {
+    .menu-dropdown {
+      position: fixed;
+      top: auto;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      margin: 0;
+      border-radius: 16px 16px 0 0;
+      min-width: 100%;
+      max-height: 70vh;
+    }
+    
+    .menu-item {
+      padding: 12px 16px;
+      font-size: 14px;
+    }
+    
+    .menu-shortcut {
+      display: none;
+    }
   }
 
   .menu-item {

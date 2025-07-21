@@ -80,5 +80,13 @@
     width: 100%;
     display: flex;
     flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  /* Ensure proper height inheritance */
+  .code-editor-panel :global(.code-editor) {
+    flex: 1;
+    min-height: 0;
   }
 </style>

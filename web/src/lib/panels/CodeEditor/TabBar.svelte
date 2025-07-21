@@ -103,6 +103,7 @@
     overflow-x: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--scrollbar-thumb, #555) var(--bg-color, #2d2d2d);
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
   }
 
   .tab-bar::-webkit-scrollbar {
@@ -140,6 +141,7 @@
     max-width: 200px;
     position: relative;
     transition: background-color 0.2s;
+    -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
   }
 
   .tab:hover {
@@ -191,6 +193,44 @@
 
   .tab:hover .close-btn {
     opacity: 1;
+  }
+  
+  /* Mobile adjustments */
+  @media (max-width: 768px) {
+    .tab {
+      min-width: 100px;
+      max-width: 150px;
+      padding: 10px 8px;
+      font-size: 12px;
+    }
+    
+    .tab-icon {
+      font-size: 12px;
+    }
+    
+    .close-btn {
+      opacity: 1; /* Always visible on mobile */
+      width: 22px;
+      height: 22px;
+      font-size: 20px;
+    }
+    
+    .dirty-indicator {
+      font-size: 16px;
+    }
+  }
+  
+  /* Touch-friendly hit areas */
+  @media (pointer: coarse) {
+    .tab {
+      min-height: 44px; /* iOS recommended touch target size */
+    }
+    
+    .close-btn {
+      width: 32px;
+      height: 32px;
+      margin-left: 0;
+    }
   }
 
   .close-btn:hover {

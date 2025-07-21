@@ -29,6 +29,8 @@
   let resizeStartWidth = 0;
   let resizeStartHeight = 0;
   let panelElement: HTMLElement;
+  let isMobileResizing = false; // Track mobile resize state for visual feedback
+  let currentResizeHeight = 0; // Track current height during resize
   
   // Log panel dimensions on mount and when panel changes
   onMount(() => {
@@ -270,10 +272,12 @@
     isResizing = true;
     resizeDirection = 'vertical';
     resizeSide = side;
+    isMobileResizing = 'touches' in e; // Set mobile resizing state
     
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     resizeStartY = clientY;
     resizeStartHeight = panel.heightPixels || 400;
+    currentResizeHeight = resizeStartHeight; // Initialize current height
     
     if ('touches' in e) {
       document.addEventListener('touchmove', handleTouchMove, { passive: false });
@@ -349,6 +353,7 @@
     isResizing = false;
     resizeDirection = null;
     resizeSide = null;
+    isMobileResizing = false;
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
   }
@@ -392,7 +397,11 @@
     } else if (resizeDirection === 'vertical') {
       if (resizeSide === 'bottom') {
         const deltaY = touch.clientY - resizeStartY;
-        const newHeight = Math.max(150, Math.min(window.innerHeight * 0.8, resizeStartHeight + deltaY));
+        // More generous height constraints for mobile
+        const minHeight = 100; // Smaller minimum for mobile
+        const maxHeight = window.innerHeight * 0.9; // Allow up to 90% of viewport
+        const newHeight = Math.max(minHeight, Math.min(maxHeight, resizeStartHeight + deltaY));
+        currentResizeHeight = newHeight; // Update current height for display
         
         dispatch('resize', { 
           panelId: panel.id, 
@@ -400,7 +409,10 @@
         });
       } else if (resizeSide === 'top') {
         const deltaY = touch.clientY - resizeStartY;
-        const newHeight = Math.max(150, Math.min(window.innerHeight * 0.8, resizeStartHeight - deltaY));
+        const minHeight = 100;
+        const maxHeight = window.innerHeight * 0.9;
+        const newHeight = Math.max(minHeight, Math.min(maxHeight, resizeStartHeight - deltaY));
+        currentResizeHeight = newHeight; // Update current height for display
         
         dispatch('resize', { 
           panelId: panel.id, 
@@ -418,6 +430,7 @@
     isResizing = false;
     resizeDirection = null;
     resizeSide = null;
+    isMobileResizing = false;
     document.removeEventListener('touchmove', handleTouchMove);
     document.removeEventListener('touchend', handleTouchEnd);
   }
@@ -438,6 +451,7 @@
   class:drop-before={dropZone === 'before'}
   class:drop-after={dropZone === 'after'}
   class:drop-center={dropZone === 'center'}
+  class:mobile-resizing={isMobileResizing}
   style="background-color: {panel.backgroundColor || '#2a2a2a'}; border-color: {panel.borderColor || '#444'};"
   on:dragover={handleDragOver}
   on:dragleave={handleDragLeave}
@@ -653,6 +667,22 @@
     aria-orientation="horizontal"
     tabindex="0"
   ></div>
+  
+  <!-- Mobile-specific resize handle -->
+  <div 
+    class="mobile-resize-handle"
+    on:touchstart={(e) => handleVerticalResizeStart(e, 'bottom')}
+    on:mousedown={(e) => handleVerticalResizeStart(e, 'bottom')}
+    title="Drag to resize"
+    role="separator"
+    aria-orientation="horizontal"
+    tabindex="0"
+  >
+    <div class="mobile-resize-indicator"></div>
+    {#if isMobileResizing && currentResizeHeight > 0}
+      <div class="resize-height-indicator">{Math.round(currentResizeHeight)}px</div>
+    {/if}
+  </div>
 </div>
 
 <style>
@@ -1127,9 +1157,58 @@
       gap: 3px;
     }
     
-    /* Hide resize handles on mobile as panels stack */
-    .resize-handle {
+    /* Hide horizontal resize handles on mobile, keep vertical ones */
+    .resize-handle.resize-left,
+    .resize-handle.resize-right {
       display: none;
+    }
+    
+    /* Make vertical resize handles more touch-friendly on mobile */
+    .resize-handle.resize-top,
+    .resize-handle.resize-bottom {
+      height: 20px;
+      background-color: transparent;
+      touch-action: none;
+    }
+    
+    .resize-handle.resize-top {
+      top: -10px;
+    }
+    
+    .resize-handle.resize-bottom {
+      bottom: -10px;
+    }
+    
+    /* Add visual indicator for mobile resize handles */
+    .resize-handle.resize-top::after,
+    .resize-handle.resize-bottom::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60px;
+      height: 4px;
+      background-color: var(--panel-border, #3e3e42);
+      border-radius: 2px;
+      opacity: 0.8;
+      transition: all 0.2s;
+    }
+    
+    .resize-handle.resize-top::after {
+      bottom: 2px;
+    }
+    
+    .resize-handle.resize-bottom::after {
+      top: 2px;
+    }
+    
+    /* Make resize handle more visible on touch */
+    .resize-handle.resize-top:active::after,
+    .resize-handle.resize-bottom:active::after {
+      background-color: var(--accent-color, #0e639c);
+      opacity: 1;
+      width: 80px;
+      height: 6px;
     }
   }
   
@@ -1159,5 +1238,146 @@
     .resize-handle::after {
       background: var(--accent-color);
     }
+  }
+  
+  /* Mobile-specific resize handle */
+  .mobile-resize-handle {
+    display: none;
+    position: absolute;
+    bottom: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 30px;
+    cursor: ns-resize;
+    z-index: 20;
+    background-color: transparent;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .mobile-resize-indicator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 50px;
+    height: 4px;
+    background-color: var(--panel-border, #3e3e42);
+    border-radius: 2px;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+  
+  /* Three dots pattern for better visual affordance */
+  .mobile-resize-indicator::before,
+  .mobile-resize-indicator::after {
+    content: '';
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background-color: var(--panel-border, #3e3e42);
+    border-radius: 50%;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  
+  .mobile-resize-indicator::before {
+    left: -10px;
+  }
+  
+  .mobile-resize-indicator::after {
+    right: -10px;
+  }
+  
+  /* Show mobile handle on touch devices */
+  @media (max-width: 768px) and (pointer: coarse) {
+    .mobile-resize-handle {
+      display: block;
+    }
+    
+    /* Hide the standard bottom resize handle on mobile since we have the mobile one */
+    .resize-handle.resize-bottom {
+      display: none;
+    }
+  }
+  
+  /* Active state for mobile resize handle */
+  .mobile-resize-handle:active .mobile-resize-indicator {
+    background-color: var(--accent-color, #0e639c);
+    width: 70px;
+    height: 6px;
+    box-shadow: 0 2px 8px rgba(14, 99, 156, 0.4);
+  }
+  
+  .mobile-resize-handle:active .mobile-resize-indicator::before,
+  .mobile-resize-handle:active .mobile-resize-indicator::after {
+    background-color: var(--accent-color, #0e639c);
+    width: 6px;
+    height: 6px;
+  }
+  
+  /* Ensure resize handle is visible even when panel is at bottom of viewport */
+  @media (max-width: 768px) {
+    .row-panel {
+      margin-bottom: 15px;
+    }
+  }
+  
+  /* Visual feedback when mobile resizing */
+  .row-panel.mobile-resizing {
+    border-color: var(--accent-color, #0e639c);
+    box-shadow: 0 0 0 2px rgba(14, 99, 156, 0.3);
+    transition: none; /* Disable transitions during resize for better performance */
+  }
+  
+  .row-panel.mobile-resizing .panel-header {
+    background-color: rgba(14, 99, 156, 0.1);
+  }
+  
+  /* Add a visual overlay during resize for better feedback */
+  .row-panel.mobile-resizing::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(14, 99, 156, 0.05);
+    pointer-events: none;
+    z-index: 1;
+  }
+  
+  /* Height indicator during resize */
+  .resize-height-indicator {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--accent-color, #0e639c);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    margin-bottom: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+    z-index: 1000;
+  }
+  
+  /* Arrow pointing down from height indicator */
+  .resize-height-indicator::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid var(--accent-color, #0e639c);
   }
 </style>

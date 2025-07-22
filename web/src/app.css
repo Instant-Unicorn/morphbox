@@ -36,6 +36,16 @@
   /* Layout variables */
   --viewport-padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   
+  /* Panel header styling - using RGB(210, 210, 210) */
+  --panel-title-color: rgb(210, 210, 210);
+  --panel-action-color: rgb(210, 210, 210);
+  --panel-action-hover-color: rgb(210, 210, 210);
+  --panel-control-color: rgb(210, 210, 210);
+  --panel-control-hover-color: rgb(210, 210, 210);
+  --drag-handle-grip-color: rgb(210, 210, 210);
+  --text-primary: rgb(210, 210, 210);
+  --text-secondary: rgb(210, 210, 210);
+  
   /* These will be overridden by the settings */
 }
 

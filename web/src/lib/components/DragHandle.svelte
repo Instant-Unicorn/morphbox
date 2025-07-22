@@ -183,8 +183,8 @@
       to bottom,
       transparent,
       transparent 2px,
-      var(--drag-handle-grip-color, #999) 2px,
-      var(--drag-handle-grip-color, #999) 4px
+      var(--drag-handle-grip-color, rgb(210, 210, 210)) 2px,
+      var(--drag-handle-grip-color, rgb(210, 210, 210)) 4px
     );
   }
   
@@ -195,8 +195,8 @@
       to right,
       transparent,
       transparent 2px,
-      var(--drag-handle-grip-color, #999) 2px,
-      var(--drag-handle-grip-color, #999) 4px
+      var(--drag-handle-grip-color, rgb(210, 210, 210)) 2px,
+      var(--drag-handle-grip-color, rgb(210, 210, 210)) 4px
     );
   }
   

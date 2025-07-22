@@ -3,22 +3,18 @@ import { createServer } from 'http';
 import { handleWebSocketConnection } from './websocket';
 import { AgentManager } from './agent-manager';
 import { StateManager } from './state-manager';
-import { getPersistentSessionManager } from './persistent-session-manager';
-
 const PORT = process.env.WS_PORT || 8009;
 const HOST = process.env.MORPHBOX_HOST || '0.0.0.0';
 
 // Initialize managers
 const agentManager = new AgentManager();
 const stateManager = new StateManager();
-const sessionManager = getPersistentSessionManager();
 
 async function startWebSocketServer() {
   try {
     // Initialize managers
     await agentManager.initialize();
     await stateManager.initialize();
-    await sessionManager.initialize();
     console.log('✅ Managers initialized');
 
     // Create HTTP server with CORS headers
@@ -37,7 +33,7 @@ async function startWebSocketServer() {
 
     wss.on('connection', (ws, request) => {
       console.log('New WebSocket connection from:', request.headers.host);
-      handleWebSocketConnection(ws, request, { agentManager, stateManager, sessionManager });
+      handleWebSocketConnection(ws, request, { agentManager, stateManager });
     });
 
     // Start listening
@@ -57,7 +53,6 @@ process.on('SIGINT', async () => {
   console.log('\n🛑 Shutting down WebSocket server...');
   await agentManager.stopAllAgents();
   await stateManager.close();
-  sessionManager.destroy();
   process.exit(0);
 });
 
@@ -65,7 +60,6 @@ process.on('SIGTERM', async () => {
   console.log('\n🛑 Shutting down WebSocket server...');
   await agentManager.stopAllAgents();
   await stateManager.close();
-  sessionManager.destroy();
   process.exit(0);
 });
 

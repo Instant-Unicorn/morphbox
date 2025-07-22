@@ -176,15 +176,6 @@ function createPanelRegistry() {
           features: ['formHandling', 'stateManagement'],
           createdAt: new Date(),
           isCustom: false
-        },
-        {
-          id: 'sessionManager',
-          name: 'Session Manager',
-          description: 'Manage persistent terminal sessions',
-          path: '$lib/panels/SessionManager/SessionManager.svelte',
-          features: ['sessionManagement', 'monitoring'],
-          createdAt: new Date(),
-          isCustom: false
         }
       ];
 

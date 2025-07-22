@@ -82,10 +82,9 @@ export function handleWebSocketConnection(
       const vmPort = parseInt(process.env.MORPHBOX_VM_PORT || '22');
       const vmUser = process.env.MORPHBOX_VM_USER || 'morphbox';
       
-      // Launch SSH connection to VM (use persistent agent if enabled)
-      const agentType = usePersistentSessions ? 'persistent-ssh' : 'ssh';
-      console.log(`Launching ${agentType} agent with config:`, { vmHost, vmPort, vmUser, persistent: usePersistentSessions });
-      currentAgentId = await agentManager.launchAgent(agentType, {
+      // Launch SSH connection to VM
+      console.log('Launching SSH agent with config:', { vmHost, vmPort, vmUser });
+      currentAgentId = await agentManager.launchAgent('ssh', {
         sessionId: currentSessionId,
         terminalSessionId: providedTerminalSessionId || undefined,
         vmHost,
@@ -123,7 +122,7 @@ export function handleWebSocketConnection(
             if (!currentAgentId && ws.readyState === 1) {
               console.log('Auto-restarting SSH agent after exit');
               try {
-                currentAgentId = await agentManager.launchAgent(agentType, {
+                currentAgentId = await agentManager.launchAgent('ssh', {
                   sessionId: currentSessionId,
                   terminalSessionId: providedTerminalSessionId || undefined,
                   vmHost,
@@ -183,9 +182,8 @@ export function handleWebSocketConnection(
         currentSessionId = await stateManager.createSession(process.cwd(), 'bash');
         send('SESSION_CREATED', { sessionId: currentSessionId });
         
-        // Launch bash agent (use persistent agent if enabled)
-        const agentType = usePersistentSessions ? 'persistent-bash' : 'bash';
-        currentAgentId = await agentManager.launchAgent(agentType, {
+        // Launch bash agent
+        currentAgentId = await agentManager.launchAgent('bash', {
           sessionId: currentSessionId,
           workspacePath: process.cwd()
         });
@@ -272,8 +270,14 @@ export function handleWebSocketConnection(
   });
 
   // Handle connection close
-  ws.on('close', async () => {
-    console.log('WebSocket connection closed');
+  ws.on('close', async (code, reason) => {
+    console.log('WebSocket connection closed:', {
+      code,
+      reason: reason?.toString(),
+      currentAgentId,
+      currentSessionId,
+      timestamp: new Date().toISOString()
+    });
     
     // Clear ping interval
     clearInterval(pingInterval);
@@ -294,6 +298,10 @@ export function handleWebSocketConnection(
     if (ws.readyState === 1) {
       const message = JSON.stringify({ type, payload });
       console.log('Sending message:', type);
+      // Log OUTPUT data length for debugging
+      if (type === 'OUTPUT' && payload?.data) {
+        console.log(`  OUTPUT data length: ${payload.data.length}, preview: ${JSON.stringify(payload.data.substring(0, 50))}`);
+      }
       ws.send(message);
     } else {
       console.log('Cannot send message, WebSocket not open. State:', ws.readyState);
@@ -407,9 +415,8 @@ export function handleWebSocketConnection(
             send('SESSION_CREATED', { sessionId: currentSessionId });
           }
           
-          // Launch bash agent (use persistent agent if enabled)
-          const bashAgentType = usePersistentSessions ? 'persistent-bash' : 'bash';
-          currentAgentId = await agentManager.launchAgent(bashAgentType, {
+          // Launch bash agent
+          currentAgentId = await agentManager.launchAgent('bash', {
             sessionId: currentSessionId,
             workspacePath: process.cwd()
           });

@@ -71,10 +71,37 @@
     }
     console.log('[PromptQueue] Found Claude panel:', claudePanel.id);
     
-    // Find the terminal element for this specific panel
-    const panelElement = document.getElementById(`panel-${claudePanel.id}`);
+    // Try different ways to find the panel element
+    let panelElement = document.getElementById(claudePanel.id);
     if (!panelElement) {
-      console.log('[PromptQueue] Panel element not found for ID:', `panel-${claudePanel.id}`);
+      // Try without panel- prefix
+      const idWithoutPrefix = claudePanel.id.replace('panel-', '');
+      panelElement = document.getElementById(idWithoutPrefix);
+    }
+    if (!panelElement) {
+      // Try to find by data attribute or class
+      panelElement = document.querySelector(`[data-panel-id="${claudePanel.id}"]`);
+    }
+    if (!panelElement) {
+      // Last resort - find any terminal that looks like Claude
+      const allTerminals = document.querySelectorAll('.xterm-screen');
+      console.log('[PromptQueue] Found', allTerminals.length, 'terminals total');
+      
+      // Check each terminal for Claude prompt
+      for (const terminal of allTerminals) {
+        const text = terminal.textContent || '';
+        if (text.includes('Claude') || text.includes('Anthropic')) {
+          const lines = text.split('\n');
+          const lastLine = lines[lines.length - 1] || lines[lines.length - 2];
+          console.log('[PromptQueue] Checking terminal with last line:', JSON.stringify(lastLine));
+          
+          if (lastLine.trim() === '>' || lastLine.startsWith('> ')) {
+            return true;
+          }
+        }
+      }
+      
+      console.log('[PromptQueue] No Claude terminal found with ready prompt');
       return false;
     }
     

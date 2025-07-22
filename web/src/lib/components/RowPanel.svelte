@@ -858,7 +858,7 @@
   
   .drag-handle {
     cursor: move;
-    color: var(--panel-control-color, #858585);
+    color: var(--panel-control-color, rgb(210, 210, 210));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -869,14 +869,14 @@
   
   .drag-handle:hover {
     background-color: rgba(255, 255, 255, 0.1);
-    color: var(--panel-title-color, #cccccc);
+    color: var(--panel-title-color, rgb(210, 210, 210));
   }
   
   .panel-title {
     margin: 0;
     font-size: 12px;
     font-weight: 500;
-    color: var(--panel-title-color, #cccccc);
+    color: var(--panel-title-color, rgb(210, 210, 210));
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -893,7 +893,7 @@
   .control-btn {
     background: none;
     border: none;
-    color: var(--panel-control-color, #858585);
+    color: var(--panel-control-color, rgb(210, 210, 210));
     cursor: pointer;
     padding: 2px;
     border-radius: 3px;
@@ -907,7 +907,7 @@
   
   .control-btn:hover {
     background-color: rgba(255, 255, 255, 0.1);
-    color: var(--panel-title-color, #cccccc);
+    color: var(--panel-title-color, rgb(210, 210, 210));
   }
   
   /* Color palette button and popup */
@@ -951,13 +951,13 @@
     margin: 0;
     font-size: 13px;
     font-weight: 600;
-    color: var(--text-primary, #cccccc);
+    color: var(--text-primary, rgb(210, 210, 210));
   }
   
   .reset-btn {
     background: none;
     border: 1px solid var(--popup-border, #3e3e42);
-    color: var(--text-secondary, #858585);
+    color: var(--text-secondary, rgb(210, 210, 210));
     font-size: 11px;
     padding: 2px 8px;
     border-radius: 3px;
@@ -967,7 +967,7 @@
   
   .reset-btn:hover {
     background-color: rgba(255, 255, 255, 0.1);
-    color: var(--text-primary, #cccccc);
+    color: var(--text-primary, rgb(210, 210, 210));
     border-color: var(--text-secondary, #858585);
   }
   
@@ -986,7 +986,7 @@
   
   .color-option label {
     font-size: 12px;
-    color: var(--text-secondary, #858585);
+    color: var(--text-secondary, rgb(210, 210, 210));
     min-width: 70px;
   }
   

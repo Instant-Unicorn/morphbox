@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import { get } from 'svelte/store';
   import { promptQueueStore, type PromptItem } from './prompt-queue-store';
   import EditPromptModal from './EditPromptModal.svelte';
   import { Play, Pause, Trash2, Edit, AlertCircle, Plus } from 'lucide-svelte';
+  import { panelStore } from '$lib/stores/panels';
   
   let inputValue = '';
   let editingPrompt: PromptItem | null = null;
@@ -49,19 +51,30 @@
   }
   
   function isClaudeReady(): boolean {
-    // Check terminal output for ready indicators
-    const terminals = document.querySelectorAll('.xterm-screen');
-    for (const terminal of terminals) {
-      const text = terminal.textContent || '';
-      // Look for Claude's prompt (usually ">")
-      const lines = text.split('\n');
-      const lastLine = lines[lines.length - 1] || lines[lines.length - 2];
-      
-      // Claude is ready if the last line starts with ">" and nothing follows
-      if (lastLine.trim() === '>' || lastLine.startsWith('> ')) {
-        return true;
-      }
+    // Get all panels from the store
+    const allPanels = get(panelStore);
+    
+    // Find the Claude panel
+    const claudePanel = allPanels.find(panel => panel.type === 'claude');
+    if (!claudePanel) return false;
+    
+    // Find the terminal element for this specific panel
+    const panelElement = document.getElementById(`panel-${claudePanel.id}`);
+    if (!panelElement) return false;
+    
+    const terminal = panelElement.querySelector('.xterm-screen');
+    if (!terminal) return false;
+    
+    const text = terminal.textContent || '';
+    // Look for Claude's prompt (usually ">")
+    const lines = text.split('\n');
+    const lastLine = lines[lines.length - 1] || lines[lines.length - 2];
+    
+    // Claude is ready if the last line starts with ">" and nothing follows
+    if (lastLine.trim() === '>' || lastLine.startsWith('> ')) {
+      return true;
     }
+    
     return false;
   }
   
@@ -128,13 +141,16 @@
   function findClaudeTerminal() {
     if (typeof window === 'undefined' || !window.morphboxTerminals) return null;
     
-    // Look for a Claude terminal
-    for (const [id, terminal] of Object.entries(window.morphboxTerminals)) {
-      if (id.includes('claude')) {
-        return terminal;
-      }
-    }
-    return null;
+    // Get all panels from the store
+    const allPanels = get(panelStore);
+    
+    // Look for a Claude panel
+    const claudePanel = allPanels.find(panel => panel.type === 'claude');
+    if (!claudePanel) return null;
+    
+    // Check if this panel has a terminal registered
+    const terminal = window.morphboxTerminals[claudePanel.id];
+    return terminal || null;
   }
   
   function handleAddPrompt() {

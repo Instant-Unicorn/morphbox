@@ -1,6 +1,8 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { X } from 'lucide-svelte';
+  import { get } from 'svelte/store';
+  import { panelStore } from '$lib/stores/panels';
   
   export let prompt: string = '';
   export let isOpen: boolean = false;
@@ -56,13 +58,16 @@
   function findClaudeTerminal() {
     if (typeof window === 'undefined' || !window.morphboxTerminals) return null;
     
-    // Look for a Claude terminal
-    for (const [id, terminal] of Object.entries(window.morphboxTerminals)) {
-      if (id.includes('claude')) {
-        return terminal;
-      }
-    }
-    return null;
+    // Get all panels from the store
+    const allPanels = get(panelStore);
+    
+    // Look for a Claude panel
+    const claudePanel = allPanels.find(panel => panel.type === 'claude');
+    if (!claudePanel) return null;
+    
+    // Check if this panel has a terminal registered
+    const terminal = window.morphboxTerminals[claudePanel.id];
+    return terminal || null;
   }
   
   function handleKeydown(e: KeyboardEvent) {

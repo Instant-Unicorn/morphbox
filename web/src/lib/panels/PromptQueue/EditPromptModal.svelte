@@ -2,7 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import { X } from 'lucide-svelte';
   import { get } from 'svelte/store';
-  import { panelStore } from '$lib/stores/panels';
+  import { allPanels } from '$lib/stores/panels';
   
   export let prompt: string = '';
   export let isOpen: boolean = false;
@@ -59,10 +59,10 @@
     if (typeof window === 'undefined' || !window.morphboxTerminals) return null;
     
     // Get all panels from the store
-    const allPanels = get(panelStore);
+    const panels = get(allPanels);
     
     // Look for a Claude panel
-    const claudePanel = allPanels.find(panel => panel.type === 'claude');
+    const claudePanel = panels.find(panel => panel.type === 'claude');
     if (!claudePanel) return null;
     
     // Check if this panel has a terminal registered

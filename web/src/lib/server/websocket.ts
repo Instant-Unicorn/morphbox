@@ -150,12 +150,6 @@ export function handleWebSocketConnection(
                 console.log('Sending newline to refresh prompt');
                 agent.sendInput('\n');
               }, 500);
-              
-              // Also try to get current output status
-              setTimeout(() => {
-                console.log('Sending status check to Claude');
-                agent.sendInput('echo "Status check - terminal ready"\n');
-              }, 1000);
             }
           }
         }

@@ -457,7 +457,7 @@
     let fontSize = currentSettings?.terminal.fontSize || 14;
     if (viewport.isSmall) {
       // Ensure minimum readable font size on small screens
-      fontSize = Math.max(14, Math.min(fontSize, 16));
+      fontSize = Math.max(12, Math.min(fontSize, 14));
     }
     
     // Get container dimensions if available
@@ -479,8 +479,8 @@
     
     // Calculate columns and rows based on actual container size
     const charWidth = fontSize * 0.55; // Better approximation for monospace fonts
-    const lineHeight = fontSize * (currentSettings?.terminal.lineHeight || 1.2);
-    const padding = viewport.isSmall ? 10 : 20;
+    const lineHeight = fontSize * (currentSettings?.terminal.lineHeight || 1.1);
+    const padding = viewport.isSmall ? 5 : 10;
     
     const cols = Math.max(40, Math.floor((containerWidth - padding * 2) / charWidth));
     const rows = Math.max(10, Math.floor((containerHeight - padding * 2) / lineHeight));
@@ -501,7 +501,7 @@
       fontFamily: currentSettings?.terminal.fontFamily || '"Cascadia Code", "Fira Code", monospace',
       cols,
       rows,
-      lineHeight: currentSettings?.terminal.lineHeight || 1.2,
+      lineHeight: currentSettings?.terminal.lineHeight || 1.1,
       cursorStyle: currentSettings?.terminal.cursorStyle || 'block',
       cursorBlink: currentSettings?.terminal.cursorBlink ?? true,
       allowProposedApi: true,
@@ -662,8 +662,8 @@
         console.warn('[Terminal] Terminal element not found, using rough estimates');
         const fontSize = terminal.options.fontSize || 14;
         const charWidth = fontSize * 0.55; // Better approximation for monospace
-        const lineHeight = fontSize * (terminal.options.lineHeight || 1.2);
-        const padding = 20;
+        const lineHeight = fontSize * (terminal.options.lineHeight || 1.1);
+        const padding = 10;
         
         const cols = Math.max(40, Math.floor((rect.width - padding * 2) / charWidth));
         const rows = Math.max(10, Math.floor((rect.height - padding * 2) / lineHeight));
@@ -1710,7 +1710,7 @@
   }
   
   :global(.terminal-wrapper .xterm) {
-    padding: 10px;
+    padding: 5px;
     height: 100%;
     width: 100%;
     display: block;
@@ -1769,5 +1769,20 @@
   /* Prevent zoom on input focus for iOS */
   :global(.xterm-helper-textarea) {
     font-size: 16px !important;
+  }
+  
+  /* Compact Claude output styling */
+  :global(.xterm .xterm-rows) {
+    line-height: 1.1 !important;
+  }
+  
+  /* Reduce spacing between lines for more compact display */
+  :global(.xterm-screen) {
+    line-height: 1.1 !important;
+  }
+  
+  /* Make terminal text more compact */
+  :global(.xterm .xterm-row) {
+    line-height: 1.1 !important;
   }
 </style>

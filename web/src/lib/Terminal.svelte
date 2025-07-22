@@ -95,6 +95,11 @@
   
   export function write(data: string) {
     if (terminal) {
+      console.log('[Terminal.write] Writing data:', {
+        dataLength: data.length,
+        dataPreview: data.substring(0, 50),
+        terminalExists: !!terminal
+      });
       // For small amounts of data or when viewport is small, write immediately
       const viewport = getViewportInfo();
       if (data.length < 100 || viewport.isSmall) {
@@ -104,6 +109,8 @@
         outputBuffer.push(data);
         scheduleFlush();
       }
+    } else {
+      console.warn('[Terminal.write] No terminal instance, cannot write data');
     }
   }
   
@@ -195,7 +202,6 @@
         urlObj.searchParams.set('terminalSessionId', terminalSessionId);
       }
       urlObj.searchParams.set('autoLaunchClaude', autoLaunchClaude.toString());
-      urlObj.searchParams.set('persistent', 'true'); // Enable persistent sessions
       url = urlObj.toString();
     }
     
@@ -205,45 +211,43 @@
     
     try {
       ws = new WebSocket(url);
-    } catch (error) {
-      console.error('[Terminal] WebSocket creation error:', error);
-      isInitializing = false;
-      return;
-    }
-    
-    // Set timeout for connection
-    const connectionTimeout = setTimeout(() => {
-      if (ws.readyState !== WebSocket.OPEN) {
-        writeln('\r\n❌ WebSocket connection timeout. Please check if the WebSocket server is running on port 8009.');
-        console.error('WebSocket connection timeout');
-      }
-    }, 5000);
-    
-    ws.onopen = () => {
-      clearTimeout(connectionTimeout);
-      logger.info('[Terminal] WebSocket connected successfully');
-      console.log('WebSocket connected');
-      connectionStatus = 'connected';
-      reconnectAttempts = 0;
-      isReconnecting = false;
-      // Don't immediately hide - wait for agent launch or output
       
-      if (terminalSessionId) {
-        writeln('\r\n🔄 Reconnecting to existing session...');
-      } else {
-        writeln('\r\n✅ Connected to server');
-      }
+      // IMPORTANT: Set up event handlers immediately after creating WebSocket
+      // to avoid missing any messages
       
-      dispatch('connection', { connected: true });
+      // Set timeout for connection
+      const connectionTimeout = setTimeout(() => {
+        if (ws.readyState !== WebSocket.OPEN) {
+          writeln('\r\n❌ WebSocket connection timeout. Please check if the WebSocket server is running on port 8009.');
+          console.error('WebSocket connection timeout');
+        }
+      }, 5000);
       
-      // Hide splash screen after connection
-      setTimeout(() => {
-        console.log('[Terminal] Hiding loading overlay after connection');
-        isInitializing = false;
-      }, 750);
-    };
-    
-    ws.onmessage = (event) => {
+      ws.onopen = () => {
+        clearTimeout(connectionTimeout);
+        logger.info('[Terminal] WebSocket connected successfully');
+        console.log('WebSocket connected');
+        connectionStatus = 'connected';
+        reconnectAttempts = 0;
+        isReconnecting = false;
+        // Don't immediately hide - wait for agent launch or output
+        
+        if (terminalSessionId) {
+          writeln('\r\n🔄 Reconnecting to existing session...');
+        } else {
+          writeln('\r\n✅ Connected to server');
+        }
+        
+        dispatch('connection', { connected: true });
+        
+        // Hide splash screen after connection
+        setTimeout(() => {
+          console.log('[Terminal] Hiding loading overlay after connection');
+          isInitializing = false;
+        }, 750);
+      };
+      
+      ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
         console.log('Received message:', message.type);
@@ -294,6 +298,12 @@
               dataPreview: message.payload?.data?.substring(0, 50)
             });
             if (message.payload?.data) {
+              console.log('[Terminal] Received OUTPUT message:', {
+                dataLength: message.payload.data.length,
+                dataPreview: message.payload.data.substring(0, 50),
+                hasTerminal: !!terminal,
+                isInitializing
+              });
               // Immediately hide loading overlay on first output
               if (isInitializing) {
                 console.log('[Terminal] First output received, hiding loading overlay');
@@ -339,12 +349,13 @@
     
     ws.onclose = (event) => {
       logger.info('[Terminal] WebSocket closed', { code: event.code, reason: event.reason });
-      console.log('[Terminal] WebSocket closed:', {
+      console.error('[Terminal] WebSocket closed:', {
         code: event.code,
         reason: event.reason,
         wasClean: event.wasClean,
         readyState: ws?.readyState,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        stackTrace: new Error().stack
       });
       connectionStatus = 'disconnected';
       writeln(`\r\nDisconnected from server (code: ${event.code})`);
@@ -358,6 +369,12 @@
         reconnectWithBackoff();
       }
     };
+    } catch (error) {
+      console.error('[Terminal] WebSocket setup error:', error);
+      isInitializing = false;
+      writeln('\r\n❌ Failed to connect to WebSocket');
+      return;
+    }
   }
   
   // Detect viewport size and characteristics
@@ -782,10 +799,14 @@
     }
   }
   
+  // Add a unique ID to track component instances
+  const componentId = `terminal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  
   onMount(async () => {
     if (!browser) return;
     
-    console.log('[Terminal] onMount started, container exists:', !!terminalContainer);
+    console.log(`[Terminal ${componentId}] onMount started, container exists:`, !!terminalContainer);
+    console.log(`[Terminal ${componentId}] panelId:`, panelId);
     
     // Store instance globally for debugging
     if (typeof window !== 'undefined') {
@@ -1523,7 +1544,9 @@
   });
   
   onDestroy(() => {
-    console.log('[Terminal] onDestroy called, cleaning up...');
+    console.error(`[Terminal ${componentId}] onDestroy called, cleaning up...`);
+    console.error(`[Terminal ${componentId}] WebSocket state:`, ws?.readyState);
+    console.error(`[Terminal ${componentId}] Stack trace:`, new Error().stack);
     
     // Clear any pending output buffer
     if (flushTimeout) {

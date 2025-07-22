@@ -7,8 +7,7 @@
   import FileExplorer from '$lib/panels/FileExplorer/FileExplorer.svelte';
   import CodeEditor from '$lib/panels/CodeEditor/CodeEditor.svelte';
   import Settings from '$lib/panels/Settings/Settings.svelte';
-  import SessionManager from '$lib/panels/SessionManager/SessionManager.svelte';
-  import RowPanel from '$lib/components/RowPanel.svelte';
+    import RowPanel from '$lib/components/RowPanel.svelte';
   import PanelManager from '$lib/components/PanelManager.svelte';
   import SectionTabs from '$lib/components/SectionTabs.svelte';
   import { settings, applyTheme } from '$lib/panels/Settings/settings-store';
@@ -24,9 +23,7 @@
     'file-explorer': FileExplorer,
     codeEditor: CodeEditor,
     'code-editor': CodeEditor,
-    settings: Settings,
-    sessionManager: SessionManager,
-    'session-manager': SessionManager
+    settings: Settings
   };
   
   // Store for dynamically loaded components
@@ -620,7 +617,16 @@
               if (existingPanel) {
                 // Update existing panel properties without destroying it
                 const { id, ...updateProps } = serverPanel;
-                panelStore.updatePanel(existingPanel.id, updateProps);
+                console.log('[loadLayoutFromServer] Updating existing panel:', existingPanel.id, 'with props:', updateProps);
+                // Only update if properties actually changed
+                const hasChanges = Object.keys(updateProps).some(key => 
+                  JSON.stringify(existingPanel[key]) !== JSON.stringify(updateProps[key])
+                );
+                if (hasChanges) {
+                  panelStore.updatePanel(existingPanel.id, updateProps);
+                } else {
+                  console.log('[loadLayoutFromServer] No changes for panel:', existingPanel.id);
+                }
               } else {
                 // Add new panel if it doesn't exist
                 const { id, ...panelWithoutId } = serverPanel;

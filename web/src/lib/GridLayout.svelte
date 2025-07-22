@@ -7,6 +7,7 @@
   import FileExplorer from '$lib/panels/FileExplorer/FileExplorer.svelte';
   import CodeEditor from '$lib/panels/CodeEditor/CodeEditor.svelte';
   import Settings from '$lib/panels/Settings/Settings.svelte';
+  import PromptQueue from '$lib/panels/PromptQueue/PromptQueue.svelte';
   import GridPanel from '$lib/components/GridPanel.svelte';
   import GridDropZone from '$lib/components/GridDropZone.svelte';
   import PanelManager from '$lib/components/PanelManager.svelte';
@@ -24,7 +25,9 @@
     'file-explorer': FileExplorer,
     codeEditor: CodeEditor,
     'code-editor': CodeEditor,
-    settings: Settings
+    settings: Settings,
+    promptQueue: PromptQueue,
+    'prompt-queue': PromptQueue
   };
   
   // Store for dynamically loaded components

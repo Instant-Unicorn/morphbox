@@ -4,7 +4,7 @@
   import { promptQueueStore, type PromptItem } from './prompt-queue-store';
   import EditPromptModal from './EditPromptModal.svelte';
   import { Play, Pause, Trash2, Edit, AlertCircle, Plus } from 'lucide-svelte';
-  import { panelStore } from '$lib/stores/panels';
+  import { allPanels } from '$lib/stores/panels';
   
   let inputValue = '';
   let editingPrompt: PromptItem | null = null;
@@ -52,10 +52,10 @@
   
   function isClaudeReady(): boolean {
     // Get all panels from the store
-    const allPanels = get(panelStore);
+    const panels = get(allPanels);
     
     // Find the Claude panel
-    const claudePanel = allPanels.find(panel => panel.type === 'claude');
+    const claudePanel = panels.find(panel => panel.type === 'claude');
     if (!claudePanel) return false;
     
     // Find the terminal element for this specific panel
@@ -142,10 +142,10 @@
     if (typeof window === 'undefined' || !window.morphboxTerminals) return null;
     
     // Get all panels from the store
-    const allPanels = get(panelStore);
+    const panels = get(allPanels);
     
     // Look for a Claude panel
-    const claudePanel = allPanels.find(panel => panel.type === 'claude');
+    const claudePanel = panels.find(panel => panel.type === 'claude');
     if (!claudePanel) return null;
     
     // Check if this panel has a terminal registered

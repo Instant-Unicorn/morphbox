@@ -143,17 +143,9 @@ export function handleWebSocketConnection(
             // Send current state to ensure terminal is ready
             await sendCurrentState();
             
-            // Try to get Claude to respond without adding visible input
-            const agent = agentManager.getAgent(currentAgentId);
-            if (agent && agent.status === 'running') {
-              // Wait a bit longer to ensure everything is connected
-              setTimeout(() => {
-                console.log('Sending space+backspace to trigger prompt');
-                // Send a space followed by backspace - this should trigger Claude
-                // without leaving any visible character in the input
-                agent.sendInput(' \b');
-              }, 1000);
-            }
+            // For now, don't send any input on reconnection
+            // The user can press Enter if they need to refresh the prompt
+            console.log('Reconnection complete - user can press Enter to refresh if needed');
           }
         }
         

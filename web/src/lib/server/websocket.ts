@@ -143,9 +143,33 @@ export function handleWebSocketConnection(
             // Send current state to ensure terminal is ready
             await sendCurrentState();
             
-            // For now, don't send any input on reconnection
-            // The user can press Enter if they need to refresh the prompt
-            console.log('Reconnection complete - user can press Enter to refresh if needed');
+            // Send a single carriage return after a delay to wake up Claude
+            // but only if we haven't received any output recently
+            const agent = agentManager.getAgent(currentAgentId);
+            if (agent && agent.status === 'running') {
+              let hasReceivedOutput = false;
+              
+              // Listen for any output for a short period
+              const outputHandler = (data: { agentId: string; data: string }) => {
+                if (data.agentId === currentAgentId) {
+                  hasReceivedOutput = true;
+                }
+              };
+              
+              agentManager.on('agent_output', outputHandler);
+              
+              // After a delay, send a single CR if no output was received
+              setTimeout(() => {
+                agentManager.off('agent_output', outputHandler);
+                
+                if (!hasReceivedOutput) {
+                  console.log('No output received, sending single CR to wake Claude');
+                  agent.sendInput('\r');
+                } else {
+                  console.log('Output received, skipping automatic input');
+                }
+              }, 2000);
+            }
           }
         }
         

@@ -142,17 +142,6 @@ export function handleWebSocketConnection(
             
             // Send current state to ensure terminal is ready
             await sendCurrentState();
-            
-            // Force a refresh by sending Ctrl+L (clear screen)
-            // This should trigger Claude to redraw its interface
-            const agent = agentManager.getAgent(currentAgentId);
-            if (agent && agent.status === 'running') {
-              setTimeout(() => {
-                console.log('Sending Ctrl+L to refresh terminal display');
-                // Send Ctrl+L to clear and redraw the terminal
-                agent.sendInput('\x0c');
-              }, 500);
-            }
           }
         }
         

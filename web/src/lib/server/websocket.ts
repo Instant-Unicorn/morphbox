@@ -142,15 +142,6 @@ export function handleWebSocketConnection(
             
             // Send current state to ensure terminal is ready
             await sendCurrentState();
-            
-            // Send a newline to trigger a prompt if Claude seems stuck
-            const agent = agentManager.getAgent(currentAgentId);
-            if (agent && agent.status === 'running') {
-              setTimeout(() => {
-                console.log('Sending newline to refresh prompt');
-                agent.sendInput('\n');
-              }, 500);
-            }
           }
         }
         

@@ -1,5 +1,41 @@
 # Changelog
 
+## 2025-07-22
+
+### Added
+- **Server-side Session Persistence for Mobile Browsers**
+  - Sessions remain active when switching away from browser
+  - Resume sessions from different devices using session ID
+  - In-memory session store with 30-minute timeout
+  - Output buffering while disconnected
+  - Agent detachment/reattachment without process termination
+  - Session IDs stored in localStorage for cross-browser persistence
+
+- **Automatic Claude Update Persistence in Docker**
+  - Claude automatically updates when container starts
+  - Updates are persisted using Docker volumes (no re-downloads)
+  - Created docker-entrypoint.sh for update checks on startup
+  - Enabled persistence volumes by default in docker-compose.yml
+  - Added update status display in morphbox-start script
+  - Comprehensive documentation in CLAUDE_PERSISTENCE.md
+
+### Fixed
+- Terminal persistence now works correctly for mobile usage
+- Fixed reference error to `providedTerminalSessionId` in websocket handler
+- WebSocket reconnection flow properly handles buffered output
+
+### Merged
+- Successfully merged all feature branches into main:
+  - `terminal-width` - Terminal width fixes and DOM inspection
+  - `comments` - All terminal fixes, keyboard emulation, mobile UI improvements  
+  - `persistence` - Server-side session persistence implementation
+
+### Technical Details
+- New `session-store.ts` module for in-memory session management
+- Updated `agent-manager.ts` with detach/reattach methods
+- Enhanced `websocket.ts` with session ID handling and reconnection logic
+- Terminal component supports session persistence via URL parameters
+
 ## 2025-07-21
 
 ### Fixed

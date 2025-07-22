@@ -41,34 +41,54 @@
   }
   
   function checkAndProcessQueue() {
+    console.log('[PromptQueue] Checking queue...');
     const claudeTerminal = findClaudeTerminal();
-    if (!claudeTerminal) return;
+    if (!claudeTerminal) {
+      console.log('[PromptQueue] No Claude terminal found');
+      return;
+    }
     
+    console.log('[PromptQueue] Claude terminal found, checking if ready...');
     // Check if Claude is ready (looking for prompt indicator)
     if (isClaudeReady()) {
+      console.log('[PromptQueue] Claude is ready, processing next prompt');
       processNextPrompt();
+    } else {
+      console.log('[PromptQueue] Claude is not ready yet');
     }
   }
   
   function isClaudeReady(): boolean {
     // Get all panels from the store
     const panels = get(allPanels);
+    console.log('[PromptQueue] Total panels:', panels.length);
     
     // Find the Claude panel
     const claudePanel = panels.find(panel => panel.type === 'claude');
-    if (!claudePanel) return false;
+    if (!claudePanel) {
+      console.log('[PromptQueue] No Claude panel found in store');
+      return false;
+    }
+    console.log('[PromptQueue] Found Claude panel:', claudePanel.id);
     
     // Find the terminal element for this specific panel
     const panelElement = document.getElementById(`panel-${claudePanel.id}`);
-    if (!panelElement) return false;
+    if (!panelElement) {
+      console.log('[PromptQueue] Panel element not found for ID:', `panel-${claudePanel.id}`);
+      return false;
+    }
     
     const terminal = panelElement.querySelector('.xterm-screen');
-    if (!terminal) return false;
+    if (!terminal) {
+      console.log('[PromptQueue] No xterm-screen found in panel');
+      return false;
+    }
     
     const text = terminal.textContent || '';
     // Look for Claude's prompt (usually ">")
     const lines = text.split('\n');
     const lastLine = lines[lines.length - 1] || lines[lines.length - 2];
+    console.log('[PromptQueue] Last line of terminal:', JSON.stringify(lastLine));
     
     // Claude is ready if the last line starts with ">" and nothing follows
     if (lastLine.trim() === '>' || lastLine.startsWith('> ')) {
@@ -79,20 +99,28 @@
   }
   
   function processNextPrompt() {
+    console.log('[PromptQueue] Processing next prompt...');
     const nextPrompt = promptQueueStore.getNextPending();
     if (!nextPrompt) {
+      console.log('[PromptQueue] No pending prompts in queue');
       // No more prompts, check for completed ones to remove
       removeCompletedPrompts();
       return;
     }
     
+    console.log('[PromptQueue] Found pending prompt:', nextPrompt.text);
     const claudeTerminal = findClaudeTerminal();
-    if (!claudeTerminal) return;
+    if (!claudeTerminal) {
+      console.log('[PromptQueue] No Claude terminal found for sending');
+      return;
+    }
     
     // Mark as active
+    console.log('[PromptQueue] Marking prompt as active');
     promptQueueStore.setPromptStatus(nextPrompt.id, 'active');
     
     // Send the prompt
+    console.log('[PromptQueue] Sending prompt to Claude:', nextPrompt.text);
     claudeTerminal.sendInput(nextPrompt.text + '\n');
     
     // Schedule completion check
@@ -169,11 +197,16 @@
   
   function toggleRunning() {
     if (isRunning) {
+      console.log('[PromptQueue] Stopping queue processing');
       promptQueueStore.stop();
     } else {
+      console.log('[PromptQueue] Starting queue processing');
       promptQueueStore.start();
       // Immediately check if we can process
-      checkAndProcessQueue();
+      setTimeout(() => {
+        console.log('[PromptQueue] Checking queue after start');
+        checkAndProcessQueue();
+      }, 100);
     }
   }
   

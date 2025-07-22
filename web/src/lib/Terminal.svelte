@@ -50,6 +50,7 @@
   let isReconnecting = false;
   let connectionStatus: 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
   export let terminalSessionId: string | null = null;
+  let sessionId: string | null = null;
   let isInitializing = true;
   let hideLogoTimeout: number | null = null;
   
@@ -201,6 +202,17 @@
       if (terminalSessionId) {
         urlObj.searchParams.set('terminalSessionId', terminalSessionId);
       }
+      // For session persistence, try to use existing session ID
+      if (sessionId) {
+        urlObj.searchParams.set('sessionId', sessionId);
+      } else if (browser) {
+        // Try to get session ID from localStorage
+        const storedSessionId = localStorage.getItem('morphbox-websocket-session');
+        if (storedSessionId) {
+          sessionId = storedSessionId;
+          urlObj.searchParams.set('sessionId', sessionId);
+        }
+      }
       urlObj.searchParams.set('autoLaunchClaude', autoLaunchClaude.toString());
       url = urlObj.toString();
     }
@@ -255,6 +267,16 @@
         switch (message.type) {
           case 'CONNECTED':
             writeln(`\r\n${message.payload?.message || 'Connected'}`);
+            // Store session ID if provided
+            if (message.payload?.sessionId) {
+              sessionId = message.payload.sessionId;
+              if (browser) {
+                localStorage.setItem('morphbox-websocket-session', sessionId);
+              }
+              if (message.payload.isReconnection) {
+                writeln(`\r\n🔄 Reconnected to session: ${sessionId.substring(0, 8)}...`);
+              }
+            }
             break;
           case 'SESSION_CREATED':
             dispatch('session', { sessionId: message.payload?.sessionId });
@@ -281,11 +303,20 @@
                 localStorage.setItem('morphbox-terminal-session', terminalSessionId);
               }
               if (isNewSession) {
-                writeln(`\r\n✨ New session created: ${terminalSessionId.substring(0, 8)}...`);
+                writeln(`\r\n✨ New terminal session created: ${terminalSessionId.substring(0, 8)}...`);
               } else {
-                writeln(`\r\n✅ Session restored: ${terminalSessionId.substring(0, 8)}...`);
+                writeln(`\r\n✅ Terminal session restored: ${terminalSessionId.substring(0, 8)}...`);
               }
             }
+            break;
+          case 'RECONNECTED':
+            writeln(`\r\n✅ Reconnected to agent: ${message.payload?.agentId}`);
+            dispatch('agent', { 
+              status: 'Active', 
+              agentId: message.payload?.agentId 
+            });
+            // Agent is already running, hide loading overlay
+            isInitializing = false;
             break;
           case 'AGENT_EXIT':
             dispatch('agent', { status: 'No agent' });

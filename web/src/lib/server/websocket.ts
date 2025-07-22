@@ -2,8 +2,9 @@ import type { WebSocket } from 'ws';
 import type { IncomingMessage } from 'http';
 import type { AgentManager } from './agent-manager';
 import type { StateManager } from './state-manager';
-import type { PersistentSessionManager } from './persistent-session-manager';
 import { validateWebSocketAuth, getAuthConfig } from './auth';
+import { sessionStore } from './session-store';
+import crypto from 'crypto';
 
 interface WebSocketMessage {
   type: string;
@@ -26,11 +27,29 @@ export function handleWebSocketConnection(
   let currentAgentId: string | null = null;
   let terminalSessionId: string | null = null;
   
+  // Handle session timeouts for this connection
+  const handleSessionTimeout = async (timedOutSessionId: string) => {
+    const session = sessionStore.getSession(timedOutSessionId);
+    if (session?.agentId) {
+      console.log(`Session ${timedOutSessionId} timed out, cleaning up agent ${session.agentId}`);
+      try {
+        await agentManager.stopAgent(session.agentId);
+      } catch (error) {
+        console.error('Error cleaning up timed-out agent:', error);
+      }
+    }
+  };
+  
+  sessionStore.on('session-timeout', handleSessionTimeout);
+  
   // Extract terminal session ID and autoLaunchClaude from query params if provided
   const url = new URL(request.url || '', `http://${request.headers.host}`);
-  const providedTerminalSessionId = url.searchParams.get('terminalSessionId');
+  const providedSessionId = url.searchParams.get('sessionId');
   const autoLaunchClaude = url.searchParams.get('autoLaunchClaude') === 'true';
-  const usePersistentSessions = url.searchParams.get('persistent') !== 'false'; // Default to true
+  
+  // Generate or use provided session ID
+  const sessionId = providedSessionId || crypto.randomBytes(12).toString('hex');
+  let isReconnection = false;
   
   // Check authentication
   const authConfig = getAuthConfig();
@@ -48,6 +67,24 @@ export function handleWebSocketConnection(
 
   console.log('New WebSocket connection established');
   console.log('WebSocket readyState:', ws.readyState);
+  console.log('Session ID:', sessionId);
+  console.log('Is reconnection:', isReconnection);
+  
+  // Check if this is a reconnection to an existing session
+  const existingSession = sessionStore.getSession(sessionId);
+  if (existingSession) {
+    isReconnection = true;
+    currentAgentId = existingSession.agentId;
+    console.log('Reconnecting to existing session:', sessionId, 'with agent:', currentAgentId);
+    
+    // Try to reattach to the agent
+    const reattached = agentManager.reattachAgent(currentAgentId);
+    if (!reattached) {
+      console.log('Agent no longer exists, will create new one');
+      currentAgentId = null;
+      isReconnection = false;
+    }
+  }
   
   // Setup ping/pong to keep connection alive
   const pingInterval = setInterval(() => {
@@ -64,8 +101,12 @@ export function handleWebSocketConnection(
     console.error('WebSocket error:', error);
   });
 
-  // Send welcome message
-  send('CONNECTED', { message: 'Welcome to MorphBox Terminal' });
+  // Send welcome message with session ID
+  send('CONNECTED', { 
+    message: 'Welcome to MorphBox Terminal',
+    sessionId: sessionId,
+    isReconnection: isReconnection
+  });
   
   // Launch agent automatically based on type
   if (autoLaunchClaude) {
@@ -73,30 +114,56 @@ export function handleWebSocketConnection(
       console.log('Auto-launching Claude for WebSocket connection');
       
       try {
-      // Create session
-      currentSessionId = await stateManager.createSession(process.cwd(), 'claude');
-      send('SESSION_CREATED', { sessionId: currentSessionId });
-      
-      // Get VM connection info from environment
-      const vmHost = process.env.MORPHBOX_VM_HOST || '127.0.0.1';
-      const vmPort = parseInt(process.env.MORPHBOX_VM_PORT || '22');
-      const vmUser = process.env.MORPHBOX_VM_USER || 'morphbox';
-      
-      // Launch SSH connection to VM
-      console.log('Launching SSH agent with config:', { vmHost, vmPort, vmUser });
-      currentAgentId = await agentManager.launchAgent('ssh', {
-        sessionId: currentSessionId,
-        terminalSessionId: providedTerminalSessionId || undefined,
-        vmHost,
-        vmPort,
-        vmUser
-      });
-      console.log('SSH agent launched with ID:', currentAgentId);
+        // If reconnecting and agent exists, just send buffered output
+        if (isReconnection && currentAgentId) {
+          send('RECONNECTED', { agentId: currentAgentId });
+          
+          // Send any buffered output
+          const bufferedOutput = sessionStore.getAndClearBuffer(sessionId);
+          if (bufferedOutput.length > 0) {
+            console.log(`Sending ${bufferedOutput.length} buffered outputs`);
+            for (const output of bufferedOutput) {
+              send('OUTPUT', { data: output });
+            }
+          }
+        } else {
+          // Create new session
+          currentSessionId = await stateManager.createSession(process.cwd(), 'claude');
+          send('SESSION_CREATED', { sessionId: currentSessionId });
+          
+          // Get VM connection info from environment
+          const vmHost = process.env.MORPHBOX_VM_HOST || '127.0.0.1';
+          const vmPort = parseInt(process.env.MORPHBOX_VM_PORT || '22');
+          const vmUser = process.env.MORPHBOX_VM_USER || 'morphbox';
+          
+          // Launch SSH connection to VM
+          console.log('Launching SSH agent with config:', { vmHost, vmPort, vmUser });
+          currentAgentId = await agentManager.launchAgent('ssh', {
+            sessionId: currentSessionId,
+            terminalSessionId: sessionId,
+            vmHost,
+            vmPort,
+            vmUser
+          });
+          console.log('SSH agent launched with ID:', currentAgentId);
+          
+          // Store session info
+          sessionStore.createSession(sessionId, currentAgentId, {
+            terminalSize: { cols: 80, rows: 24 },
+            workingDirectory: process.cwd()
+          });
+        }
 
       // Set up agent event listeners
       const handleOutput = (data: { agentId: string; data: string }) => {
         if (data.agentId === currentAgentId) {
-          send('OUTPUT', { data: data.data });
+          // If WebSocket is connected, send directly
+          if (ws.readyState === 1) {
+            send('OUTPUT', { data: data.data });
+          } else {
+            // Otherwise, buffer the output for later
+            sessionStore.addOutput(sessionId, data.data);
+          }
         }
       };
 
@@ -124,7 +191,7 @@ export function handleWebSocketConnection(
               try {
                 currentAgentId = await agentManager.launchAgent('ssh', {
                   sessionId: currentSessionId,
-                  terminalSessionId: providedTerminalSessionId || undefined,
+                  terminalSessionId: terminalSessionId || undefined,
                   vmHost,
                   vmPort,
                   vmUser
@@ -276,14 +343,23 @@ export function handleWebSocketConnection(
       reason: reason?.toString(),
       currentAgentId,
       currentSessionId,
+      sessionId,
       timestamp: new Date().toISOString()
     });
     
     // Clear ping interval
     clearInterval(pingInterval);
     
-    // Clean up agent if one is running
-    if (currentAgentId) {
+    // Clean up session timeout handler
+    sessionStore.off('session-timeout', handleSessionTimeout);
+    
+    // For persistence: detach agent instead of stopping it
+    if (currentAgentId && sessionId) {
+      console.log(`Detaching agent ${currentAgentId} for session ${sessionId}`);
+      agentManager.detachAgent(currentAgentId);
+      // Session will be cleaned up after timeout if not reconnected
+    } else if (currentAgentId) {
+      // No session ID, stop agent normally
       try {
         await agentManager.stopAgent(currentAgentId);
       } catch (error) {
@@ -362,7 +438,13 @@ export function handleWebSocketConnection(
       // Set up agent event listeners
       const handleOutput = (data: { agentId: string; data: string }) => {
         if (data.agentId === currentAgentId) {
-          send('OUTPUT', { data: data.data });
+          // If WebSocket is connected, send directly
+          if (ws.readyState === 1) {
+            send('OUTPUT', { data: data.data });
+          } else {
+            // Otherwise, buffer the output for later
+            sessionStore.addOutput(sessionId, data.data);
+          }
         }
       };
 

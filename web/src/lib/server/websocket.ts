@@ -119,9 +119,30 @@ export function handleWebSocketConnection(
           agentManager.off('agent_sessionId', handleSessionId);
           
           // Auto-restart SSH connection if it exits
-          setTimeout(() => {
+          setTimeout(async () => {
             if (!currentAgentId && ws.readyState === 1) {
-              handleLaunchAgent({ type: 'ssh' });
+              console.log('Auto-restarting SSH agent after exit');
+              try {
+                currentAgentId = await agentManager.launchAgent(agentType, {
+                  sessionId: currentSessionId,
+                  terminalSessionId: providedTerminalSessionId || undefined,
+                  vmHost,
+                  vmPort,
+                  vmUser
+                });
+                console.log('SSH agent restarted with ID:', currentAgentId);
+                
+                // Re-attach the same event listeners
+                agentManager.on('agent_output', handleOutput);
+                agentManager.on('agent_error', handleError);
+                agentManager.on('agent_exit', handleExit);
+                agentManager.on('agent_sessionId', handleSessionId);
+                
+                send('AGENT_LAUNCHED', { agentId: currentAgentId });
+              } catch (error) {
+                console.error('Failed to restart SSH agent:', error);
+                sendError('Failed to restart SSH connection');
+              }
             }
           }, 1000);
         }

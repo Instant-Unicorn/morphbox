@@ -42,7 +42,7 @@ export class PersistentSessionManager extends EventEmitter {
     } catch (error) {
       console.warn('⚠️ GNU Screen not found in container, installing...');
       try {
-        await execAsync(`docker exec ${this.containerName} apt-get update && apt-get install -y screen`);
+        await execAsync(`docker exec -u root ${this.containerName} bash -c "apt-get update && apt-get install -y screen"`);
         console.log('✅ GNU Screen installed successfully');
       } catch (installError) {
         console.error('❌ Failed to install GNU Screen:', installError);
@@ -71,12 +71,13 @@ export class PersistentSessionManager extends EventEmitter {
     const cwd = options.cwd || '/workspace';
     
     // Create screen session with proper environment
+    // Note: We run bash interactively and then execute the command within it
+    // This ensures the session persists after the command completes
     const screenCmd = [
       'screen',
       '-dmS', sessionName,  // Create detached session
       '-h', '10000',        // Set scrollback buffer
-      'bash', '-c',
-      `cd ${cwd} && ${command}`
+      'bash'                  // Run interactive bash shell
     ].join(' ');
 
     try {
@@ -99,6 +100,17 @@ export class PersistentSessionManager extends EventEmitter {
       };
 
       this.sessions.set(sessionId, session);
+      
+      // If a specific command was requested, execute it in the session
+      if (options.command && options.command !== '/bin/bash') {
+        // First, change to the working directory
+        if (cwd !== '/' && cwd !== '/workspace') {
+          await this.sendToSession(sessionId, `cd ${cwd}\n`);
+        }
+        // Then execute the command
+        await this.sendToSession(sessionId, `${command}\n`);
+      }
+      
       this.emit('sessionCreated', session);
       
       console.log(`Created persistent session: ${sessionName}`);
@@ -123,13 +135,13 @@ export class PersistentSessionManager extends EventEmitter {
     session.lastActivity = new Date();
 
     // Return the command arguments to attach to the screen session
+    // Note: We use -t only (not -it) because node-pty provides the input stream
     return [
       'exec',
-      '-it',
+      '-t',
       this.containerName,
       'screen',
-      '-r', session.sessionName,  // Resume session
-      '-X', 'fit'                  // Fit to new terminal size
+      '-r', session.sessionName  // Resume session
     ];
   }
 

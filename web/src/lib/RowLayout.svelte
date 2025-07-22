@@ -607,11 +607,42 @@
       if (response.ok) {
         const layout = await response.json();
         if (layout && layout.panels && layout.panels.length > 0) {
-          panelStore.clear();
-          layout.panels.forEach((panel: any) => {
-            const { id, ...panelWithoutId } = panel;
-            panelStore.addPanel(panel.type, panelWithoutId);
-          });
+          // Get current panels
+          const currentPanels = $panels;
+          
+          // If we already have panels, update them instead of clearing
+          if (currentPanels.length > 0) {
+            console.log('📥 Updating existing layout from server');
+            
+            // Update existing panels to match server layout
+            layout.panels.forEach((serverPanel: any) => {
+              const existingPanel = currentPanels.find(p => p.type === serverPanel.type);
+              if (existingPanel) {
+                // Update existing panel properties without destroying it
+                const { id, ...updateProps } = serverPanel;
+                panelStore.updatePanel(existingPanel.id, updateProps);
+              } else {
+                // Add new panel if it doesn't exist
+                const { id, ...panelWithoutId } = serverPanel;
+                panelStore.addPanel(serverPanel.type, panelWithoutId);
+              }
+            });
+            
+            // Remove panels that aren't in the server layout
+            currentPanels.forEach(panel => {
+              if (!layout.panels.find((p: any) => p.type === panel.type)) {
+                panelStore.removePanel(panel.id);
+              }
+            });
+          } else {
+            // First time loading - create new panels
+            panelStore.clear();
+            layout.panels.forEach((panel: any) => {
+              const { id, ...panelWithoutId } = panel;
+              panelStore.addPanel(panel.type, panelWithoutId);
+            });
+          }
+          
           organizePanelsIntoRows();
           // Don't recalculate widths on initial load - preserve saved widths
           console.log('📥 Loaded layout from server, preserving saved widths');

@@ -122,6 +122,12 @@
 	"/panel-test": [
 		"src/routes/+layout.server.ts"
 	],
+	"/terminal-test": [
+		"src/routes/+layout.server.ts"
+	],
+	"/test-ws": [
+		"src/routes/+layout.server.ts"
+	],
 	"/test": [
 		"src/routes/+layout.server.ts"
 	]

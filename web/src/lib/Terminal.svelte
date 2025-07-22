@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy, createEventDispatcher } from 'svelte';
+  import { onMount, onDestroy, createEventDispatcher, beforeUpdate, afterUpdate } from 'svelte';
   import { browser } from '$app/environment';
   import { settings } from '$lib/panels/Settings/settings-store';
   import { fade } from 'svelte/transition';
@@ -49,9 +49,15 @@
   let reconnectAttempts = 0;
   let isReconnecting = false;
   let connectionStatus: 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
-  let terminalSessionId: string | null = null;
+  export let terminalSessionId: string | null = null;
   let isInitializing = true;
   let hideLogoTimeout: number | null = null;
+  
+  // Store references to event handlers and observers for cleanup
+  let resizeObserver: ResizeObserver | null = null;
+  let mutationObserver: MutationObserver | null = null;
+  let windowResizeHandler: (() => void) | null = null;
+  let orientationChangeHandler: (() => void) | null = null;
   
   const dispatch = createEventDispatcher();
   
@@ -69,6 +75,7 @@
   // Output buffering for performance
   let outputBuffer: string[] = [];
   let flushTimeout: number | null = null;
+  let earlyMessages: string[] = [];
   const BUFFER_FLUSH_DELAY = 16; // ~60fps
   
   function flushBuffer() {
@@ -103,6 +110,10 @@
   export function writeln(data: string) {
     if (terminal) {
       write(data + '\r\n');
+    } else {
+      // Store early messages to display when terminal is ready
+      earlyMessages.push(data);
+      console.log('[Terminal] Buffering early message:', data);
     }
   }
   
@@ -166,6 +177,12 @@
   }
   
   function connectWebSocket() {
+    // Prevent multiple simultaneous connections
+    if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
+      console.warn('[Terminal] WebSocket already connecting or connected, skipping new connection');
+      return;
+    }
+    
     if (ws) {
       ws.close();
     }
@@ -239,11 +256,13 @@
             dispatch('session', { sessionId: message.payload?.sessionId });
             break;
           case 'AGENT_LAUNCHED':
-            // Delay hiding the logo
-            if (hideLogoTimeout) clearTimeout(hideLogoTimeout);
-            hideLogoTimeout = setTimeout(() => {
-              isInitializing = false;
-            }, 750);
+            // Hide loading overlay immediately when agent is launched
+            console.log('[Terminal] Agent launched, hiding loading overlay');
+            isInitializing = false;
+            if (hideLogoTimeout) {
+              clearTimeout(hideLogoTimeout);
+              hideLogoTimeout = null;
+            }
             dispatch('agent', { 
               status: 'Active', 
               agentId: message.payload?.agentId 
@@ -268,13 +287,21 @@
             dispatch('agent', { status: 'No agent' });
             break;
           case 'OUTPUT':
+            console.log('[Terminal] OUTPUT message received:', {
+              hasPayload: !!message.payload,
+              hasData: !!message.payload?.data,
+              dataLength: message.payload?.data?.length,
+              dataPreview: message.payload?.data?.substring(0, 50)
+            });
             if (message.payload?.data) {
-              // Delay hiding the logo on first output
+              // Immediately hide loading overlay on first output
               if (isInitializing) {
-                if (hideLogoTimeout) clearTimeout(hideLogoTimeout);
-                hideLogoTimeout = setTimeout(() => {
-                  isInitializing = false;
-                }, 750);
+                console.log('[Terminal] First output received, hiding loading overlay');
+                isInitializing = false;
+                if (hideLogoTimeout) {
+                  clearTimeout(hideLogoTimeout);
+                  hideLogoTimeout = null;
+                }
               }
               write(message.payload.data);
             }
@@ -312,7 +339,13 @@
     
     ws.onclose = (event) => {
       logger.info('[Terminal] WebSocket closed', { code: event.code, reason: event.reason });
-      console.log('WebSocket closed:', event.code, event.reason);
+      console.log('[Terminal] WebSocket closed:', {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+        readyState: ws?.readyState,
+        timestamp: new Date().toISOString()
+      });
       connectionStatus = 'disconnected';
       writeln(`\r\nDisconnected from server (code: ${event.code})`);
       dispatch('connection', { connected: false });
@@ -752,6 +785,8 @@
   onMount(async () => {
     if (!browser) return;
     
+    console.log('[Terminal] onMount started, container exists:', !!terminalContainer);
+    
     // Store instance globally for debugging
     if (typeof window !== 'undefined') {
       if (!window.morphboxTerminals) {
@@ -1024,6 +1059,20 @@
       
       // Open terminal in container
       console.log('[Terminal] Opening terminal in container...');
+      
+      // Wait for container to be available
+      if (!terminalContainer) {
+        console.error('[Terminal] Container not found! Waiting for DOM...');
+        // Wait a bit for DOM to be ready
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        if (!terminalContainer) {
+          console.error('[Terminal] Container still not found after wait!');
+          writeln('Error: Terminal container not found. Please refresh the page.');
+          isInitializing = false;
+          return;
+        }
+      }
+      
       console.log('[Terminal] Container state before open:', {
         element: terminalContainer,
         rect: terminalContainer.getBoundingClientRect(),
@@ -1036,6 +1085,23 @@
       
       terminal.open(terminalContainer);
       console.log('[Terminal] Terminal opened successfully');
+      
+      // Add id to the xterm helper textarea for accessibility
+      const helperTextarea = terminalContainer.querySelector('.xterm-helper-textarea');
+      if (helperTextarea) {
+        helperTextarea.id = `terminal-input-${panelId}`;
+        helperTextarea.setAttribute('name', `terminal-input-${panelId}`);
+        console.log('[Terminal] Added id to helper textarea:', helperTextarea.id);
+      }
+      
+      // Display any early messages that were buffered
+      if (earlyMessages.length > 0) {
+        console.log('[Terminal] Displaying', earlyMessages.length, 'buffered messages');
+        earlyMessages.forEach(msg => {
+          terminal.writeln(msg);
+        });
+        earlyMessages = [];
+      }
       
       // Check for xterm wrapper structure
       const xtermElement = terminalContainer.querySelector('.xterm');
@@ -1141,15 +1207,17 @@
     
     // Simple resize handler - just measure and resize
     const handleResize = () => {
-      console.log('[Terminal.handleResize] Starting resize process');
-      
+      // Early exit if component is being destroyed or not ready
       if (!terminal || !terminalContainer) {
-        console.warn('[Terminal.handleResize] Missing terminal or container:', {
-          hasTerminal: !!terminal,
-          hasContainer: !!terminalContainer
-        });
+        // This is expected during component lifecycle transitions
+        // Don't log as warning if component is being destroyed
+        if (terminal && !terminalContainer) {
+          console.debug('[Terminal.handleResize] Container not ready yet, skipping resize');
+        }
         return;
       }
+      
+      console.log('[Terminal.handleResize] Starting resize process');
       
       try {
         // Log current state before resize
@@ -1226,7 +1294,7 @@
     const debouncedResize = debounce(handleResize, 150);
     
     // Use ResizeObserver for container-based responsiveness
-    const resizeObserver = new ResizeObserver((entries) => {
+    resizeObserver = new ResizeObserver((entries) => {
       console.log('[Terminal.ResizeObserver] Resize event detected:', {
         entries: entries.map(entry => ({
           target: entry.target === terminalContainer ? 'terminalContainer' : 'other',
@@ -1246,12 +1314,26 @@
           } : null
         }))
       });
-      debouncedResize();
+      // Only resize if both terminal and container are ready
+      if (terminal && terminalContainer) {
+        debouncedResize();
+      } else {
+        console.warn('[Terminal.ResizeObserver] Skipping resize - missing terminal or container:', {
+          hasTerminal: !!terminal,
+          hasContainer: !!terminalContainer
+        });
+      }
     });
-    resizeObserver.observe(terminalContainer);
+    
+    // Wait for next frame to ensure DOM is ready before observing
+    requestAnimationFrame(() => {
+      if (terminalContainer) {
+        resizeObserver.observe(terminalContainer);
+      }
+    });
     
     // Also listen to window resize for viewport changes
-    window.addEventListener('resize', () => {
+    windowResizeHandler = () => {
       console.log('[Terminal] Window resize event detected:', {
         viewport: getViewportInfo(),
         timestamp: new Date().toISOString(),
@@ -1261,10 +1343,11 @@
         }
       });
       debouncedResize();
-    });
+    };
+    window.addEventListener('resize', windowResizeHandler);
     
     // Handle orientation changes on mobile
-    window.addEventListener('orientationchange', () => {
+    orientationChangeHandler = () => {
       const orientation = window.screen?.orientation?.type || 'unknown';
       console.log('[Terminal] Orientation change detected:', {
         orientation,
@@ -1278,14 +1361,22 @@
         }
       });
       setTimeout(handleResize, 100); // Small delay for orientation to settle
+    };
+    window.addEventListener('orientationchange', orientationChangeHandler);
+    
+    // Trigger resize after DOM is ready
+    console.log('[Terminal] Scheduling initial resize after mount');
+    requestAnimationFrame(() => {
+      if (terminalContainer && terminal) {
+        console.log('[Terminal] DOM ready, triggering initial resize');
+        handleResize();
+      } else {
+        console.warn('[Terminal] Skipping initial resize - container or terminal not ready');
+      }
     });
     
-    // Trigger immediate resize to apply scaling
-    console.log('[Terminal] Triggering initial resize after mount');
-    handleResize();
-    
     // Add MutationObserver to detect DOM/style changes
-    const mutationObserver = new MutationObserver((mutations) => {
+    mutationObserver = new MutationObserver((mutations) => {
       const relevantMutation = mutations.find(m => 
         m.type === 'attributes' && (m.attributeName === 'style' || m.attributeName === 'class') ||
         m.type === 'childList'
@@ -1298,18 +1389,22 @@
           attributeName: relevantMutation.attributeName,
           addedNodes: relevantMutation.addedNodes?.length || 0,
           removedNodes: relevantMutation.removedNodes?.length || 0,
-          containerRect: terminalContainer.getBoundingClientRect(),
-          xtermRect: terminalContainer.querySelector('.xterm')?.getBoundingClientRect()
+          containerRect: terminalContainer?.getBoundingClientRect(),
+          xtermRect: terminalContainer?.querySelector('.xterm')?.getBoundingClientRect()
         });
       }
     });
     
-    mutationObserver.observe(terminalContainer, {
-      attributes: true,
-      childList: true,
-      subtree: true,
-      attributeFilter: ['style', 'class']
-    });
+    if (terminalContainer) {
+      mutationObserver.observe(terminalContainer, {
+        attributes: true,
+        childList: true,
+        subtree: true,
+        attributeFilter: ['style', 'class']
+      });
+    } else {
+      console.warn('[Terminal] Cannot observe mutations - terminalContainer not ready');
+    }
     
     // Handle terminal input - send directly to Claude without buffering
     terminal.onData((data: string) => {
@@ -1407,8 +1502,17 @@
     
     // Cleanup function
     return () => {
-      window.removeEventListener('resize', handleResize);
-      resizeObserver.disconnect();
+      console.log('[Terminal] Running onMount cleanup');
+      
+      if (windowResizeHandler) {
+        window.removeEventListener('resize', windowResizeHandler);
+      }
+      if (orientationChangeHandler) {
+        window.removeEventListener('orientationchange', orientationChangeHandler);
+      }
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
       if (mutationObserver) {
         mutationObserver.disconnect();
       }
@@ -1419,6 +1523,8 @@
   });
   
   onDestroy(() => {
+    console.log('[Terminal] onDestroy called, cleaning up...');
+    
     // Clear any pending output buffer
     if (flushTimeout) {
       cancelAnimationFrame(flushTimeout);

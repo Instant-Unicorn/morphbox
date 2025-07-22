@@ -61,15 +61,28 @@ export class PersistentSSHAgent extends EventEmitter implements Agent {
 
       // Create a new persistent session if needed
       if (!this.persistentSession) {
-        const claudeCommand = 'claude --dangerously-skip-permissions --continue || claude --dangerously-skip-permissions';
-        const projectDirSetup = 'PROJECT_DIR=$(ls -d /workspace/*/ 2>/dev/null | head -n1 | xargs basename 2>/dev/null); cd /workspace/${PROJECT_DIR:-} 2>/dev/null || cd /workspace';
-        
+        // Create a session with an interactive shell
+        // We'll run the commands after the session is created
         this.persistentSession = await this.sessionManager.createSession({
-          command: `su - ${vmUser} -c '${projectDirSetup} && ${claudeCommand}'`,
+          command: '/bin/bash',  // Start with interactive bash
           cwd: '/workspace',
           cols: 80,
           rows: 30
         });
+        
+        // Now switch to the user and run the commands
+        const projectDirSetup = 'PROJECT_DIR=$(ls -d /workspace/*/ 2>/dev/null | head -n1 | xargs basename 2>/dev/null); cd /workspace/${PROJECT_DIR:-} 2>/dev/null || cd /workspace';
+        const claudeCommand = 'claude --dangerously-skip-permissions --continue || claude --dangerously-skip-permissions';
+        
+        // Switch to the VM user
+        await this.sessionManager.sendToSession(this.persistentSession.id, `su - ${vmUser}\n`);
+        
+        // Wait a bit for the su command to complete
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Run the setup commands
+        await this.sessionManager.sendToSession(this.persistentSession.id, `${projectDirSetup}\n`);
+        await this.sessionManager.sendToSession(this.persistentSession.id, `${claudeCommand}\n`);
 
         // Emit the new session ID
         this.emit('sessionId', this.persistentSession.id);

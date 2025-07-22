@@ -114,19 +114,53 @@ export function handleWebSocketConnection(
       console.log('Auto-launching Claude for WebSocket connection');
       
       try {
-        // If reconnecting and agent exists, just send buffered output
+        // If reconnecting and agent exists, reattach and send buffered output
         if (isReconnection && currentAgentId) {
-          send('RECONNECTED', { agentId: currentAgentId });
+          console.log(`Reattaching to existing agent: ${currentAgentId}`);
           
-          // Send any buffered output
-          const bufferedOutput = sessionStore.getAndClearBuffer(sessionId);
-          if (bufferedOutput.length > 0) {
-            console.log(`Sending ${bufferedOutput.length} buffered outputs`);
-            for (const output of bufferedOutput) {
-              send('OUTPUT', { data: output });
+          // Try to reattach to the agent
+          const reattached = agentManager.reattachAgent(currentAgentId);
+          
+          if (!reattached) {
+            console.log('Failed to reattach to agent, creating new one');
+            // Agent no longer exists, create a new one
+            isReconnection = false;
+            currentAgentId = null;
+          } else {
+            send('RECONNECTED', { agentId: currentAgentId });
+            // Also send AGENT_LAUNCHED to hide the loading overlay
+            send('AGENT_LAUNCHED', { agentId: currentAgentId });
+            
+            // Send any buffered output
+            const bufferedOutput = sessionStore.getAndClearBuffer(sessionId);
+            if (bufferedOutput.length > 0) {
+              console.log(`Sending ${bufferedOutput.length} buffered outputs`);
+              for (const output of bufferedOutput) {
+                send('OUTPUT', { data: output });
+              }
+            }
+            
+            // Send current state to ensure terminal is ready
+            await sendCurrentState();
+            
+            // Send a newline to trigger a prompt if Claude seems stuck
+            const agent = agentManager.getAgent(currentAgentId);
+            if (agent && agent.status === 'running') {
+              setTimeout(() => {
+                console.log('Sending newline to refresh prompt');
+                agent.sendInput('\n');
+              }, 500);
+              
+              // Also try to get current output status
+              setTimeout(() => {
+                console.log('Sending status check to Claude');
+                agent.sendInput('echo "Status check - terminal ready"\n');
+              }, 1000);
             }
           }
-        } else {
+        }
+        
+        if (!isReconnection || !currentAgentId) {
           // Create new session
           currentSessionId = await stateManager.createSession(process.cwd(), 'claude');
           send('SESSION_CREATED', { sessionId: currentSessionId });
@@ -153,9 +187,14 @@ export function handleWebSocketConnection(
             workingDirectory: process.cwd()
           });
         }
+        
+        // Get VM connection info for potential restarts
+        const vmHost = process.env.MORPHBOX_VM_HOST || '127.0.0.1';
+        const vmPort = parseInt(process.env.MORPHBOX_VM_PORT || '22');
+        const vmUser = process.env.MORPHBOX_VM_USER || 'morphbox';
 
-      // Set up agent event listeners
-      const handleOutput = (data: { agentId: string; data: string }) => {
+        // Set up agent event listeners
+        const handleOutput = (data: { agentId: string; data: string }) => {
         if (data.agentId === currentAgentId) {
           // If WebSocket is connected, send directly
           if (ws.readyState === 1) {
@@ -226,8 +265,10 @@ export function handleWebSocketConnection(
       agentManager.on('agent_exit', handleExit);
       agentManager.on('agent_sessionId', handleSessionId);
 
-      send('AGENT_LAUNCHED', { agentId: currentAgentId });
-      await sendCurrentState();
+      if (!isReconnection) {
+        send('AGENT_LAUNCHED', { agentId: currentAgentId });
+        await sendCurrentState();
+      }
     } catch (error) {
       console.error('Failed to launch Claude:', error);
       let errorMessage = 'Unknown error';

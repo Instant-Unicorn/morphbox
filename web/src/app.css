@@ -20,12 +20,12 @@
   --spacing-lg: clamp(16px, 2vw, 24px);
   --spacing-xl: clamp(24px, 3vw, 32px);
   
-  /* Responsive typography */
-  --font-size-xs: clamp(10px, 1.5vw, 12px);
-  --font-size-sm: clamp(12px, 1.8vw, 14px);
-  --font-size-base: clamp(14px, 2vw, 16px);
-  --font-size-lg: clamp(16px, 2.2vw, 18px);
-  --font-size-xl: clamp(18px, 2.5vw, 20px);
+  /* Responsive typography - more compact */
+  --font-size-xs: clamp(10px, 1.3vw, 11px);
+  --font-size-sm: clamp(11px, 1.5vw, 12px);
+  --font-size-base: clamp(12px, 1.8vw, 14px);
+  --font-size-lg: clamp(14px, 2vw, 16px);
+  --font-size-xl: clamp(16px, 2.2vw, 18px);
   
   /* Responsive dimensions */
   --min-panel-width: clamp(150px, 20vw, 250px);

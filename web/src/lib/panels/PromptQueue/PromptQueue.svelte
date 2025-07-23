@@ -3,7 +3,7 @@
   import { get } from 'svelte/store';
   import { promptQueueStore, type PromptItem } from './prompt-queue-store';
   import EditPromptModal from './EditPromptModal.svelte';
-  import { Play, Pause, Trash2, Edit, AlertCircle, Plus } from 'lucide-svelte';
+  import { Play, Pause, Trash2, Edit, AlertCircle, Plus, CornerDownLeft } from 'lucide-svelte';
   import { allPanels } from '$lib/stores/panels';
   
   let inputValue = '';
@@ -346,18 +346,30 @@
 <div class="prompt-queue-container">
   <div class="header">
     <h3>Prompt Queue</h3>
-    <button 
-      class="control-button"
-      class:running={isRunning}
-      on:click={toggleRunning}
-      title={isRunning ? 'Stop processing' : 'Start processing'}
-    >
-      {#if isRunning}
-        <Pause size={18} />
-      {:else}
-        <Play size={18} />
-      {/if}
-    </button>
+    <div class="header-controls">
+      <button 
+        class="control-button"
+        on:click={() => {
+          console.log('[PromptQueue] Force processing next prompt');
+          processNextPrompt();
+        }}
+        title="Force send next prompt (skip ready check)"
+      >
+        <CornerDownLeft size={16} />
+      </button>
+      <button 
+        class="control-button"
+        class:running={isRunning}
+        on:click={toggleRunning}
+        title={isRunning ? 'Stop processing' : 'Start processing'}
+      >
+        {#if isRunning}
+          <Pause size={18} />
+        {:else}
+          <Play size={18} />
+        {/if}
+      </button>
+    </div>
   </div>
   
   <div class="input-section">
@@ -452,6 +464,12 @@
     align-items: center;
     padding: 12px 16px;
     border-bottom: 1px solid var(--border-color, #3e3e42);
+  }
+  
+  .header-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
   }
   
   .header h3 {

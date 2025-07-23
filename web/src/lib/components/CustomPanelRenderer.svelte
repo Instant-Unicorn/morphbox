@@ -5,14 +5,6 @@
   export let panelType: string = '';
   export let websocketUrl: string = '';
   export let data: any = {};
-  
-  // Extract any additional props that might have been passed through panel.content
-  let extraProps: Record<string, any> = {};
-  $: {
-    const { panelId: _pid, panelType: _pt, websocketUrl: _ws, data: _d, ...rest } = $$props;
-    extraProps = rest;
-  }
-  
   let loading = true;
   let error = '';
   let containerElement: HTMLElement;
@@ -201,7 +193,7 @@
   <script>
     // Provide panel props
     const panelId = ${JSON.stringify(panelId)};
-    const data = ${JSON.stringify({...data, ...extraProps})};
+    const data = ${JSON.stringify(data)};
     const websocketUrl = ${JSON.stringify(websocketUrl)};
     
     // Simple reactive system
@@ -282,7 +274,7 @@
         }, '*');
       }
     }
-  </script>
+  <\/script>
 </body>
 </html>`;
     

@@ -39,6 +39,33 @@
 	"/api/files/write": [
 		"src/routes/api/files/write/+server.ts"
 	],
+	"/api/git/checkout": [
+		"src/routes/api/git/checkout/+server.ts"
+	],
+	"/api/git/commits": [
+		"src/routes/api/git/commits/+server.ts"
+	],
+	"/api/git/commit": [
+		"src/routes/api/git/commit/+server.ts"
+	],
+	"/api/git/discard": [
+		"src/routes/api/git/discard/+server.ts"
+	],
+	"/api/git/pull": [
+		"src/routes/api/git/pull/+server.ts"
+	],
+	"/api/git/push": [
+		"src/routes/api/git/push/+server.ts"
+	],
+	"/api/git/stage": [
+		"src/routes/api/git/stage/+server.ts"
+	],
+	"/api/git/status": [
+		"src/routes/api/git/status/+server.ts"
+	],
+	"/api/git/unstage": [
+		"src/routes/api/git/unstage/+server.ts"
+	],
 	"/api/log/browser": [
 		"src/routes/api/log/browser/+server.ts"
 	],
@@ -65,6 +92,18 @@
 	],
 	"/api/sessions": [
 		"src/routes/api/sessions/+server.ts"
+	],
+	"/api/tasks/npm-scripts": [
+		"src/routes/api/tasks/npm-scripts/+server.ts"
+	],
+	"/api/tasks/output/[id]": [
+		"src/routes/api/tasks/output/[id]/+server.ts"
+	],
+	"/api/tasks/run": [
+		"src/routes/api/tasks/run/+server.ts"
+	],
+	"/api/tasks/stop": [
+		"src/routes/api/tasks/stop/+server.ts"
 	],
 	"/api/ws": [
 		"src/routes/api/ws/+server.ts"

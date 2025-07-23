@@ -132,9 +132,8 @@
     const textLines = [];
     for (const row of rows) {
       const rowText = row.textContent || '';
-      if (rowText.trim()) {
-        textLines.push(rowText);
-      }
+      // Include empty lines too to get proper line indexing
+      textLines.push(rowText);
     }
     
     console.log('[PromptQueue] Found', textLines.length, 'text lines');
@@ -160,6 +159,34 @@
         if (line.trim() === '>') {
           console.log('[PromptQueue] Found standalone prompt on line');
           return true;
+        }
+      }
+      
+      // Check if we have the command history section which means Claude is loaded
+      // Look for a line that contains just "> " (with space) after the example box
+      const hasExampleBox = textLines.some(line => line.includes('│ > Try'));
+      if (hasExampleBox) {
+        // Look for the last occurrence of a line starting with "> " after the box
+        for (let i = textLines.length - 1; i >= 0; i--) {
+          const line = textLines[i];
+          if (line === '> ' || (line.startsWith('> ') && !line.includes('│'))) {
+            console.log('[PromptQueue] Found prompt after example box');
+            return true;
+          }
+        }
+      }
+      
+      // Check if any line after the status bar is empty but followed by the prompt
+      // Sometimes there's a blank line between content and the prompt
+      const statusBarIndex = textLines.findIndex(line => line.includes('? for shortcuts'));
+      if (statusBarIndex >= 0 && statusBarIndex < textLines.length - 1) {
+        // Check lines after the status bar
+        for (let i = statusBarIndex + 1; i < textLines.length; i++) {
+          const line = textLines[i].trim();
+          if (line === '>' || line.startsWith('> ')) {
+            console.log('[PromptQueue] Found prompt after status bar at line', i);
+            return true;
+          }
         }
       }
     }

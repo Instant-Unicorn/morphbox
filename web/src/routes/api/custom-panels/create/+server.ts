@@ -32,6 +32,10 @@ function generatePanelId(name: string): string {
 
 async function generatePanelWithClaude(name: string, description: string): Promise<string> {
   return new Promise((resolve, reject) => {
+    console.log('=== Starting Claude Panel Generation ===');
+    console.log('Panel Name:', name);
+    console.log('Description:', description);
+    
     const prompt = `Create a vanilla JavaScript panel for MorphBox with the following requirements:
 
 Panel Name: ${name}
@@ -75,10 +79,23 @@ version: 1.0.0
 
 Make it fully functional and production-ready. Use modern JavaScript features.`;
 
-    // Use Claude CLI to generate the panel
-    const claude = spawn('claude', [], {
-      stdio: ['pipe', 'pipe', 'pipe']
+    console.log('Prompt length:', prompt.length);
+    
+    // Use Claude CLI in print mode with prompt as argument
+    const startTime = Date.now();
+    console.log('Executing Claude CLI in print mode with prompt as argument...');
+    
+    // Escape the prompt for shell
+    const escapedPrompt = prompt.replace(/'/g, "'\"'\"'");
+    
+    const claude = spawn('claude', ['-p', prompt], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env },
+      shell: false
     });
+
+    console.log('Claude process spawned, PID:', claude.pid);
+    console.log('Command:', 'claude -p [prompt]');
 
     let output = '';
     let error = '';
@@ -87,63 +104,101 @@ Make it fully functional and production-ready. Use modern JavaScript features.`;
     // Set a timeout
     const timeout = setTimeout(() => {
       if (!isResolved) {
-        claude.kill();
-        reject(new Error('Claude process timed out after 30 seconds'));
+        console.error('=== Claude Process Timeout ===');
+        console.error('Process took longer than 60 seconds');
+        console.error('Output received so far:', output.length, 'characters');
+        console.error('Error output:', error);
+        claude.kill('SIGTERM');
+        reject(new Error('Claude process timed out after 60 seconds'));
       }
-    }, 30000);
+    }, 60000);
 
+    // Handle stdout
     claude.stdout.on('data', (data) => {
-      output += data.toString();
+      const chunk = data.toString();
+      output += chunk;
+      console.log(`Received stdout chunk: ${chunk.length} characters`);
+      console.log('Chunk preview:', chunk.substring(0, 200));
     });
 
+    // Handle stderr
     claude.stderr.on('data', (data) => {
-      error += data.toString();
+      const chunk = data.toString();
+      error += chunk;
+      console.error('Received stderr:', chunk);
     });
 
-    claude.on('close', (code) => {
+    // Handle errors
+    claude.on('error', (err) => {
+      clearTimeout(timeout);
+      isResolved = true;
+      console.error('Claude spawn error:', err);
+      reject(err);
+    });
+
+    // Handle exit
+    claude.on('exit', (code) => {
       clearTimeout(timeout);
       isResolved = true;
       
+      const duration = Date.now() - startTime;
+      console.log(`=== Claude Process Completed ===`);
+      console.log(`Exit code: ${code}`);
+      console.log(`Duration: ${duration}ms`);
+      console.log(`Total output: ${output.length} characters`);
+      console.log(`Total error: ${error.length} characters`);
+      
       if (code !== 0) {
-        console.error('Claude process failed:', { code, error, output });
+        console.error('Claude process failed with code:', code);
+        console.error('Error output:', error);
+        console.error('Standard output preview:', output.substring(0, 500));
         reject(new Error(`Claude process exited with code ${code}: ${error}`));
       } else {
-        console.log('Claude output length:', output.length);
+        console.log('Claude completed successfully');
+        console.log('Full output preview (first 1000 chars):', output.substring(0, 1000));
         
         // Try multiple patterns to extract the component
-        // 1. Look for complete HTML structure with metadata
-        const fullMatch = output.match(/<!--\s*@morphbox-panel[\s\S]*?<\/script>/);
+        // 1. Look for content between code blocks (most common)
+        const codeBlockPatterns = [
+          /```(?:html|svelte|xml|javascript)?\s*\n([\s\S]*?)```/,
+          /```\s*\n([\s\S]*?)```/
+        ];
+        
+        for (const pattern of codeBlockPatterns) {
+          const match = output.match(pattern);
+          if (match && match[1]) {
+            console.log('Found code block match with pattern:', pattern);
+            resolve(match[1].trim());
+            return;
+          }
+        }
+        
+        // 2. Look for complete HTML structure with metadata
+        const fullMatch = output.match(/<!--\s*@morphbox-panel[\s\S]*?<\/script>/i);
         if (fullMatch) {
+          console.log('Found full panel match');
           resolve(fullMatch[0]);
           return;
         }
         
-        // 2. Look for content between code blocks
-        const codeMatch = output.match(/```(?:html|svelte|xml)?\n([\s\S]*?)```/);
-        if (codeMatch) {
-          resolve(codeMatch[1]);
-          return;
-        }
-        
         // 3. Look for any HTML-like structure
-        const htmlMatch = output.match(/(<div[\s\S]*?<\/script>)/);
+        const htmlMatch = output.match(/(<div[\s\S]*?<\/script>)/i);
         if (htmlMatch) {
+          console.log('Found HTML structure match');
           resolve(htmlMatch[1]);
           return;
         }
         
         // If nothing matched, log the output for debugging
-        console.error('Could not parse Claude response. Output preview:', output.substring(0, 500));
+        console.error('=== Could not parse Claude response ===');
+        console.error('Output length:', output.length);
+        console.error('First 500 chars:', output.substring(0, 500));
+        console.error('Last 500 chars:', output.substring(output.length - 500));
         reject(new Error('Could not extract panel component from Claude response'));
       }
     });
 
-    claude.on('error', (err) => {
-      reject(err);
-    });
-
-    // Send the prompt to Claude
-    claude.stdin.write(prompt + '\n');
+    // Close stdin immediately since we're passing prompt as argument
     claude.stdin.end();
   });
 }

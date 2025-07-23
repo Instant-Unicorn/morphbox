@@ -8,7 +8,10 @@
   import CodeEditor from '$lib/panels/CodeEditor/CodeEditor.svelte';
   import Settings from '$lib/panels/Settings/Settings.svelte';
   import PromptQueue from '$lib/panels/PromptQueue/PromptQueue.svelte';
-    import RowPanel from '$lib/components/RowPanel.svelte';
+  import WebBrowser from '$lib/panels/WebBrowser/WebBrowser.svelte';
+  import GitPanel from '$lib/panels/GitPanel/GitPanel.svelte';
+  import TaskRunner from '$lib/panels/TaskRunner/TaskRunner.svelte';
+  import RowPanel from '$lib/components/RowPanel.svelte';
   import PanelManager from '$lib/components/PanelManager.svelte';
   import SectionTabs from '$lib/components/SectionTabs.svelte';
   import { settings, applyTheme } from '$lib/panels/Settings/settings-store';
@@ -26,7 +29,13 @@
     'code-editor': CodeEditor,
     settings: Settings,
     promptQueue: PromptQueue,
-    'prompt-queue': PromptQueue
+    'prompt-queue': PromptQueue,
+    webBrowser: WebBrowser,
+    'web-browser': WebBrowser,
+    gitPanel: GitPanel,
+    'git-panel': GitPanel,
+    taskRunner: TaskRunner,
+    'task-runner': TaskRunner
   };
   
   // Store for dynamically loaded components

@@ -185,6 +185,33 @@ function createPanelRegistry() {
           features: ['ai', 'queue', 'automation'],
           createdAt: new Date(),
           isCustom: false
+        },
+        {
+          id: 'webBrowser',
+          name: 'Web Browser',
+          description: 'Preview web pages and local servers',
+          path: '$lib/panels/WebBrowser/WebBrowser.svelte',
+          features: ['preview', 'browser', 'development'],
+          createdAt: new Date(),
+          isCustom: false
+        },
+        {
+          id: 'gitPanel',
+          name: 'Git',
+          description: 'Git version control management',
+          path: '$lib/panels/GitPanel/GitPanel.svelte',
+          features: ['git', 'vcs', 'development'],
+          createdAt: new Date(),
+          isCustom: false
+        },
+        {
+          id: 'taskRunner',
+          name: 'Task Runner',
+          description: 'Run npm scripts and custom commands',
+          path: '$lib/panels/TaskRunner/TaskRunner.svelte',
+          features: ['tasks', 'terminal', 'development'],
+          createdAt: new Date(),
+          isCustom: false
         }
       ];
 

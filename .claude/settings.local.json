@@ -6,7 +6,8 @@
       "Bash(docker exec:*)",
       "Bash(git push:*)",
       "Bash(rg:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }

@@ -2,8 +2,9 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
-import { homedir } from 'os';
+import { homedir, tmpdir } from 'os';
 import { spawn } from 'child_process';
+import { writeFileSync, unlinkSync, mkdirSync, rmSync } from 'fs';
 
 const PANELS_DIR = join(homedir(), 'morphbox', 'panels');
 
@@ -81,37 +82,39 @@ Make it fully functional and production-ready. Use modern JavaScript features.`;
 
     console.log('Prompt length:', prompt.length);
     
-    // Use Claude CLI in print mode with prompt as argument
+    // Use Claude CLI in a dedicated temporary directory
     const startTime = Date.now();
-    console.log('Executing Claude CLI in print mode with prompt as argument...');
+    console.log('Executing Claude CLI in dedicated temp directory...');
     
-    // Escape the prompt for shell
-    const escapedPrompt = prompt.replace(/'/g, "'\"'\"'");
+    // Create a temporary directory for this Claude session
+    const tempDir = join(tmpdir(), `claude-session-${Date.now()}`);
+    mkdirSync(tempDir, { recursive: true });
+    console.log('Created temp directory:', tempDir);
     
     const claude = spawn('claude', ['-p', prompt], {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env },
-      shell: false
+      cwd: tempDir, // Run Claude in the temp directory
+      env: { ...process.env }
     });
 
     console.log('Claude process spawned, PID:', claude.pid);
-    console.log('Command:', 'claude -p [prompt]');
+    console.log('Command:', `claude -p [prompt] (in ${tempDir})`);
 
     let output = '';
     let error = '';
     let isResolved = false;
 
-    // Set a timeout
+    // Set a timeout (2 minutes for complex panel generation)
     const timeout = setTimeout(() => {
       if (!isResolved) {
         console.error('=== Claude Process Timeout ===');
-        console.error('Process took longer than 60 seconds');
+        console.error('Process took longer than 120 seconds');
         console.error('Output received so far:', output.length, 'characters');
         console.error('Error output:', error);
         claude.kill('SIGTERM');
-        reject(new Error('Claude process timed out after 60 seconds'));
+        reject(new Error('Claude process timed out after 120 seconds'));
       }
-    }, 60000);
+    }, 120000);
 
     // Handle stdout
     claude.stdout.on('data', (data) => {
@@ -140,6 +143,14 @@ Make it fully functional and production-ready. Use modern JavaScript features.`;
     claude.on('exit', (code) => {
       clearTimeout(timeout);
       isResolved = true;
+      
+      // Clean up temp directory
+      try {
+        rmSync(tempDir, { recursive: true, force: true });
+        console.log('Cleaned up temp directory');
+      } catch (e) {
+        console.warn('Failed to clean up temp directory:', e);
+      }
       
       const duration = Date.now() - startTime;
       console.log(`=== Claude Process Completed ===`);

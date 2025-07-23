@@ -138,13 +138,29 @@
     }
     
     console.log('[PromptQueue] Found', textLines.length, 'text lines');
+    
+    // Log all lines for debugging
     if (textLines.length > 0) {
+      console.log('[PromptQueue] Terminal content:');
+      textLines.forEach((line, index) => {
+        console.log(`  Line ${index}: ${JSON.stringify(line)}`);
+      });
+      
       const lastLine = textLines[textLines.length - 1];
       console.log('[PromptQueue] Last line of terminal:', JSON.stringify(lastLine));
       
       // Claude is ready if the last line starts with ">" and nothing follows
+      // Also check if any line is just the prompt
       if (lastLine.trim() === '>' || lastLine.startsWith('> ')) {
         return true;
+      }
+      
+      // Sometimes the prompt appears on its own line
+      for (const line of textLines) {
+        if (line.trim() === '>') {
+          console.log('[PromptQueue] Found standalone prompt on line');
+          return true;
+        }
       }
     }
     

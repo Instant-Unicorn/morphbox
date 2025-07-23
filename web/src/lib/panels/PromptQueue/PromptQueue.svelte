@@ -3,7 +3,7 @@
   import { get } from 'svelte/store';
   import { promptQueueStore, type PromptItem } from './prompt-queue-store';
   import EditPromptModal from './EditPromptModal.svelte';
-  import { Play, Pause, Trash2, Edit, AlertCircle, Plus, CornerDownLeft } from 'lucide-svelte';
+  import { Play, Pause, Trash2, Edit, AlertCircle, Plus, CornerDownLeft, GripVertical } from 'lucide-svelte';
   import { allPanels } from '$lib/stores/panels';
   
   let inputValue = '';
@@ -12,6 +12,8 @@
   let deleteConfirmId: string | null = null;
   let claudeCheckInterval: number | null = null;
   let lastTerminalOutput = '';
+  let draggedItem: PromptItem | null = null;
+  let draggedOverIndex: number | null = null;
   
   $: queueItems = $promptQueueStore.items;
   $: isRunning = $promptQueueStore.isRunning;
@@ -341,6 +343,70 @@
       default: return 'status-pending';
     }
   }
+  
+  // Drag and drop handlers
+  function handleDragStart(e: DragEvent, item: PromptItem, index: number) {
+    if (item.status !== 'pending') {
+      e.preventDefault();
+      return;
+    }
+    
+    draggedItem = item;
+    e.dataTransfer!.effectAllowed = 'move';
+    e.dataTransfer!.setData('text/plain', ''); // Required for Firefox
+    
+    // Add dragging class after a small delay to avoid visual glitches
+    setTimeout(() => {
+      (e.target as HTMLElement).classList.add('dragging');
+    }, 0);
+  }
+  
+  function handleDragEnd(e: DragEvent) {
+    (e.target as HTMLElement).classList.remove('dragging');
+    draggedItem = null;
+    draggedOverIndex = null;
+  }
+  
+  function handleDragOver(e: DragEvent, index: number) {
+    e.preventDefault();
+    e.dataTransfer!.dropEffect = 'move';
+    
+    // Only allow dropping on pending items or empty spaces
+    const targetItem = queueItems[index];
+    if (targetItem && targetItem.status !== 'pending') {
+      return;
+    }
+    
+    draggedOverIndex = index;
+  }
+  
+  function handleDragLeave(e: DragEvent) {
+    // Only clear if we're leaving the actual drop zone
+    const related = e.relatedTarget as HTMLElement;
+    if (!related || !related.classList.contains('queue-item')) {
+      draggedOverIndex = null;
+    }
+  }
+  
+  function handleDrop(e: DragEvent, dropIndex: number) {
+    e.preventDefault();
+    
+    if (!draggedItem) return;
+    
+    const draggedIndex = queueItems.findIndex(item => item.id === draggedItem!.id);
+    if (draggedIndex === -1 || draggedIndex === dropIndex) return;
+    
+    // Don't allow dropping on active items
+    const targetItem = queueItems[dropIndex];
+    if (targetItem && targetItem.status !== 'pending') {
+      return;
+    }
+    
+    promptQueueStore.reorderItems(draggedIndex, dropIndex);
+    
+    draggedItem = null;
+    draggedOverIndex = null;
+  }
 </script>
 
 <div class="prompt-queue-container">
@@ -393,8 +459,23 @@
         No prompts in queue
       </div>
     {:else}
-      {#each queueItems as item (item.id)}
-        <div class="queue-item {getStatusClass(item.status)}">
+      {#each queueItems as item, index (item.id)}
+        <div 
+          class="queue-item {getStatusClass(item.status)}"
+          class:drag-over={draggedOverIndex === index}
+          class:draggable={item.status === 'pending'}
+          draggable={item.status === 'pending'}
+          on:dragstart={(e) => handleDragStart(e, item, index)}
+          on:dragend={handleDragEnd}
+          on:dragover={(e) => handleDragOver(e, index)}
+          on:dragleave={handleDragLeave}
+          on:drop={(e) => handleDrop(e, index)}
+        >
+          {#if item.status === 'pending'}
+            <div class="drag-handle">
+              <GripVertical size={16} />
+            </div>
+          {/if}
           <div class="item-content">
             <div class="item-text">{item.text}</div>
             <div class="item-status">{item.status}</div>
@@ -580,6 +661,32 @@
   
   .queue-item.status-completed {
     opacity: 0.6;
+  }
+  
+  .queue-item.draggable {
+    cursor: move;
+  }
+  
+  .queue-item.dragging {
+    opacity: 0.5;
+  }
+  
+  .queue-item.drag-over {
+    background-color: rgba(0, 122, 204, 0.1);
+    border-color: rgba(0, 122, 204, 0.5);
+  }
+  
+  .drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8px;
+    color: var(--text-secondary, #858585);
+    cursor: grab;
+  }
+  
+  .drag-handle:active {
+    cursor: grabbing;
   }
   
   .item-content {

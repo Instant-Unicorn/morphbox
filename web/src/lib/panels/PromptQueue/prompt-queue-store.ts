@@ -131,6 +131,18 @@ function createPromptQueueStore() {
         isRunning: false,
         currentPromptId: null
       });
+    },
+
+    reorderItems(fromIndex: number, toIndex: number) {
+      update(state => {
+        const items = [...state.items];
+        const [movedItem] = items.splice(fromIndex, 1);
+        items.splice(toIndex, 0, movedItem);
+        return {
+          ...state,
+          items
+        };
+      });
     }
   };
 }

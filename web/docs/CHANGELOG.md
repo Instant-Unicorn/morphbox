@@ -1,5 +1,30 @@
 # Changelog
 
+## 2025-07-23
+
+### Added
+- **Web Browser Panel**: Built-in preview browser panel for development
+  - Automatically detects local development servers (checks common ports)
+  - Defaults to detected server or shows blank page with URL bar
+  - Zoom controls: 25%, 50%, and 100% zoom levels for fitting more content
+  - Navigation controls: Back, Forward, Refresh, Home
+  - Opens external links in new tabs
+  - Responsive iframe scaling with transform origin
+  - Loading indicator during page loads
+  - Cross-origin safe URL tracking
+
+- **Prompt Queue Panel**: Automated prompt management for Claude
+  - Queue multiple prompts to send sequentially
+  - Drag-and-drop reordering (except active prompts)
+  - Play/pause queue processing
+  - Edit prompts with modal dialog
+  - Plan ahead functionality using Claude SDK
+  - Auto-detection of Claude readiness
+  - Green highlighting for active prompts
+  - Auto-removal of completed prompts
+  - Force send button for manual override
+  - Persistent queue storage in localStorage
+
 ## 2025-07-22
 
 ### Added

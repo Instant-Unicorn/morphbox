@@ -37,9 +37,9 @@ export const defaultSettings: Settings = {
     accent: '#007acc'
   },
   terminal: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: '"Cascadia Code", "Fira Code", monospace',
-    lineHeight: 1.2,
+    lineHeight: 1.1,
     cursorStyle: 'block',
     cursorBlink: true
   },

@@ -176,6 +176,15 @@ function createPanelRegistry() {
           features: ['formHandling', 'stateManagement'],
           createdAt: new Date(),
           isCustom: false
+        },
+        {
+          id: 'promptQueue',
+          name: 'Prompt Queue',
+          description: 'Queue and manage prompts for Claude',
+          path: '$lib/panels/PromptQueue/PromptQueue.svelte',
+          features: ['ai', 'queue', 'automation'],
+          createdAt: new Date(),
+          isCustom: false
         }
       ];
 

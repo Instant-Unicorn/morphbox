@@ -84,19 +84,34 @@
     }
     if (!panelElement) {
       // Last resort - find any terminal that looks like Claude
-      const allTerminals = document.querySelectorAll('.xterm-screen');
-      console.log('[PromptQueue] Found', allTerminals.length, 'terminals total');
+      const allTerminalRows = document.querySelectorAll('.xterm-rows');
+      console.log('[PromptQueue] Found', allTerminalRows.length, 'terminals total');
       
       // Check each terminal for Claude prompt
-      for (const terminal of allTerminals) {
-        const text = terminal.textContent || '';
-        if (text.includes('Claude') || text.includes('Anthropic')) {
-          const lines = text.split('\n');
-          const lastLine = lines[lines.length - 1] || lines[lines.length - 2];
-          console.log('[PromptQueue] Checking terminal with last line:', JSON.stringify(lastLine));
-          
-          if (lastLine.trim() === '>' || lastLine.startsWith('> ')) {
-            return true;
+      for (const terminalRows of allTerminalRows) {
+        // Get all text from this terminal
+        const rows = terminalRows.querySelectorAll('div');
+        const textLines = [];
+        let fullText = '';
+        
+        for (const row of rows) {
+          const rowText = row.textContent || '';
+          if (rowText.trim()) {
+            textLines.push(rowText);
+            fullText += rowText + '\n';
+          }
+        }
+        
+        // Check if this is a Claude terminal
+        if (fullText.includes('Claude') || fullText.includes('Anthropic') || fullText.includes('MorphBox Terminal')) {
+          console.log('[PromptQueue] Found potential Claude terminal with', textLines.length, 'lines');
+          if (textLines.length > 0) {
+            const lastLine = textLines[textLines.length - 1];
+            console.log('[PromptQueue] Checking terminal with last line:', JSON.stringify(lastLine));
+            
+            if (lastLine.trim() === '>' || lastLine.startsWith('> ')) {
+              return true;
+            }
           }
         }
       }
@@ -105,21 +120,32 @@
       return false;
     }
     
-    const terminal = panelElement.querySelector('.xterm-screen');
-    if (!terminal) {
-      console.log('[PromptQueue] No xterm-screen found in panel');
+    // Try to find the actual terminal rows instead of screen
+    const terminalRows = panelElement.querySelector('.xterm-rows');
+    if (!terminalRows) {
+      console.log('[PromptQueue] No xterm-rows found in panel');
       return false;
     }
     
-    const text = terminal.textContent || '';
-    // Look for Claude's prompt (usually ">")
-    const lines = text.split('\n');
-    const lastLine = lines[lines.length - 1] || lines[lines.length - 2];
-    console.log('[PromptQueue] Last line of terminal:', JSON.stringify(lastLine));
+    // Get all row spans and extract text
+    const rows = terminalRows.querySelectorAll('div');
+    const textLines = [];
+    for (const row of rows) {
+      const rowText = row.textContent || '';
+      if (rowText.trim()) {
+        textLines.push(rowText);
+      }
+    }
     
-    // Claude is ready if the last line starts with ">" and nothing follows
-    if (lastLine.trim() === '>' || lastLine.startsWith('> ')) {
-      return true;
+    console.log('[PromptQueue] Found', textLines.length, 'text lines');
+    if (textLines.length > 0) {
+      const lastLine = textLines[textLines.length - 1];
+      console.log('[PromptQueue] Last line of terminal:', JSON.stringify(lastLine));
+      
+      // Claude is ready if the last line starts with ">" and nothing follows
+      if (lastLine.trim() === '>' || lastLine.startsWith('> ')) {
+        return true;
+      }
     }
     
     return false;

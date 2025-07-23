@@ -60,6 +60,9 @@
     }
   }
   
+  let claudeWakeupSent = false;
+  let lastWakeupTime = 0;
+  
   function isClaudeReady(): boolean {
     // Get all panels from the store
     const panels = get(allPanels);
@@ -73,128 +76,56 @@
     }
     console.log('[PromptQueue] Found Claude panel:', claudePanel.id);
     
-    // Try different ways to find the panel element
-    let panelElement = document.getElementById(claudePanel.id);
-    if (!panelElement) {
-      // Try without panel- prefix
-      const idWithoutPrefix = claudePanel.id.replace('panel-', '');
-      panelElement = document.getElementById(idWithoutPrefix);
-    }
-    if (!panelElement) {
-      // Try to find by data attribute or class
-      panelElement = document.querySelector(`[data-panel-id="${claudePanel.id}"]`);
-    }
-    if (!panelElement) {
-      // Last resort - find any terminal that looks like Claude
-      const allTerminalRows = document.querySelectorAll('.xterm-rows');
-      console.log('[PromptQueue] Found', allTerminalRows.length, 'terminals total');
+    // Check if Claude needs to be woken up first
+    const terminal = findClaudeTerminal();
+    if (!terminal) return false;
+    
+    // Find all terminals and check for Claude
+    const allTerminalRows = document.querySelectorAll('.xterm-rows');
+    console.log('[PromptQueue] Checking', allTerminalRows.length, 'terminals');
+    
+    for (const terminalRows of allTerminalRows) {
+      const rows = terminalRows.querySelectorAll('div');
+      const textLines = [];
+      let fullText = '';
       
-      // Check each terminal for Claude prompt
-      for (const terminalRows of allTerminalRows) {
-        // Get all text from this terminal
-        const rows = terminalRows.querySelectorAll('div');
-        const textLines = [];
-        let fullText = '';
+      for (const row of rows) {
+        const rowText = row.textContent || '';
+        textLines.push(rowText);
+        fullText += rowText + '\n';
+      }
+      
+      // Check if this looks like Claude terminal
+      const hasWelcomeScreen = fullText.includes('│ > Try') || fullText.includes('for shortcuts');
+      const hasPrompt = textLines.some(line => 
+        line.trim() === '>' || 
+        (line.startsWith('> ') && !line.includes('│'))
+      );
+      
+      if (hasWelcomeScreen || fullText.includes('Claude') || fullText.includes('Anthropic')) {
+        console.log('[PromptQueue] Found Claude terminal, hasPrompt:', hasPrompt);
         
-        for (const row of rows) {
-          const rowText = row.textContent || '';
-          if (rowText.trim()) {
-            textLines.push(rowText);
-            fullText += rowText + '\n';
+        // If we see the welcome screen but no prompt, send Enter to wake Claude
+        if (hasWelcomeScreen && !hasPrompt) {
+          const now = Date.now();
+          // Only send wakeup every 5 seconds max
+          if (now - lastWakeupTime > 5000) {
+            console.log('[PromptQueue] Claude showing welcome screen, sending Enter to wake up');
+            terminal.sendInput('\r');
+            lastWakeupTime = now;
+            claudeWakeupSent = true;
           }
+          return false; // Not ready yet
         }
         
-        // Check if this is a Claude terminal
-        if (fullText.includes('Claude') || fullText.includes('Anthropic') || fullText.includes('MorphBox Terminal')) {
-          console.log('[PromptQueue] Found potential Claude terminal with', textLines.length, 'lines');
-          if (textLines.length > 0) {
-            const lastLine = textLines[textLines.length - 1];
-            console.log('[PromptQueue] Checking terminal with last line:', JSON.stringify(lastLine));
-            
-            if (lastLine.trim() === '>' || lastLine.startsWith('> ')) {
-              return true;
-            }
-          }
-        }
-      }
-      
-      console.log('[PromptQueue] No Claude terminal found with ready prompt');
-      return false;
-    }
-    
-    // Try to find the actual terminal rows instead of screen
-    const terminalRows = panelElement.querySelector('.xterm-rows');
-    if (!terminalRows) {
-      console.log('[PromptQueue] No xterm-rows found in panel');
-      return false;
-    }
-    
-    // Get all row spans and extract text
-    const rows = terminalRows.querySelectorAll('div');
-    const textLines = [];
-    for (const row of rows) {
-      const rowText = row.textContent || '';
-      // Include empty lines too to get proper line indexing
-      textLines.push(rowText);
-    }
-    
-    console.log('[PromptQueue] Found', textLines.length, 'text lines');
-    
-    // Log all lines for debugging
-    if (textLines.length > 0) {
-      console.log('[PromptQueue] Terminal content:');
-      textLines.forEach((line, index) => {
-        console.log(`  Line ${index}: ${JSON.stringify(line)}`);
-      });
-      
-      const lastLine = textLines[textLines.length - 1];
-      console.log('[PromptQueue] Last line of terminal:', JSON.stringify(lastLine));
-      
-      // Claude is ready if the last line starts with ">" and nothing follows
-      // Also check if any line is just the prompt
-      if (lastLine.trim() === '>' || lastLine.startsWith('> ')) {
-        return true;
-      }
-      
-      // Sometimes the prompt appears on its own line
-      for (const line of textLines) {
-        if (line.trim() === '>') {
-          console.log('[PromptQueue] Found standalone prompt on line');
-          return true;
-        }
-      }
-      
-      // Check if we have the command history section which means Claude is loaded
-      // Look for a line that contains just "> " (with space) after the example box
-      const hasExampleBox = textLines.some(line => line.includes('│ > Try'));
-      if (hasExampleBox) {
-        // Look for the last occurrence of a line starting with "> " after the box
-        for (let i = textLines.length - 1; i >= 0; i--) {
-          const line = textLines[i];
-          if (line === '> ' || (line.startsWith('> ') && !line.includes('│'))) {
-            console.log('[PromptQueue] Found prompt after example box');
-            return true;
-          }
-        }
-      }
-      
-      // Check if any line after the status bar is empty but followed by the prompt
-      // Sometimes there's a blank line between content and the prompt
-      const statusBarIndex = textLines.findIndex(line => line.includes('? for shortcuts'));
-      if (statusBarIndex >= 0 && statusBarIndex < textLines.length - 1) {
-        // Check lines after the status bar
-        for (let i = statusBarIndex + 1; i < textLines.length; i++) {
-          const line = textLines[i].trim();
-          if (line === '>' || line.startsWith('> ')) {
-            console.log('[PromptQueue] Found prompt after status bar at line', i);
-            return true;
-          }
-        }
+        return hasPrompt;
       }
     }
     
+    console.log('[PromptQueue] No Claude terminal found with content');
     return false;
   }
+  
   
   function processNextPrompt() {
     console.log('[PromptQueue] Processing next prompt...');

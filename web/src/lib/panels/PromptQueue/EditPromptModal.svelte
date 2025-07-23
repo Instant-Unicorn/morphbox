@@ -1,8 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { X } from 'lucide-svelte';
-  import { get } from 'svelte/store';
-  import { allPanels } from '$lib/stores/panels';
   
   export let prompt: string = '';
   export let isOpen: boolean = false;
@@ -10,7 +8,6 @@
   const dispatch = createEventDispatcher();
   
   let editedPrompt = prompt;
-  let isPlanningAhead = false;
   
   $: if (isOpen) {
     editedPrompt = prompt;
@@ -23,55 +20,6 @@
   
   function close() {
     dispatch('close');
-    isPlanningAhead = false;
-  }
-  
-  async function handlePlanAhead() {
-    isPlanningAhead = true;
-    
-    try {
-      // Find Claude terminal
-      const claudeTerminal = findClaudeTerminal();
-      if (!claudeTerminal) {
-        alert('Claude terminal not found. Please open a Claude panel first.');
-        return;
-      }
-      
-      // Send the plan command
-      const planCommand = `/plan ${editedPrompt.replace(/\n/g, ' ')}`;
-      claudeTerminal.sendInput(planCommand);
-      // Send Enter key separately after a small delay
-      setTimeout(() => {
-        claudeTerminal.sendInput('\r');
-      }, 100);
-      
-      // Wait for response and capture it
-      // For now, we'll just show a message
-      setTimeout(() => {
-        editedPrompt = `[Planning mode output will appear here]\n\n${editedPrompt}`;
-        isPlanningAhead = false;
-      }, 2000);
-      
-    } catch (error) {
-      console.error('Error in plan ahead:', error);
-      alert('Failed to execute plan ahead command');
-      isPlanningAhead = false;
-    }
-  }
-  
-  function findClaudeTerminal() {
-    if (typeof window === 'undefined' || !window.morphboxTerminals) return null;
-    
-    // Get all panels from the store
-    const panels = get(allPanels);
-    
-    // Look for a Claude panel
-    const claudePanel = panels.find(panel => panel.type === 'claude');
-    if (!claudePanel) return null;
-    
-    // Check if this panel has a terminal registered
-    const terminal = window.morphboxTerminals[claudePanel.id];
-    return terminal || null;
   }
   
   function handleKeydown(e: KeyboardEvent) {
@@ -95,30 +43,20 @@
         <textarea
           bind:value={editedPrompt}
           placeholder="Enter your prompt here..."
-          disabled={isPlanningAhead}
         />
       </div>
       
       <div class="modal-footer">
-        <button 
-          class="button button-secondary" 
-          on:click={handlePlanAhead}
-          disabled={isPlanningAhead || !editedPrompt.trim()}
-        >
-          {isPlanningAhead ? 'Planning...' : 'Plan Ahead'}
+        <button class="button button-secondary" on:click={close}>
+          Cancel
         </button>
-        <div class="footer-actions">
-          <button class="button button-secondary" on:click={close}>
-            Cancel
-          </button>
-          <button 
-            class="button button-primary" 
-            on:click={handleSave}
-            disabled={!editedPrompt.trim()}
-          >
-            Save
-          </button>
-        </div>
+        <button 
+          class="button button-primary" 
+          on:click={handleSave}
+          disabled={!editedPrompt.trim()}
+        >
+          Save
+        </button>
       </div>
     </div>
   </div>
@@ -212,15 +150,10 @@
   
   .modal-footer {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
     padding: 16px;
     border-top: 1px solid var(--border-color, #3e3e42);
-    gap: 12px;
-  }
-  
-  .footer-actions {
-    display: flex;
     gap: 8px;
   }
   

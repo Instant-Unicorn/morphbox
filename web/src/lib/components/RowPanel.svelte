@@ -738,6 +738,15 @@
           {...panel.content}
           on:open={handleOpen}
         />
+      {:else if component.name === 'CustomPanelRenderer' || panel.type.startsWith('panel-')}
+        <!-- Custom panels need the panelType prop -->
+        <svelte:component 
+          this={component} 
+          bind:this={componentInstance}
+          panelId={panel.id}
+          panelType={panel.type}
+          {...panel.content}
+        />
       {:else}
         <svelte:component 
           this={component} 

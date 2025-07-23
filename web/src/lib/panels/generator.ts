@@ -9,6 +9,16 @@ export interface GeneratedPanel {
   filePath: string;
   code: string;
   features: string[];
+  metadata?: {
+    promptHistory: Array<{
+      prompt: string;
+      timestamp: string;
+      type: 'create' | 'morph';
+    }>;
+    version: string;
+    createdAt: string;
+    updatedAt: string;
+  };
 }
 
 /**
@@ -81,7 +91,18 @@ export function getGeneratedPanelCode(id: string): string | null {
  */
 export async function deleteGeneratedPanel(id: string): Promise<boolean> {
   try {
-    // Unregister from registry
+    // First, delete the files from the filesystem
+    const response = await fetch(`/api/custom-panels/delete?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE'
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('Failed to delete panel files:', error);
+      throw new Error(error.error || 'Failed to delete panel files');
+    }
+    
+    // Only unregister from registry after successful file deletion
     panelRegistry.unregister(id);
     
     // Remove from localStorage

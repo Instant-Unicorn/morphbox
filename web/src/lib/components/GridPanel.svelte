@@ -238,6 +238,7 @@
         <svelte:component 
           this={component} 
           panelId={panel.id}
+          panelType={panel.type}
           {...panel.content}
         />
       {/if}

@@ -11,6 +11,7 @@
   import WebBrowser from '$lib/panels/WebBrowser/WebBrowser.svelte';
   import GitPanel from '$lib/panels/GitPanel/GitPanel.svelte';
   import TaskRunner from '$lib/panels/TaskRunner/TaskRunner.svelte';
+  import CustomPanelRenderer from '$lib/components/CustomPanelRenderer.svelte';
   import GridPanel from '$lib/components/GridPanel.svelte';
   import GridDropZone from '$lib/components/GridDropZone.svelte';
   import PanelManager from '$lib/components/PanelManager.svelte';
@@ -61,6 +62,12 @@
     // Try to load from registry
     const panelDef = panelRegistry.get(type);
     if (panelDef) {
+      // If it's a custom panel, use the CustomPanelRenderer
+      if (panelDef.isCustom) {
+        loadedComponents[type] = CustomPanelRenderer;
+        return CustomPanelRenderer;
+      }
+      
       try {
         const component = await panelRegistry.loadComponent(type);
         if (component) {

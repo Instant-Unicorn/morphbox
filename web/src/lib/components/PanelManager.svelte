@@ -1,8 +1,11 @@
 <script lang="ts">
   import { panels, panelStore } from '$lib/stores/panels';
   import { panelRegistry, builtinPanels, customPanels } from '$lib/panels/registry';
-  import CreatePanelWizard from './CreatePanelWizard.svelte';
-  import { exportPanelCode, deleteGeneratedPanel } from '$lib/panels/generator';
+  import CreateCustomPanel from './CreateCustomPanel.svelte';
+  import EditCustomPanel from './EditCustomPanel.svelte';
+  import DeleteConfirmModal from './DeleteConfirmModal.svelte';
+  import { deleteGeneratedPanel } from '$lib/panels/generator';
+  import { loadCustomPanelsMetadata } from '$lib/panels/custom-loader';
   import { createEventDispatcher, onMount } from 'svelte';
   
   export let showReset = false;
@@ -12,6 +15,8 @@
   let showWizard = false;
   let showManager = false;
   let isSmallViewport = false;
+  let editingPanel: { id: string; name: string } | null = null;
+  let deletingPanel: { id: string; name: string } | null = null;
   
   // Check viewport size
   function checkViewportSize() {
@@ -19,7 +24,10 @@
   }
   
   // Debug: log panels on mount and setup viewport check
-  onMount(() => {
+  onMount(async () => {
+    // Load custom panels from filesystem
+    await loadCustomPanelsMetadata();
+    
     console.log('[PanelManager] Built-in panels:', $builtinPanels);
     console.log('[PanelManager] Custom panels:', $customPanels);
     
@@ -46,14 +54,19 @@
   }
   
   // Handle panel creation
-  function handlePanelCreated(event: CustomEvent) {
+  async function handlePanelCreated(event: CustomEvent) {
     console.log('Panel created:', event.detail.panel);
     closeWizard();
+    
+    // Reload custom panels to include the new one
+    await loadCustomPanelsMetadata();
   }
   
   // Open a panel
   function openPanel(panelId: string) {
     const definition = panelRegistry.get(panelId);
+    console.log('[PanelManager] Opening panel:', { panelId, definition });
+    
     if (definition) {
       // Check if panel already exists (except for terminal and claude which can have multiple)
       const existingPanel = $panels.find(p => p.type === definition.id);
@@ -64,6 +77,7 @@
       }
       
       // Dispatch event to add panel through GridLayout
+      console.log('[PanelManager] Dispatching add action with type:', definition.id);
       dispatch('action', {
         action: 'add',
         panelType: definition.id,
@@ -77,16 +91,47 @@
     }
   }
   
-  // Export panel code
-  function exportPanel(panelId: string) {
-    exportPanelCode(panelId);
+  // Edit a custom panel
+  function editPanel(panelId: string, panelName: string) {
+    editingPanel = { id: panelId, name: panelName };
+    showManager = false;
+  }
+  
+  // Handle panel morphed
+  function handlePanelMorphed() {
+    editingPanel = null;
+    // Optionally refresh the panel list or show a success message
   }
   
   // Delete a custom panel
-  async function deletePanel(panelId: string) {
-    if (confirm('Are you sure you want to delete this panel?')) {
-      await deleteGeneratedPanel(panelId);
+  function deletePanel(panelId: string, panelName: string) {
+    deletingPanel = { id: panelId, name: panelName };
+  }
+  
+  // Handle delete confirmation
+  async function handleDeleteConfirm() {
+    if (!deletingPanel) return;
+    
+    const panelId = deletingPanel.id;
+    deletingPanel = null; // Close modal immediately
+    
+    // Show loading state (you could add a loading indicator per panel)
+    const success = await deleteGeneratedPanel(panelId);
+    
+    if (success) {
+      // Reload custom panels to reflect the deletion
+      await loadCustomPanelsMetadata();
+      console.log(`[PanelManager] Panel ${panelId} deleted successfully`);
+    } else {
+      // Show error message using a better UI in the future
+      // For now, we'll just log it
+      console.error(`[PanelManager] Failed to delete panel ${panelId}`);
     }
+  }
+  
+  // Handle delete cancel
+  function handleDeleteCancel() {
+    deletingPanel = null;
   }
   
   // Toggle manager visibility
@@ -179,17 +224,15 @@
                   </div>
                 </div>
                 <div class="panel-actions">
-                  <button class="action-button" on:click={() => openPanel(panel.id)} title="Open">
+                  <button class="open-button" on:click={() => openPanel(panel.id)}>
+                    Open
+                  </button>
+                  <button class="action-button" on:click={() => editPanel(panel.id, panel.name)} title="Edit/Morph">
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                      <path d="M3 2v12h10V5.414L9.586 2H3zm8 .414L12.586 4H11V2.414zM4 3h6v2h3v8H4V3z"/>
+                      <path d="M13.23 1h-1.46L3.52 9.25l-.16.22L1 13.59 2.41 15l4.12-2.36.22-.16L15 4.23V2.77L13.23 1zM2.41 13.59l1.51-1.51.73.73-1.51 1.51-.73-.73zm3.22-2.22L4.3 10.04l6.75-6.75 1.33 1.33-6.75 6.75z"/>
                     </svg>
                   </button>
-                  <button class="action-button" on:click={() => exportPanel(panel.id)} title="Export">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                      <path d="M8 1.5v7.793l2.146-2.147.708.708L8 10.707 5.146 7.854l.708-.708L8 9.293V1.5h1zm-6 12h12v1H2v-1z"/>
-                    </svg>
-                  </button>
-                  <button class="action-button danger" on:click={() => deletePanel(panel.id)} title="Delete">
+                  <button class="action-button danger" on:click={() => deletePanel(panel.id, panel.name)} title="Delete">
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                       <path d="M6 2v1H2v1h12V3h-4V2a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1zM3 5v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5H3zm2 1h1v6H5V6zm3 0h1v6H8V6zm3 0h1v6h-1V6z"/>
                     </svg>
@@ -209,11 +252,30 @@
   {/if}
 </div>
 
-<!-- Panel Creation Wizard -->
+<!-- Panel Creation Modal -->
 {#if showWizard}
-  <CreatePanelWizard 
+  <CreateCustomPanel 
     on:close={closeWizard}
     on:created={handlePanelCreated}
+  />
+{/if}
+
+<!-- Panel Edit Modal -->
+{#if editingPanel}
+  <EditCustomPanel
+    panelId={editingPanel.id}
+    panelName={editingPanel.name}
+    on:close={() => editingPanel = null}
+    on:morphed={handlePanelMorphed}
+  />
+{/if}
+
+<!-- Delete Confirmation Modal -->
+{#if deletingPanel}
+  <DeleteConfirmModal
+    panelName={deletingPanel.name}
+    on:confirm={handleDeleteConfirm}
+    on:cancel={handleDeleteCancel}
   />
 {/if}
 

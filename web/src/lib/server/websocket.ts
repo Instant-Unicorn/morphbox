@@ -2,6 +2,7 @@ import type { WebSocket } from 'ws';
 import type { IncomingMessage } from 'http';
 import type { AgentManager } from './agent-manager';
 import type { StateManager } from './state-manager';
+import type { PersistentSessionManager } from './persistent-session-manager';
 import { validateWebSocketAuth, getAuthConfig } from './auth';
 import { sessionStore } from './session-store';
 import crypto from 'crypto';

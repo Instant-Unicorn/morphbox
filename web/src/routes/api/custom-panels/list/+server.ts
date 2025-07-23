@@ -19,8 +19,7 @@ export const GET: RequestHandler = async () => {
     // Read all .svelte files in the directory
     const files = await readdir(PANELS_DIR);
     const svelteFiles = files
-      .filter(file => file.endsWith('.svelte'))
-      .map(file => join(PANELS_DIR, file));
+      .filter(file => file.endsWith('.svelte'));
     
     return json(svelteFiles);
   } catch (error) {

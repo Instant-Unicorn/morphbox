@@ -50,6 +50,13 @@
       return;
     }
     
+    // Check if we have any active prompts
+    const activePrompt = queueItems.find(item => item.status === 'active');
+    if (activePrompt) {
+      console.log('[PromptQueue] Active prompt in progress:', activePrompt.text);
+      return; // Wait for it to complete
+    }
+    
     console.log('[PromptQueue] Claude terminal found, checking if ready...');
     // Check if Claude is ready (looking for prompt indicator)
     if (isClaudeReady()) {
@@ -95,18 +102,31 @@
         fullText += rowText + '\n';
       }
       
-      // Check if this looks like Claude terminal
-      const hasWelcomeScreen = fullText.includes('│ > Try') || fullText.includes('for shortcuts');
-      const hasPrompt = textLines.some(line => 
-        line.trim() === '>' || 
-        (line.startsWith('> ') && !line.includes('│'))
-      );
+      // Check if this looks like Claude terminal or MorphBox terminal that needs Claude to start
+      const hasMorphBoxWelcome = fullText.includes('Welcome to MorphBox Terminal') || fullText.includes('Launching Claude...');
+      const hasClaudeWelcome = fullText.includes('│ > Try') || fullText.includes('for shortcuts');
+      const hasPrompt = textLines.some(line => {
+        const trimmed = line.trim();
+        // Look for standalone > or > followed by cursor/space
+        return trimmed === '>' || 
+               trimmed === '> ' ||
+               (trimmed.startsWith('> ') && !trimmed.includes('│')) ||
+               // Also check for prompt with cursor character
+               trimmed.includes('> ▋') ||
+               trimmed.includes('>▋');
+      });
       
-      if (hasWelcomeScreen || fullText.includes('Claude') || fullText.includes('Anthropic')) {
-        console.log('[PromptQueue] Found Claude terminal, hasPrompt:', hasPrompt);
+      if (hasMorphBoxWelcome || hasClaudeWelcome || fullText.includes('Claude') || fullText.includes('Anthropic')) {
+        console.log('[PromptQueue] Found terminal - MorphBox:', hasMorphBoxWelcome, 'Claude:', hasClaudeWelcome, 'hasPrompt:', hasPrompt);
         
-        // If we see the welcome screen but no prompt, send Enter to wake Claude
-        if (hasWelcomeScreen && !hasPrompt) {
+        // If we see MorphBox welcome screen without Claude, just wait - Claude should start automatically
+        if (hasMorphBoxWelcome && !hasClaudeWelcome && !hasPrompt) {
+          console.log('[PromptQueue] Waiting for Claude to start automatically...');
+          return false; // Not ready yet, just wait
+        }
+        
+        // If we see Claude welcome screen but no prompt, send Enter to wake Claude
+        if (hasClaudeWelcome && !hasPrompt) {
           const now = Date.now();
           // Only send wakeup every 5 seconds max
           if (now - lastWakeupTime > 5000) {
@@ -150,7 +170,13 @@
     
     // Send the prompt
     console.log('[PromptQueue] Sending prompt to Claude:', nextPrompt.text);
-    claudeTerminal.sendInput(nextPrompt.text + '\n');
+    // First send the text
+    claudeTerminal.sendInput(nextPrompt.text);
+    // Then send Enter key separately after a small delay to ensure text is processed
+    setTimeout(() => {
+      console.log('[PromptQueue] Sending Enter key');
+      claudeTerminal.sendInput('\r');
+    }, 100);
     
     // Schedule completion check
     setTimeout(() => {
@@ -159,6 +185,7 @@
   }
   
   function checkPromptCompletion(promptId: string) {
+    let lastCheckTime = Date.now();
     const checkInterval = setInterval(() => {
       // If not running anymore, stop checking
       if (!$promptQueueStore.isRunning) {
@@ -166,31 +193,50 @@
         return;
       }
       
+      const currentTime = Date.now();
+      const timeSinceLastCheck = currentTime - lastCheckTime;
+      
       // Check if Claude is ready again (indicating completion)
       if (isClaudeReady()) {
+        console.log('[PromptQueue] Claude is ready again, marking prompt as completed:', promptId);
         clearInterval(checkInterval);
-        promptQueueStore.setPromptStatus(promptId, 'completed');
         
-        // Process next prompt after a short delay
-        setTimeout(() => {
-          removeCompletedPrompts();
-          if ($promptQueueStore.isRunning) {
-            processNextPrompt();
-          }
-        }, 500);
+        // Find the prompt and mark it completed
+        const prompt = queueItems.find(item => item.id === promptId);
+        if (prompt && prompt.status === 'active') {
+          promptQueueStore.setPromptStatus(promptId, 'completed');
+          
+          // Process next prompt after a short delay
+          setTimeout(() => {
+            console.log('[PromptQueue] Processing completion cleanup...');
+            removeCompletedPrompts();
+            // The main checkAndProcessQueue will handle processing the next prompt
+          }, 500);
+        }
       }
+      
+      lastCheckTime = currentTime;
     }, 1000); // Check every second
     
     // Timeout after 5 minutes
     setTimeout(() => {
+      console.log('[PromptQueue] Prompt completion check timeout for:', promptId);
       clearInterval(checkInterval);
+      // Mark as completed anyway to avoid blocking the queue
+      const prompt = queueItems.find(item => item.id === promptId);
+      if (prompt && prompt.status === 'active') {
+        promptQueueStore.setPromptStatus(promptId, 'completed');
+        removeCompletedPrompts();
+      }
     }, 300000);
   }
   
   function removeCompletedPrompts() {
     // Remove all completed prompts
     const completed = queueItems.filter(item => item.status === 'completed');
+    console.log('[PromptQueue] Removing completed prompts:', completed.length);
     completed.forEach(item => {
+      console.log('[PromptQueue] Removing prompt:', item.id, item.text);
       promptQueueStore.removePrompt(item.id);
     });
   }

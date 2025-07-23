@@ -39,7 +39,11 @@
       
       // Send the plan command
       const planCommand = `/plan ${editedPrompt.replace(/\n/g, ' ')}`;
-      claudeTerminal.sendInput(planCommand + '\n');
+      claudeTerminal.sendInput(planCommand);
+      // Send Enter key separately after a small delay
+      setTimeout(() => {
+        claudeTerminal.sendInput('\r');
+      }, 100);
       
       // Wait for response and capture it
       // For now, we'll just show a message

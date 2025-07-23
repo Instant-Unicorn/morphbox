@@ -3,7 +3,7 @@
   import { get } from 'svelte/store';
   import { promptQueueStore, type PromptItem } from './prompt-queue-store';
   import EditPromptModal from './EditPromptModal.svelte';
-  import { Play, Pause, Trash2, Edit, AlertCircle, Plus, CornerDownLeft, GripVertical } from 'lucide-svelte';
+  import { Play, Pause, Trash2, Edit, AlertCircle, Plus, GripVertical } from 'lucide-svelte';
   import { allPanels } from '$lib/stores/panels';
   
   let inputValue = '';
@@ -387,35 +387,19 @@
 </script>
 
 <div class="prompt-queue-container">
-  <div class="header">
-    <h3>Prompt Queue</h3>
-    <div class="header-controls">
-      <button 
-        class="control-button"
-        on:click={() => {
-          console.log('[PromptQueue] Force processing next prompt');
-          processNextPrompt();
-        }}
-        title="Force send next prompt (skip ready check)"
-      >
-        <CornerDownLeft size={16} />
-      </button>
-      <button 
-        class="control-button"
-        class:running={isRunning}
-        on:click={toggleRunning}
-        title={isRunning ? 'Stop processing' : 'Start processing'}
-      >
-        {#if isRunning}
-          <Pause size={18} />
-        {:else}
-          <Play size={18} />
-        {/if}
-      </button>
-    </div>
-  </div>
-  
   <div class="input-section">
+    <button 
+      class="control-button"
+      class:running={isRunning}
+      on:click={toggleRunning}
+      title={isRunning ? 'Stop processing' : 'Start processing'}
+    >
+      {#if isRunning}
+        <Pause size={18} />
+      {:else}
+        <Play size={18} />
+      {/if}
+    </button>
     <textarea
       bind:value={inputValue}
       placeholder="Enter a prompt..."
@@ -516,37 +500,19 @@
     color: var(--text-color, #cccccc);
   }
   
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border-color, #3e3e42);
-  }
-  
-  .header-controls {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-  }
-  
-  .header h3 {
-    margin: 0;
-    font-size: 16px;
-    color: var(--panel-title-color, rgb(210, 210, 210));
-  }
-  
   .control-button {
     background: none;
     border: 1px solid var(--border-color, #3e3e42);
     color: var(--panel-control-color, rgb(210, 210, 210));
-    padding: 6px;
+    padding: 8px;
     border-radius: 4px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
+    height: fit-content;
+    align-self: stretch;
   }
   
   .control-button:hover {
@@ -562,7 +528,7 @@
   .input-section {
     display: flex;
     gap: 8px;
-    padding: 12px;
+    padding: 8px;
     border-bottom: 1px solid var(--border-color, #3e3e42);
   }
   

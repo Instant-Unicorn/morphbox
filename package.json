@@ -1,17 +1,22 @@
 {
-  "name": "@morphbox/installer",
-  "version": "1.0.0",
-  "description": "One-command installer for MorphBox - Safe AI sandbox for development",
+  "name": "morphbox",
+  "version": "0.7.1",
+  "description": "MorphBox - Safe AI sandbox for development with Claude integration",
   "bin": {
-    "morphbox-installer": "./bin/install.js"
+    "morphbox": "./bin/morphbox.js"
   },
   "files": [
     "bin/",
-    "lib/",
-    "README.npm.md"
+    "web/",
+    "docker-compose.yml",
+    "Dockerfile",
+    "morphbox-start",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
-    "test": "node bin/install.js --dry-run"
+    "start": "./morphbox-start",
+    "test": "echo \"No tests configured\""
   },
   "keywords": [
     "morphbox",
@@ -29,10 +34,10 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/morphbox/morphbox.git"
+    "url": "git+https://github.com/MicahBly/morphbox.git"
   },
   "bugs": {
-    "url": "https://github.com/morphbox/morphbox/issues"
+    "url": "https://github.com/MicahBly/morphbox/issues"
   },
   "homepage": "https://morphbox.iu.dev",
   "engines": {

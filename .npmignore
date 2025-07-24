@@ -1,28 +1,61 @@
-# Source files not needed in npm package
-*.sh
-*.yaml
-morphbox
-allowed.txt
-firewall.sh
-install.sh
-claude-vm.yaml
-
-# Documentation
-README.md
-
-# Git files
-.git/
-.gitignore
-
 # Development files
+.git/
+.github/
+.claude/
+.env*
 .DS_Store
 *.log
-node_modules/
-*.swp
-*.swo
+*.backup
 *~
 
-# Keep only the npm-specific files
-!bin/
-!lib/
-!README.npm.md
+# Test files
+test-*
+*-test/
+*-demo/
+__tests__/
+
+# Build artifacts
+web/.svelte-kit/
+web/build/
+web/node_modules/
+node_modules/
+dist/
+
+# Docker volumes
+data/
+morphbox-data/
+
+# Development tools
+scripts/
+docs/
+*.md
+!README.md
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local configuration
+.morphbox.env
+settings.local.json
+
+# Database files
+*.db
+*.sqlite
+
+# Logs
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+Thumbs.db
+ehthumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp

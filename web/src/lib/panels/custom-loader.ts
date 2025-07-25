@@ -376,7 +376,8 @@ export async function loadCustomPanelsMetadata(): Promise<void> {
     
     // Load metadata for each panel
     for (const path of panelPaths) {
-      const id = path.split('/').pop()?.replace('.svelte', '');
+      // Extract ID based on file extension
+      const id = path.split('/').pop()?.replace(/\.(svelte|morph)$/, '');
       if (!id) continue;
       
       try {
@@ -389,7 +390,7 @@ export async function loadCustomPanelsMetadata(): Promise<void> {
           console.log(`[loadCustomPanelsMetadata] Loaded metadata for ${id}:`, metadata);
           
           // Register the panel - IMPORTANT: use the filename-based ID, not metadata.id
-          const panelId = id; // This is the filename without .svelte extension
+          const panelId = id; // This is the filename without extension
           const definition: PanelDefinition = {
             id: panelId, // Always use the filename as the ID
             name: metadata.name || id,

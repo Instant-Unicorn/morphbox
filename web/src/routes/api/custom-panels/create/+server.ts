@@ -5,6 +5,8 @@ import { join } from 'path';
 import { homedir, tmpdir } from 'os';
 import { spawn } from 'child_process';
 import { writeFileSync, unlinkSync, mkdirSync, rmSync } from 'fs';
+import type { MorphFileFormat } from '$lib/types/morph';
+import { createMorphFile } from '$lib/types/morph';
 
 const PANELS_DIR = join(homedir(), 'morphbox', 'panels');
 
@@ -227,7 +229,7 @@ export const POST: RequestHandler = async ({ request }) => {
     
     // Generate panel ID and filename
     const id = generatePanelId(name);
-    const filename = `${id}.svelte`;
+    const filename = `${id}.morph`;
     const filepath = join(PANELS_DIR, filename);
     
     // Generate panel content using Claude
@@ -265,34 +267,29 @@ export const POST: RequestHandler = async ({ request }) => {
       }, { status: 500 });
     }
     
-    // Create metadata file
-    const metadata: PanelMetadata = {
-      id,
-      name,
-      description,
-      promptHistory: [{
-        prompt: description,
-        timestamp: new Date().toISOString(),
-        type: 'create'
-      }],
-      version: '1.0.0',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+    // Create .morph file with all data
+    const morphFile = createMorphFile(
+      {
+        id,
+        name,
+        description,
+        version: '1.0.0',
+        features: [],
+        tags: []
+      },
+      content,
+      description
+    );
     
-    const metadataPath = join(PANELS_DIR, `${id}.json`);
-    
-    // Write both files
-    await Promise.all([
-      writeFile(filepath, content, 'utf-8'),
-      writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8')
-    ]);
+    // Write the .morph file
+    await writeFile(filepath, JSON.stringify(morphFile, null, 2), 'utf-8');
     
     return json({
       id,
       filename,
       path: filepath,
-      metadata
+      metadata: morphFile.metadata,
+      format: 'morph'
     });
   } catch (error) {
     console.error('Failed to create custom panel:', error);

@@ -17,6 +17,7 @@
   let isSmallViewport = false;
   let editingPanel: { id: string; name: string } | null = null;
   let deletingPanel: { id: string; name: string } | null = null;
+  let fileInput: HTMLInputElement;
   
   // Check viewport size
   function checkViewportSize() {
@@ -134,6 +135,79 @@
     deletingPanel = null;
   }
   
+  // Export a panel as .morph file
+  async function exportPanel(panelId: string) {
+    try {
+      const response = await fetch(`/api/custom-panels/export/${panelId}`);
+      if (!response.ok) {
+        throw new Error('Failed to export panel');
+      }
+      
+      // Create a download link
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${panelId}.morph`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to export panel:', error);
+      alert('Failed to export panel. Please try again.');
+    }
+  }
+  
+  // Import a panel from .morph file
+  function importPanel() {
+    // Create a hidden file input
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.morph';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      
+      try {
+        // Read the file
+        const text = await file.text();
+        const morphData = JSON.parse(text);
+        
+        // Upload to server
+        const response = await fetch('/api/custom-panels/import', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: text
+        });
+        
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to import panel');
+        }
+        
+        const result = await response.json();
+        console.log('Panel imported:', result);
+        
+        // Reload custom panels
+        await loadCustomPanelsMetadata();
+        
+        // Show success message
+        if (result.idChanged) {
+          alert(`Panel imported successfully!\n\nNote: The panel ID was changed from "${result.originalId}" to "${result.id}" to avoid conflicts.`);
+        } else {
+          alert('Panel imported successfully!');
+        }
+      } catch (error) {
+        console.error('Failed to import panel:', error);
+        alert(`Failed to import panel: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    };
+    input.click();
+  }
+  
   // Toggle manager visibility
   export function toggleManager() {
     console.log('[PanelManager] Toggle clicked, current state:', showManager);
@@ -198,6 +272,9 @@
             <button class="create-button" on:click={openWizard}>
               + Create New
             </button>
+            <button class="import-button" on:click={importPanel} title="Import .morph file">
+              ↑ Import
+            </button>
             {#if showReset}
               <button class="reset-button" on:click={resetPanels}>
                 Reset Panels
@@ -230,6 +307,11 @@
                   <button class="action-button" on:click={() => editPanel(panel.id, panel.name)} title="Edit/Morph">
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                       <path d="M13.23 1h-1.46L3.52 9.25l-.16.22L1 13.59 2.41 15l4.12-2.36.22-.16L15 4.23V2.77L13.23 1zM2.41 13.59l1.51-1.51.73.73-1.51 1.51-.73-.73zm3.22-2.22L4.3 10.04l6.75-6.75 1.33 1.33-6.75 6.75z"/>
+                    </svg>
+                  </button>
+                  <button class="action-button" on:click={() => exportPanel(panel.id)} title="Export">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                      <path d="M8.5 1v7.5h-1V1h1zm2.354 4.354l-.707-.707L13 7.5l-2.853 2.854.707.707L14.207 7.5l-3.353-3.146zM1 12v2h14v-2H1zm0 0v-1h14v1H1z"/>
                     </svg>
                   </button>
                   <button class="action-button danger" on:click={() => deletePanel(panel.id, panel.name)} title="Delete">
@@ -394,7 +476,8 @@
     font-weight: 600;
   }
   
-  .create-button {
+  .create-button,
+  .import-button {
     padding: 4px 12px;
     background-color: #0e639c;
     color: white;
@@ -407,6 +490,14 @@
   
   .create-button:hover {
     background-color: #1177bb;
+  }
+  
+  .import-button {
+    background-color: #5a7a2a;
+  }
+  
+  .import-button:hover {
+    background-color: #6a8a3a;
   }
   
   .header-buttons {

@@ -44,8 +44,8 @@
         throw new Error('This panel was created before the custom panels fix. Please close this panel and re-open it from the Panel Manager.');
       }
       
-      // Load the panel source
-      const response = await fetch(`/api/custom-panels/load?path=${encodeURIComponent(`${actualPanelType}.svelte`)}`);
+      // Load the panel source using the new code endpoint
+      const response = await fetch(`/api/custom-panels/code/${actualPanelType}`);
       
       if (!response.ok) {
         const errorText = await response.text();

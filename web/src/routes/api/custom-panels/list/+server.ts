@@ -16,12 +16,12 @@ export const GET: RequestHandler = async () => {
       return json([]);
     }
     
-    // Read all .svelte files in the directory
+    // Read all .morph and .svelte files in the directory (support both formats)
     const files = await readdir(PANELS_DIR);
-    const svelteFiles = files
-      .filter(file => file.endsWith('.svelte'));
+    const panelFiles = files
+      .filter(file => file.endsWith('.morph') || file.endsWith('.svelte'));
     
-    return json(svelteFiles);
+    return json(panelFiles);
   } catch (error) {
     console.error('Failed to list custom panels:', error);
     return json({ error: 'Failed to list custom panels' }, { status: 500 });

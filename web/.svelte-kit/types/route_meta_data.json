@@ -6,11 +6,20 @@
 	"/api/auth/login": [
 		"src/routes/api/auth/login/+server.ts"
 	],
+	"/api/custom-panels/code/[id]": [
+		"src/routes/api/custom-panels/code/[id]/+server.ts"
+	],
 	"/api/custom-panels/create": [
 		"src/routes/api/custom-panels/create/+server.ts"
 	],
 	"/api/custom-panels/delete": [
 		"src/routes/api/custom-panels/delete/+server.ts"
+	],
+	"/api/custom-panels/export/[id]": [
+		"src/routes/api/custom-panels/export/[id]/+server.ts"
+	],
+	"/api/custom-panels/import": [
+		"src/routes/api/custom-panels/import/+server.ts"
 	],
 	"/api/custom-panels/list": [
 		"src/routes/api/custom-panels/list/+server.ts"

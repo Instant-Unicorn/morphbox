@@ -3,6 +3,8 @@ import type { RequestHandler } from './$types';
 import { readFile, access } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
+import type { MorphFileFormat } from '$lib/types/morph';
+import { validateMorphFile } from '$lib/types/morph';
 
 const PANELS_DIR = join(homedir(), 'morphbox', 'panels');
 
@@ -83,7 +85,30 @@ export const GET: RequestHandler = async ({ params }) => {
       return json({ error: 'Panel ID is required' }, { status: 400 });
     }
     
-    // First try to read JSON metadata file
+    // First try to read .morph file
+    const morphPath = join(PANELS_DIR, `${id}.morph`);
+    
+    try {
+      await access(morphPath);
+      const morphContent = await readFile(morphPath, 'utf-8');
+      const morphData = JSON.parse(morphContent) as MorphFileFormat;
+      
+      if (validateMorphFile(morphData)) {
+        // Return just the metadata part
+        return json({
+          ...morphData.metadata,
+          createdAt: morphData.createdAt,
+          updatedAt: morphData.updatedAt,
+          promptHistory: morphData.promptHistory
+        });
+      } else {
+        console.error('Invalid .morph file format');
+      }
+    } catch (morphError) {
+      // .morph file doesn't exist or is invalid
+    }
+    
+    // Try to read JSON metadata file (legacy support)
     const metadataPath = join(PANELS_DIR, `${id}.json`);
     
     try {
@@ -107,7 +132,7 @@ export const GET: RequestHandler = async ({ params }) => {
           return json({ error: 'No valid metadata found in panel file' }, { status: 404 });
         }
       } catch (svelteError) {
-        // Neither JSON nor Svelte file exists
+        // No files found
         return json({ error: 'Panel metadata not found' }, { status: 404 });
       }
     }

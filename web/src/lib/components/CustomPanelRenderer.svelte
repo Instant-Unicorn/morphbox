@@ -147,9 +147,15 @@
         .replace(/'/g, '&#39;');
     }
     
+    // Process template literals in the template
+    const processedTemplate = template
+      .replace(/\$\{panelId\}/g, panelId)
+      .replace(/\$\{data\}/g, JSON.stringify(data))
+      .replace(/\$\{websocketUrl\}/g, websocketUrl);
+    
     // Escape the template to prevent script injection within the HTML
     // We need to be careful not to double-escape
-    const escapedTemplate = template
+    const escapedTemplate = processedTemplate
       .replace(/<\/script>/gi, '<\\/script>');
     
     // Build the HTML content as a string to avoid XMLSerializer entity encoding issues

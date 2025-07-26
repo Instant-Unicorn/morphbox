@@ -239,7 +239,10 @@
         }, '*');
       }
       
-      ${processedScript}
+      // Wrap user script in DOM ready check
+      onMount(() => {
+        ${processedScript}
+      });
       
       console.log('[Panel Script] Script executed successfully');
       debugDiv.textContent = 'Script OK';

@@ -1,6 +1,8 @@
-# MorphBox Web Interface
+# MorphBox
 
-A powerful web-based development environment with AI-powered coding assistant (Claude), terminal access, and customizable panels.
+> Docker-based AI sandbox for development with Claude integration
+
+MorphBox provides a secure, isolated development environment with Claude AI integration, perfect for testing code, exploring APIs, and building applications in a sandboxed Docker container.
 
 ## 🚨 CRITICAL SECURITY WARNING - EXTERNAL MODE 🚨
 

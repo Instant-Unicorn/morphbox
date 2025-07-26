@@ -1,10 +1,10 @@
 {
-  "name": "morphbox-web",
+  "name": "morphbox",
   "version": "2.0.0",
-  "private": true,
+  "description": "Docker-based AI sandbox for development with Claude integration",
   "bin": {
-    "morphbox": "./server.js",
-    "morphbox-terminal": "./morphbox-terminal"
+    "morphbox": "./bin/morphbox.js",
+    "morphbox-installer": "./bin/install.js"
   },
   "scripts": {
     "dev": "vite dev --port 8008 --host",
@@ -16,7 +16,10 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "cleanup:claude": "./scripts/cleanup-claude.sh",
-    "cleanup:claude:force": "./scripts/cleanup-claude.sh --force"
+    "cleanup:claude:force": "./scripts/cleanup-claude.sh --force",
+    "prepare": "npm run build",
+    "prepublishOnly": "cp README.npm.md README.md",
+    "postpublish": "git checkout README.md"
   },
   "devDependencies": {
     "@sveltejs/adapter-node": "^4.0.1",
@@ -45,5 +48,47 @@
     "node-pty": "^1.0.0",
     "ws": "^8.18.3"
   },
-  "type": "module"
+  "type": "module",
+  "keywords": [
+    "morphbox",
+    "sandbox",
+    "ai",
+    "development",
+    "docker",
+    "container",
+    "isolation",
+    "claude",
+    "installer",
+    "wsl2"
+  ],
+  "author": "MorphBox Team",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MicahBly/morphbox.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MicahBly/morphbox/issues"
+  },
+  "homepage": "https://morphbox.iu.dev",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "preferGlobal": true,
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "bin/",
+    "build/",
+    "src/",
+    "static/",
+    "README.npm.md",
+    "server.js",
+    "morphbox-terminal",
+    "package.json",
+    "svelte.config.js",
+    "vite.config.ts",
+    "tsconfig.json"
+  ]
 }

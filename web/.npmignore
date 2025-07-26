@@ -1,0 +1,46 @@
+# Development files
+.svelte-kit/
+node_modules/
+logs/
+log/
+data/
+*.log
+
+# Test files
+test-*.js
+test-*.html
+*-test/
+__tests__/
+
+# Build artifacts not needed for npm
+build/client/
+build/server/chunks/
+
+# Documentation that's not for npm
+docs/
+TERMINAL_*.md
+WEBSOCKET_*.md
+fix-*.md
+*.README.md
+
+# Scripts and configs not needed at runtime
+scripts/
+debug-*.js
+clear-*.js
+view-logs.*
+
+# Development configs
+.env
+.env.*
+vite.config.ts.timestamp-*
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Keep only the npm-specific README
+README.md

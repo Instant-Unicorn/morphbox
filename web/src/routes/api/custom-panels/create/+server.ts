@@ -50,6 +50,8 @@ Generate a complete HTML/CSS/JavaScript panel that:
 3. Uses MorphBox CSS variables for theming (--bg-primary, --text-primary, --border-color, etc.)
 4. Implements the functionality described above
 5. Uses proper error handling and loading states where applicable
+
+IMPORTANT: Return ONLY the HTML code starting with <!DOCTYPE html> or <div> tags. Do not include any markdown formatting, code blocks, or explanations. Just the raw HTML/CSS/JavaScript code.
 6. Is responsive and works well on mobile
 
 The panel should follow this structure:
@@ -202,11 +204,34 @@ Make it fully functional and production-ready. Use modern JavaScript features.`;
           return;
         }
         
+        // 4. Look for DOCTYPE html
+        const doctypeMatch = output.match(/<!DOCTYPE html>[\s\S]*/i);
+        if (doctypeMatch) {
+          console.log('Found DOCTYPE match');
+          resolve(doctypeMatch[0]);
+          return;
+        }
+        
+        // 5. Check if entire output looks like HTML
+        if (output.trim().startsWith('<') && (output.includes('</div>') || output.includes('</html>'))) {
+          console.log('Output appears to be raw HTML');
+          resolve(output.trim());
+          return;
+        }
+        
         // If nothing matched, log the output for debugging
         console.error('=== Could not parse Claude response ===');
         console.error('Output length:', output.length);
         console.error('First 500 chars:', output.substring(0, 500));
         console.error('Last 500 chars:', output.substring(output.length - 500));
+        
+        // Try to return the raw output if it looks like HTML
+        if (output.trim().length > 0) {
+          console.log('Returning raw output as fallback');
+          resolve(output.trim());
+          return;
+        }
+        
         reject(new Error('Could not extract panel component from Claude response'));
       }
     });

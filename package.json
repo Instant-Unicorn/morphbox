@@ -1,7 +1,7 @@
 {
   "name": "@morphbox/installer",
-  "version": "1.0.0",
-  "description": "One-command installer for MorphBox - Safe AI sandbox for development",
+  "version": "2.0.0",
+  "description": "One-command installer for MorphBox - Docker-based AI sandbox for development",
   "bin": {
     "morphbox-installer": "./bin/install.js"
   },
@@ -18,21 +18,21 @@
     "sandbox",
     "ai",
     "development",
-    "vm",
+    "docker",
+    "container",
     "isolation",
     "claude",
     "installer",
-    "lima",
     "wsl2"
   ],
   "author": "MorphBox Team",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/morphbox/morphbox.git"
+    "url": "git+https://github.com/MicahBly/morphbox.git"
   },
   "bugs": {
-    "url": "https://github.com/morphbox/morphbox/issues"
+    "url": "https://github.com/MicahBly/morphbox/issues"
   },
   "homepage": "https://morphbox.iu.dev",
   "engines": {

@@ -172,14 +172,23 @@ export const POST: RequestHandler = async ({ request }) => {
       }
     } catch (morphError) {
       // Try legacy files
-      const panelPath = join(PANELS_DIR, `${panelId}.svelte`) || join(PANELS_DIR, `${panelId}.js`);
+      const sveltePath = join(PANELS_DIR, `${panelId}.svelte`);
+      const jsPath = join(PANELS_DIR, `${panelId}.js`);
       const metadataPath = join(PANELS_DIR, `${panelId}.json`);
       
       try {
-        [currentCode, metadata] = await Promise.all([
-          readFile(panelPath, 'utf-8'),
-          readFile(metadataPath, 'utf-8').then(data => JSON.parse(data))
-        ]);
+        // Try .js file first (most common for custom panels)
+        try {
+          await access(jsPath);
+          currentCode = await readFile(jsPath, 'utf-8');
+        } catch {
+          // Fall back to .svelte file
+          await access(sveltePath);
+          currentCode = await readFile(sveltePath, 'utf-8');
+        }
+        
+        // Load metadata
+        metadata = await readFile(metadataPath, 'utf-8').then(data => JSON.parse(data));
       } catch (error) {
         return json({ error: 'Panel not found' }, { status: 404 });
       }

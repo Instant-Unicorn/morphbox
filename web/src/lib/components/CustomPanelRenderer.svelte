@@ -94,7 +94,7 @@
       });
       
       // Check if this is a Svelte component (has Svelte syntax)
-      const isSvelteComponent = template.includes('{#if') || template.includes('{#each') || template.includes('{') || script.includes('import');
+      const isSvelteComponent = template.includes('{#if') || template.includes('{#each') || template.includes('{$') || template.includes('{@') || (script.includes('import') && script.includes('from'));
       
       if (isSvelteComponent) {
         console.log('[CustomPanelRenderer] Detected Svelte syntax in panel');

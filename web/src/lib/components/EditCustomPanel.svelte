@@ -39,6 +39,10 @@
       const response = await fetch(`/api/custom-panels/metadata/${panelId}`);
       if (response.ok) {
         metadata = await response.json();
+        // Ensure promptHistory is always an array
+        if (!metadata.promptHistory) {
+          metadata.promptHistory = [];
+        }
       } else {
         // If metadata endpoint doesn't exist yet, try to get it from localStorage
         const savedPanels = localStorage.getItem('generated-panels');
@@ -169,7 +173,7 @@
           
           {#if showHistory}
             <div class="prompt-history" transition:slide>
-              {#each metadata.promptHistory as item, index}
+              {#each (metadata.promptHistory || []) as item, index}
                 <div class="history-item">
                   <div class="history-header">
                     <span class="history-number">{index + 1}.</span>

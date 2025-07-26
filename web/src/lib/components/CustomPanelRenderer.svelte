@@ -330,7 +330,7 @@
       bind:this={iframeElement}
       class="panel-iframe"
       title="Custom Panel: {actualPanelType}"
-      sandbox="allow-scripts allow-same-origin"
+      sandbox="allow-scripts"
     ></iframe>
   {/if}
   

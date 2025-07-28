@@ -185,7 +185,7 @@
 
   <!-- Sidebar overlay for mobile -->
   {#if sidebarOpen}
-    <div class="sidebar-overlay" on:click={toggleSidebar}></div>
+    <div class="sidebar-overlay" on:click={toggleSidebar} on:keydown={(e) => e.key === 'Escape' && toggleSidebar()} role="button" tabindex="-1" aria-label="Close sidebar"></div>
   {/if}
 
   <!-- Main content -->

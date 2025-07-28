@@ -147,6 +147,10 @@
   <div 
     class="modal-backdrop" 
     on:click={closeModal}
+    on:keydown={(e) => e.key === 'Escape' && closeModal()}
+    role="button"
+    tabindex="-1"
+    aria-label="Close modal"
     transition:fade={{ duration: 200 }}
   />
 {/if}
@@ -155,11 +159,13 @@
 {#if activeModal === 'create'}
   <div 
     class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="create-panel-title"
     transition:fly={{ y: 20, duration: 300 }}
-    on:click|stopPropagation
   >
     <div class="modal-header">
-      <h2>Create New Panel</h2>
+      <h2 id="create-panel-title">Create New Panel</h2>
       <button class="close-button" on:click={closeModal} aria-label="Close">
         <svg width="16" height="16" viewBox="0 0 16 16">
           <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -227,11 +233,13 @@
 {#if activeModal === 'add'}
   <div 
     class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="add-panel-title"
     transition:fly={{ y: 20, duration: 300 }}
-    on:click|stopPropagation
   >
     <div class="modal-header">
-      <h2>Add Panel</h2>
+      <h2 id="add-panel-title">Add Panel</h2>
       <button class="close-button" on:click={closeModal} aria-label="Close">
         <svg width="16" height="16" viewBox="0 0 16 16">
           <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -281,11 +289,13 @@
 {#if activeModal === 'remove'}
   <div 
     class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="remove-panel-title"
     transition:fly={{ y: 20, duration: 300 }}
-    on:click|stopPropagation
   >
     <div class="modal-header">
-      <h2>Remove Panel</h2>
+      <h2 id="remove-panel-title">Remove Panel</h2>
       <button class="close-button" on:click={closeModal} aria-label="Close">
         <svg width="16" height="16" viewBox="0 0 16 16">
           <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -334,11 +344,13 @@
 {#if activeModal === 'manage'}
   <div 
     class="modal modal-large"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="manage-panels-title"
     transition:fly={{ y: 20, duration: 300 }}
-    on:click|stopPropagation
   >
     <div class="modal-header">
-      <h2>Manage Panels</h2>
+      <h2 id="manage-panels-title">Manage Panels</h2>
       <button class="close-button" on:click={closeModal} aria-label="Close">
         <svg width="16" height="16" viewBox="0 0 16 16">
           <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>

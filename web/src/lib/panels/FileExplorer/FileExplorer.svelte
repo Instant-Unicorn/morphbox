@@ -197,7 +197,7 @@
   }
 </script>
 
-<div class="file-explorer" role="region" aria-label="File Explorer" on:click={handleGlobalClick} on:keydown={handleGlobalKeydown}>
+<div class="file-explorer" role="region" aria-label="File Explorer" on:click={handleGlobalClick}>
   <div class="file-explorer-header">
     <h3>Explorer</h3>
     <div class="header-actions">
@@ -213,7 +213,7 @@
         </button>
         
         {#if showTargetMenu}
-          <div class="target-menu" on:click|stopPropagation on:keydown|stopPropagation role="menu">
+          <div class="target-menu" on:click|stopPropagation on:keydown|stopPropagation role="menu" tabindex="-1">
             <div class="menu-header">Open files in:</div>
             <button 
               class="target-option" 

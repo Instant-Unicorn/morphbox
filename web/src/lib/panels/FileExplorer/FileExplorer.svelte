@@ -197,7 +197,7 @@
   }
 </script>
 
-<div class="file-explorer" role="region" aria-label="File Explorer" on:click={handleGlobalClick}>
+<div class="file-explorer" on:click={handleGlobalClick} on:keydown={() => {}} role="application" aria-label="File Explorer">
   <div class="file-explorer-header">
     <h3>Explorer</h3>
     <div class="header-actions">
@@ -423,13 +423,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  
-  .no-targets {
-    padding: 12px;
-    text-align: center;
-    color: var(--text-secondary, #969696);
-    font-size: 12px;
   }
   
   .refresh-btn {

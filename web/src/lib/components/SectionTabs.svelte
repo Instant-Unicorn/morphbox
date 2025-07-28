@@ -184,7 +184,10 @@
             <span 
               class="tab-name"
               on:dblclick={() => startEditing(section.id)}
-              title="Double-click to rename"
+              on:keydown={(e) => e.key === 'F2' && startEditing(section.id)}
+              title="Double-click to rename (F2 to edit)"
+              role="button"
+              tabindex="0"
             >
               {section.name}
             </span>
@@ -194,6 +197,7 @@
             <button 
               class="tab-close"
               on:click|stopPropagation={() => deleteSection(section.id)}
+              on:keydown|stopPropagation={(e) => e.key === 'Enter' && deleteSection(section.id)}
               title="Delete section"
             >
               ×

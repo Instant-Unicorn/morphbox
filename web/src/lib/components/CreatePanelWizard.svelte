@@ -576,6 +576,7 @@ ${styles.join('\n')}
                     class="template-card" 
                     class:selected={selectedTemplate === template.id}
                     on:click={() => selectedTemplate = template.id}
+                    on:keydown={(e) => e.key === 'Enter' && (selectedTemplate = template.id)}
                   >
                     <span class="template-icon">{template.icon}</span>
                     <h5>{template.name}</h5>

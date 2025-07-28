@@ -30,8 +30,17 @@
     const handleResize = () => checkViewportSize();
     window.addEventListener('resize', handleResize);
     
+    // Listen for escape key to close manager
+    const handleKeydown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showManager) {
+        showManager = false;
+      }
+    };
+    window.addEventListener('keydown', handleKeydown);
+    
     return () => {
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('keydown', handleKeydown);
     };
   });
   
@@ -118,12 +127,12 @@
   <!-- Panel Manager Dropdown -->
   {#if showManager}
     <!-- Backdrop -->
-    <div class="panel-manager-backdrop" on:click={() => showManager = false}></div>
+    <div class="panel-manager-backdrop" on:click={() => showManager = false} on:keydown={(e) => e.key === 'Escape' && (showManager = false)} role="button" tabindex="-1" aria-label="Close panel manager"></div>
     
     <div class="panel-manager" role="dialog" aria-label="Panel Manager" on:click|stopPropagation>
     <div class="manager-header">
       <h3>Panel Manager</h3>
-      <button class="close-button" on:click={() => showManager = false}>×</button>
+      <button class="close-button" on:click={() => showManager = false} on:keydown={(e) => e.key === 'Enter' && (showManager = false)}>×</button>
     </div>
     
     <div class="manager-content">

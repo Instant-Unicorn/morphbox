@@ -9,5 +9,10 @@ export default defineConfig({
     hmr: {
       port: 8008
     }
+  },
+  build: {
+    rollupOptions: {
+      external: ['better-sqlite3', 'node-pty', 'ws']
+    }
   }
 });

@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { mkdir } from 'fs/promises';
+import { homedir } from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -11,7 +12,9 @@ export class StateManager {
   private dbPath: string;
 
   constructor() {
-    this.dbPath = join(__dirname, '../../../data/morphbox.db');
+    // Use morphbox home directory for packaged version
+    const morphboxHome = process.env.MORPHBOX_HOME || join(homedir(), '.morphbox');
+    this.dbPath = join(morphboxHome, 'data', 'morphbox.db');
   }
 
   async initialize(): Promise<void> {

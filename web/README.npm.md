@@ -10,10 +10,7 @@ MorphBox provides a secure, isolated development environment with Claude AI inte
 # Install MorphBox globally
 npm install -g morphbox
 
-# Run the installer to set up Docker environment
-morphbox-installer
-
-# Start MorphBox
+# Start MorphBox (will auto-install on first run)
 morphbox
 ```
 
@@ -40,13 +37,13 @@ morphbox
 
 ```bash
 npm install -g morphbox
-morphbox-installer
+morphbox  # Auto-installs on first run
 ```
 
 ### Method 2: npx (No Install)
 
 ```bash
-npx morphbox-installer
+npx morphbox
 ```
 
 ## Usage

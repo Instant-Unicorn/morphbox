@@ -5,6 +5,10 @@ logs/
 log/
 data/
 *.log
+src/
+*.config.js
+*.config.ts
+tsconfig.json
 
 # Test files
 test-*.js

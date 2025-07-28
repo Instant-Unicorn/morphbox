@@ -1,0 +1,354 @@
+#!/bin/bash
+set -euo pipefail
+
+# MorphBox Launcher - Simplified version
+
+# Colors
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+info() { echo -e "${GREEN}[INFO]${NC} $1"; }
+error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
+warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
+WEB_DIR="$SCRIPT_DIR"
+
+# Load config from .morphbox.env if exists
+if [[ -f "$SCRIPT_DIR/.morphbox.env" ]]; then
+    source "$SCRIPT_DIR/.morphbox.env"
+fi
+
+# Default to local only
+BIND_HOST="${MORPHBOX_HOST:-localhost}"
+ACCESS_MODE="${MORPHBOX_BIND_MODE:-local}"
+DEV_MODE=false
+AUTH_ENABLED=false
+TERMINAL_MODE=false
+MORPHBOX_AUTH_USERNAME=""
+MORPHBOX_AUTH_PASSWORD=""
+
+# Apply bind mode
+if [[ "$ACCESS_MODE" == "external" ]]; then
+    BIND_HOST="0.0.0.0"
+fi
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --external)
+            BIND_HOST="0.0.0.0"
+            ACCESS_MODE="external"
+            shift
+            ;;
+        --local)
+            BIND_HOST="localhost"
+            ACCESS_MODE="local"
+            shift
+            ;;
+        --vpn)
+            # Auto-detect VPN interface IP
+            VPN_IP=$(ip addr show | grep -E "tailscale0|tun0|utun|wg0" | grep "inet " | awk '{print $2}' | cut -d/ -f1 | head -n1)
+            if [[ -n "$VPN_IP" ]]; then
+                BIND_HOST="$VPN_IP"
+                ACCESS_MODE="vpn"
+                info "Detected VPN IP: $VPN_IP"
+            else
+                warn "No VPN interface detected, falling back to external mode"
+                BIND_HOST="0.0.0.0"
+                ACCESS_MODE="external"
+            fi
+            shift
+            ;;
+        --auth)
+            AUTH_ENABLED=true
+            shift
+            ;;
+        --terminal)
+            TERMINAL_MODE=true
+            shift
+            ;;
+        --dev)
+            DEV_MODE=true
+            shift
+            ;;
+        --help)
+            echo "MorphBox Launcher"
+            echo ""
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --local     Bind to localhost only (default)"
+            echo "  --external  Bind to all interfaces (WARNING: exposes to network)"
+            echo "  --vpn       Auto-detect and bind to VPN interface (Tailscale, WireGuard, etc.)"
+            echo "  --terminal  Terminal mode - Claude Code only, no panels"
+            echo "  --auth      Enable authentication (mandatory for --external, optional for --vpn)"
+            echo "  --dev       Skip security warnings (development mode)"
+            echo "  --help      Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  $0              # Start locally (safe)"
+            echo "  $0 --terminal   # Claude Code only mode"
+            echo "  $0 --external   # Expose to network with mandatory auth"
+            echo "  $0 --vpn       # Bind to VPN interface only"
+            echo "  $0 --vpn --auth # VPN mode with authentication"
+            echo "  $0 --external --dev   # External mode without prompts"
+            exit 0
+            ;;
+        *)
+            error "Unknown option: $1. Use --help for usage."
+            ;;
+    esac
+done
+
+# Check dependencies
+if ! command -v node > /dev/null; then
+    error "Node.js is not installed. Please install Node.js 18 or later"
+fi
+
+# Skip dependency installation for packaged version
+# Dependencies are already bundled in the npm package
+
+# Setup authentication
+if [[ "$ACCESS_MODE" == "external" ]] || ([[ "$ACCESS_MODE" == "vpn" ]] && [[ "$AUTH_ENABLED" == "true" ]]); then
+    # External mode always requires auth, VPN mode only if --auth is specified
+    if [[ "$ACCESS_MODE" == "external" ]]; then
+        AUTH_ENABLED=true
+        export MORPHBOX_AUTH_MODE="external"
+    else
+        export MORPHBOX_AUTH_MODE="vpn"
+    fi
+    
+    # Generate secure credentials if not provided
+    if [[ -z "$MORPHBOX_AUTH_USERNAME" ]]; then
+        export MORPHBOX_AUTH_USERNAME="admin"
+    fi
+    
+    if [[ -z "$MORPHBOX_AUTH_PASSWORD" ]]; then
+        # Generate a secure random password
+        export MORPHBOX_AUTH_PASSWORD=$(openssl rand -base64 12)
+        info "🔐 Generated authentication credentials:"
+        info "   Username: $MORPHBOX_AUTH_USERNAME"
+        info "   Password: $MORPHBOX_AUTH_PASSWORD"
+        info "   Save these credentials - you'll need them to access MorphBox!"
+    fi
+    
+    export MORPHBOX_AUTH_ENABLED="true"
+else
+    export MORPHBOX_AUTH_MODE="none"
+    export MORPHBOX_AUTH_ENABLED="false"
+fi
+
+# Show security warning if external (unless in dev mode)
+if [[ "$ACCESS_MODE" == "external" ]] && [[ "$DEV_MODE" != "true" ]]; then
+    echo ""
+    echo -e "${RED}████████████████████████████████████████████████████████████████${NC}"
+    echo -e "${RED}█                                                              █${NC}"
+    echo -e "${RED}█  🚨 EXTREME SECURITY WARNING - READ CAREFULLY! 🚨            █${NC}"
+    echo -e "${RED}█                                                              █${NC}"
+    echo -e "${RED}████████████████████████████████████████████████████████████████${NC}"
+    echo ""
+    warn "You are about to expose your ENTIRE DEVELOPMENT ENVIRONMENT to the network!"
+    echo ""
+    warn "This means ANYONE on your network can:"
+    warn "  ❌ Execute ANY command on your system"
+    warn "  ❌ Read, modify, or DELETE any accessible file"
+    warn "  ❌ Steal your source code and secrets"
+    warn "  ❌ Install malware or backdoors"
+    warn "  ❌ Use your machine to attack others"
+    echo ""
+    warn "Authentication is enabled but is NOT sufficient protection!"
+    echo ""
+    warn "ONLY proceed if ALL of these are true:"
+    warn "  ✅ You are on an isolated, air-gapped network"
+    warn "  ✅ This machine contains NO sensitive data"
+    warn "  ✅ This machine has NO production access"
+    warn "  ✅ You understand and accept these risks"
+    echo ""
+    echo -e "${RED}If you're unsure, the answer is NO. Press 'n' to cancel.${NC}"
+    echo ""
+    read -p "Type 'I UNDERSTAND THE RISKS' to continue: " -r CONFIRM
+    echo ""
+    if [[ "$CONFIRM" != "I UNDERSTAND THE RISKS" ]]; then
+        info "Aborted. Good choice! Use --vpn for safer remote access."
+        exit 0
+    fi
+elif [[ "$ACCESS_MODE" == "vpn" ]]; then
+    info "✅ VPN mode: MorphBox will only be accessible via VPN connection"
+    info "Binding to: $BIND_HOST"
+    if [[ "$AUTH_ENABLED" == "true" ]]; then
+        info "🔐 Authentication is enabled for additional security"
+    fi
+fi
+
+# Kill any existing processes
+pkill -f "tsx.*websocket-server" 2>/dev/null || true
+pkill -f "vite dev" 2>/dev/null || true
+
+# Start Docker container if not running
+info "Checking Docker container..."
+if ! docker ps | grep -q morphbox-vm; then
+    info "Starting MorphBox VM container..."
+    cd "$SCRIPT_DIR/docker"
+    docker compose up -d
+    sleep 2
+else
+    info "MorphBox VM container already running"
+fi
+
+# Check for Claude updates in container
+check_claude_updates() {
+    info "Checking for Claude updates..."
+    
+    # Get current version
+    CURRENT_VERSION=$(docker exec -u morphbox morphbox-vm npm list -g @anthropic-ai/claude-code 2>/dev/null | grep '@anthropic-ai/claude-code@' | sed 's/.*@anthropic-ai\/claude-code@//' | tr -d ' ')
+    
+    if [[ -z "$CURRENT_VERSION" ]]; then
+        warn "Could not determine Claude version"
+        return 0
+    fi
+    
+    # Check for updates (this will be silent if already up to date)
+    UPDATE_CHECK=$(docker exec -u morphbox morphbox-vm npm outdated -g @anthropic-ai/claude-code 2>/dev/null | grep '@anthropic-ai/claude-code' || true)
+    
+    if [[ -n "$UPDATE_CHECK" ]]; then
+        LATEST_VERSION=$(echo "$UPDATE_CHECK" | awk '{print $4}')
+        info "Claude update available: $CURRENT_VERSION → $LATEST_VERSION"
+        info "Updating Claude in container..."
+        
+        if docker exec -u morphbox morphbox-vm npm update -g @anthropic-ai/claude-code > /dev/null 2>&1; then
+            NEW_VERSION=$(docker exec -u morphbox morphbox-vm npm list -g @anthropic-ai/claude-code 2>/dev/null | grep '@anthropic-ai/claude-code@' | sed 's/.*@anthropic-ai\/claude-code@//' | tr -d ' ')
+            info "Claude updated successfully to version $NEW_VERSION"
+        else
+            warn "Failed to update Claude - auto-update may still work inside the terminal"
+        fi
+    else
+        info "Claude is up to date (version $CURRENT_VERSION)"
+    fi
+}
+
+# Run update check
+check_claude_updates
+
+# Get local IP for external mode
+if [[ "$ACCESS_MODE" == "external" ]]; then
+    LOCAL_IP=$(hostname -I | awk '{print $1}')
+    WS_URL="ws://${LOCAL_IP}:8009"
+    WEB_URL="http://${LOCAL_IP}:8008"
+else
+    WS_URL="ws://localhost:8009"
+    WEB_URL="http://localhost:8008"
+fi
+
+# Terminal mode - run Claude directly in terminal
+if [[ "$TERMINAL_MODE" == "true" ]]; then
+    info "Launching Claude in terminal mode..."
+    
+    # Get the current directory
+    CURRENT_DIR=$(pwd)
+    
+    # Determine the working directory in the container
+    # Check if we're in the morphbox project directory
+    if [[ "$CURRENT_DIR" == "$SCRIPT_DIR"* ]]; then
+        # We're inside the morphbox project, which is mounted at /workspace/morphbox
+        RELATIVE_PATH="${CURRENT_DIR#$SCRIPT_DIR}"
+        CONTAINER_PATH="/workspace/morphbox${RELATIVE_PATH}"
+        info "Working in morphbox project directory"
+    else
+        # We're outside the morphbox project
+        # Just start in the default workspace - user can navigate from there
+        CONTAINER_PATH="/workspace"
+        info "Starting in default workspace directory"
+        info "Note: Current directory ($CURRENT_DIR) is not directly accessible"
+        info "You can navigate to /workspace/morphbox for the morphbox project"
+    fi
+    
+    echo ""
+    
+    # Run Claude directly in the Docker container
+    # Note: Not using --continue flag in terminal mode so it starts fresh
+    docker exec -it \
+        -u morphbox \
+        -w "$CONTAINER_PATH" \
+        -e "TERM=xterm-256color" \
+        -e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}" \
+        morphbox-vm \
+        bash -c "claude || bash"
+    
+    # Exit after Claude exits
+    exit 0
+fi
+
+# For packaged version, start the pre-built server
+info "Starting MorphBox server..."
+cd "$WEB_DIR"
+MORPHBOX_HOME="$HOME/.morphbox" \
+MORPHBOX_HOST="$BIND_HOST" \
+MORPHBOX_AUTH_MODE="$MORPHBOX_AUTH_MODE" \
+MORPHBOX_AUTH_ENABLED="$MORPHBOX_AUTH_ENABLED" \
+MORPHBOX_AUTH_USERNAME="$MORPHBOX_AUTH_USERNAME" \
+MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
+HOST="$BIND_HOST" \
+PORT=8008 \
+WS_PORT=8009 \
+node server-packaged.js > "$SCRIPT_DIR/morphbox.log" 2>&1 &
+WEB_PID=$!
+
+# Wait for web server
+sleep 3
+
+info "MorphBox is running!"
+echo ""
+if [[ "$TERMINAL_MODE" == "true" ]]; then
+    info "🖥️  Terminal Mode - Claude Code only (no panels)"
+fi
+if [[ "$DEV_MODE" == "true" ]]; then
+    info "Development mode enabled (warnings disabled)"
+fi
+if [[ "$ACCESS_MODE" == "external" ]]; then
+    echo -e "${BLUE}External Access Enabled:${NC}"
+    info "- Web interface: $WEB_URL"
+    info "- Also accessible at: http://${BIND_HOST}:8008"
+    info "- WebSocket server: $WS_URL"
+    echo ""
+    warn "Remember to configure firewall rules if needed"
+else
+    info "- Web interface: $WEB_URL"
+    info "- WebSocket server: $WS_URL"
+fi
+info ""
+info "Press Ctrl+C to stop all services"
+
+# Cleanup function
+cleanup() {
+    echo ""
+    info "Stopping MorphBox..."
+    [[ -n "$WEB_PID" ]] && kill $WEB_PID 2>/dev/null || true
+    pkill -f "node server" 2>/dev/null || true
+    
+    # Automatically stop Docker container
+    if docker ps | grep -q morphbox-vm; then
+        info "Stopping Docker container..."
+        cd "$SCRIPT_DIR/docker"
+        docker compose down
+    fi
+    
+    info "MorphBox stopped"
+    exit 0
+}
+
+# Set up signal handler
+trap cleanup SIGINT SIGTERM
+
+# Keep script running
+while true; do
+    # Check if web server is still running
+    if [[ -n "$WEB_PID" ]] && ! kill -0 $WEB_PID 2>/dev/null; then
+        warn "Web server stopped unexpectedly"
+        cleanup
+    fi
+    sleep 5
+done

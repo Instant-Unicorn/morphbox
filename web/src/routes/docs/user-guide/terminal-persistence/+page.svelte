@@ -1,6 +1,3 @@
-<script>
-  import { CodeBlock } from '$lib/components/docs/CodeBlock.svelte';
-</script>
 
 <svelte:head>
   <title>Terminal Persistence - MorphBox Documentation</title>

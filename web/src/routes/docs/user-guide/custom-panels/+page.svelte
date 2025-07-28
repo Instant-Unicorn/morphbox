@@ -1,42 +1,18 @@
 <script>
+  import CodeBlock from '$lib/components/CodeBlock.svelte';
+  
   const templates = [
     { name: 'basic', description: 'Simple panel with data display' },
     { name: 'api', description: 'Panel that fetches data from APIs' },
     { name: 'chart', description: 'Data visualization panel' },
     { name: 'form', description: 'Interactive form panel' }
   ];
-</script>
-
-<svelte:head>
-  <title>Custom Panels - MorphBox Documentation</title>
-</svelte:head>
-
-# Custom Panels
-
-Create your own panels to extend MorphBox functionality. Panels are single-file Svelte components stored in `~/morphbox/panels/` and loaded automatically.
-
-## Quick Start
-
-### Using the CLI Tool
-```bash
-morphbox-panel
-```
-
-This interactive tool helps you:
-- Choose a template
-- Set panel metadata
-- Create the panel file
-- See it appear in MorphBox immediately
-
-### Manual Creation
-Create a `.svelte` file in `~/morphbox/panels/`:
-
-```svelte
-<!-- 
-@panel-name: My Custom Panel
-@panel-description: A simple custom panel
+  
+  const examplePanel = `<!--
+@panel-name: My Panel
+@panel-description: A simple counter panel
 @panel-icon: 🎯
-@panel-category: custom
+@panel-category: Tools
 -->
 
 <script>
@@ -44,7 +20,7 @@ Create a `.svelte` file in `~/morphbox/panels/`:
   export let data = {};
   
   let count = 0;
-</script>
+<\/script>
 
 <div class="custom-panel">
   <h2>My Custom Panel</h2>
@@ -57,8 +33,84 @@ Create a `.svelte` file in `~/morphbox/panels/`:
     padding: 20px;
     height: 100%;
   }
-</style>
-```
+<\/style>`;
+
+  const apiExample = `// Access panel store
+import { panelStore } from '$lib/stores/panels';
+
+// Use WebSocket
+import { websocket } from '$lib/websocket';
+
+// File operations
+const response = await fetch('/api/files/read', {
+  method: 'POST',
+  body: JSON.stringify({ path: '/some/file' })
+});`;
+
+  const communicationExample = `// Dispatch events
+import { createEventDispatcher } from 'svelte';
+const dispatch = createEventDispatcher();
+
+dispatch('open', { file: 'example.txt' });`;
+
+  const persistenceExample = `import { browser } from '$app/environment';
+
+// Save state
+if (browser) {
+  localStorage.setItem(\`panel-\${panelId}\`, JSON.stringify(state));
+}
+
+// Restore state
+onMount(() => {
+  const saved = localStorage.getItem(\`panel-\${panelId}\`);
+  if (saved) state = JSON.parse(saved);
+});`;
+  
+  const externalLibsExample = `// Chart.js example
+import Chart from 'chart.js/auto';
+
+onMount(() => {
+  new Chart(canvas, config);
+});`;
+
+  const websocketExample = `websocket.subscribe(msg => {
+  if (msg.type === 'update') {
+    // Handle real-time updates
+  }
+});`;
+</script>
+
+<svelte:head>
+  <title>Custom Panels - MorphBox Documentation</title>
+  <meta name="description" content="Learn how to create custom panels for MorphBox" />
+</svelte:head>
+
+# Custom Panels
+
+Create reusable UI components that integrate seamlessly with MorphBox.
+
+## Overview
+
+Custom panels are single `.morph` files containing:
+- HTML/JavaScript code
+- Panel metadata
+- Prompt history (for AI-generated panels)
+
+Panels are stored in `~/morphbox/panels/` and hot-reload automatically.
+
+## Quick Start
+
+### Creating Your First Panel
+
+1. Open Panel Manager (+ button in UI)
+2. Click "Create Custom Panel"
+3. Enter name and description
+4. Select a template
+5. Claude will generate the panel code
+
+### Panel Example
+
+<CodeBlock code={examplePanel} language="svelte" />
 
 ## Panel Structure
 
@@ -75,7 +127,7 @@ Standard props passed to all panels:
 - `data`: Panel-specific data
 
 ### Styling
-- Use scoped styles with `<style>`
+- Use scoped styles
 - Panel container handles sizing
 - Set `height: 100%` for full panel
 
@@ -88,105 +140,65 @@ Standard props passed to all panels:
 Use: `morphbox-panel` and select "{template.name}"
 {/each}
 
-## Development Tips
+## Development Workflow
 
 ### Hot Reloading
-- Changes to panel files reload automatically
+- Save changes to see updates instantly
 - No need to restart MorphBox
 - Errors shown in browser console
 
 ### Using MorphBox APIs
-```javascript
-// Access panel store
-import { panelStore } from '$lib/stores/panels';
 
-// Use WebSocket
-import { websocket } from '$lib/websocket';
-
-// File operations
-const response = await fetch('/api/files/read', {
-  method: 'POST',
-  body: JSON.stringify({ path: '/some/file' })
-});
-```
+<CodeBlock code={apiExample} language="javascript" />
 
 ### Panel Communication
-```javascript
-// Dispatch events
-import { createEventDispatcher } from 'svelte';
-const dispatch = createEventDispatcher();
 
-dispatch('open', { file: 'example.txt' });
-```
+<CodeBlock code={communicationExample} language="javascript" />
 
 ## Best Practices
 
 ### Performance
-- Use reactive statements wisely
-- Debounce expensive operations
-- Clean up resources in onDestroy
+- Minimize re-renders
+- Use stores for shared state
+- Lazy load heavy components
 
-### User Experience
-- Provide loading states
-- Handle errors gracefully
-- Make it mobile-friendly
-- Follow MorphBox theme
+### Accessibility
+- Add ARIA labels
+- Support keyboard navigation
+- Maintain focus management
 
-### Organization
-- One feature per panel
-- Clear, descriptive names
-- Good documentation
-- Shareable as single file
-
-## Sharing Panels
-
-### Export
-Simply copy the `.svelte` file from `~/morphbox/panels/`
-
-### Import
-Place `.svelte` files in `~/morphbox/panels/` on any MorphBox installation
-
-### Panel Repository
-Share your panels with the community! (Coming soon)
+### Error Handling
+- Wrap async operations in try/catch
+- Show user-friendly error messages
+- Log errors for debugging
 
 ## Advanced Features
 
 ### State Persistence
-```javascript
-import { browser } from '$app/environment';
 
-// Save state
-if (browser) {
-  localStorage.setItem(`panel-${panelId}`, JSON.stringify(state));
-}
-
-// Restore state
-onMount(() => {
-  const saved = localStorage.getItem(`panel-${panelId}`);
-  if (saved) state = JSON.parse(saved);
-});
-```
+<CodeBlock code={persistenceExample} language="javascript" />
 
 ### External Libraries
-```javascript
-import { onMount } from 'svelte';
 
-onMount(async () => {
-  // Dynamic imports for client-side only
-  const { Chart } = await import('chart.js');
-  // Use library
-});
-```
+<CodeBlock code={externalLibsExample} language="javascript" />
 
-### Real-time Updates
-```javascript
-// Subscribe to WebSocket events
-websocket.subscribe(message => {
-  if (message.type === 'data-update') {
-    updatePanelData(message.payload);
-  }
-});
-```
+### WebSocket Integration
+
+<CodeBlock code={websocketExample} language="javascript" />
+
+## AI Panel Generation
+
+### Using Claude
+- Describe functionality clearly
+- Specify UI requirements
+- Include data sources
+- Request specific features
+
+### Editing Generated Panels
+1. Open panel in Panel Manager
+2. Click "Edit"
+3. Modify code and metadata
+4. Save to apply changes
 
 ## Troubleshooting
 
@@ -207,3 +219,7 @@ websocket.subscribe(message => {
 - Reduce re-renders
 - Optimize data fetching
 - Use virtual scrolling for lists
+
+<style>
+  /* Component styles */
+</style>

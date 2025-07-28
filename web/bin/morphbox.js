@@ -57,38 +57,47 @@ For more information, visit: https://github.com/MicahBly/morphbox
 `);
 }
 
-// Check if this is the first run (no morphbox installation found)
-function checkInstallation() {
-  const morphboxHome = path.join(os.homedir(), '.morphbox');
+// Get the installation directory
+function getInstallationDir() {
+  // The actual morphbox files are packaged with npm
+  // They're in the parent directory of bin/
+  const npmPackageRoot = path.resolve(__dirname, '..');
+  return npmPackageRoot;
+}
+
+// Check Docker is available
+async function checkDocker() {
+  const { execSync } = await import('child_process');
   
-  if (!fs.existsSync(morphboxHome)) {
-    log.warn('MorphBox is not installed yet.');
-    log.info('Please run: morphbox-installer');
-    log.info('');
-    log.info('Or install MorphBox with:');
-    console.log(`  ${colors.blue}npx morphbox-installer${colors.reset}`);
+  try {
+    execSync('docker --version', { stdio: 'ignore' });
+    execSync('docker ps', { stdio: 'ignore' });
+  } catch (e) {
+    log.error('Docker is not installed or not running. Please install Docker first.');
+    log.info('Visit: https://docs.docker.com/get-docker/');
     process.exit(1);
   }
-  
-  return morphboxHome;
 }
 
 // Main function
-function main() {
+async function main() {
   // Check for help flag
   if (args.includes('--help') || args.includes('-h')) {
     showHelp();
     process.exit(0);
   }
   
-  // Check installation
-  const morphboxHome = checkInstallation();
-  const morphboxStart = path.join(morphboxHome, 'morphbox-start');
+  // Check Docker is available
+  await checkDocker();
+  
+  // Get the installation directory (from npm package)
+  const morphboxHome = getInstallationDir();
+  const morphboxStart = path.join(morphboxHome, 'scripts', 'morphbox-start');
   
   // Check if morphbox-start exists
   if (!fs.existsSync(morphboxStart)) {
     log.error('MorphBox installation is incomplete.');
-    log.info('Please reinstall with: morphbox-installer');
+    log.info('Please reinstall with: npm install -g morphbox');
     process.exit(1);
   }
   
@@ -112,4 +121,7 @@ function main() {
 }
 
 // Run main function
-main();
+main().catch(err => {
+  log.error(`Unexpected error: ${err.message}`);
+  process.exit(1);
+});

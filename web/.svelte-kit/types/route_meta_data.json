@@ -42,27 +42,6 @@
 	"/api/log/browser": [
 		"src/routes/api/log/browser/+server.ts"
 	],
-	"/api/panels": [
-		"src/routes/api/panels/+server.ts"
-	],
-	"/api/panels/create": [
-		"src/routes/api/panels/create/+server.ts"
-	],
-	"/api/panels/layout": [
-		"src/routes/api/panels/layout/+server.ts"
-	],
-	"/api/panels/list": [
-		"src/routes/api/panels/list/+server.ts"
-	],
-	"/api/panels/load": [
-		"src/routes/api/panels/load/+server.ts"
-	],
-	"/api/panels/save": [
-		"src/routes/api/panels/save/+server.ts"
-	],
-	"/api/panels/templates": [
-		"src/routes/api/panels/templates/+server.ts"
-	],
 	"/api/sessions": [
 		"src/routes/api/sessions/+server.ts"
 	],

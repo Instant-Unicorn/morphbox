@@ -4,148 +4,101 @@
 
 MorphBox provides a secure, isolated development environment with Claude AI integration, perfect for testing code, exploring APIs, and building applications in a sandboxed Docker container.
 
-## 🚨 CRITICAL SECURITY WARNING - EXTERNAL MODE 🚨
-
-**⚠️ EXTREME CAUTION: The `--external` flag exposes your ENTIRE development environment to the network!**
-
-### What --external mode exposes:
-- ❌ **FULL terminal access to your system**
-- ❌ **Complete file system access** (read/write/delete)
-- ❌ **Ability to execute ANY command** on your machine
-- ❌ **Access to environment variables and secrets**
-- ❌ **Network access from your machine**
-
-### Security implications:
-- 🔴 **ANYONE on the network can control your machine**
-- 🔴 **Your source code can be stolen**
-- 🔴 **Malware can be installed**
-- 🔴 **Your credentials and secrets can be exposed**
-- 🔴 **Your machine can be used as a pivot point for attacks**
-
-### When to use --external:
-- ✅ **ONLY on completely isolated, air-gapped networks**
-- ✅ **ONLY with machines containing no sensitive data**
-- ✅ **ONLY when you fully understand the risks**
-- ✅ **NEVER on public WiFi or untrusted networks**
-- ✅ **NEVER on development machines with production access**
-
-### Authentication in --external mode:
-While `--external` mode includes mandatory authentication:
-- 🔐 Random credentials are generated on startup
-- 🔐 All connections require authentication
-- ⚠️ **This is NOT sufficient protection against determined attackers**
-- ⚠️ **Authentication only prevents casual access**
-
-## Safe Usage Options
-
-### 1. Local Mode (Default - RECOMMENDED)
-```bash
-cd web && npm run dev
-# or
-./morphbox-start
-```
-- ✅ Only accessible from localhost
-- ✅ Safe for development
-- ✅ No authentication required
-
-### 2. VPN Mode (Recommended for remote access)
-```bash
-./morphbox-start --vpn
-```
-- ✅ Binds only to VPN interface (Tailscale, WireGuard, etc.)
-- ✅ Accessible only to VPN-connected devices
-- ✅ Much safer than external mode
-- ✅ Optional authentication with `--vpn --auth`
-
-### 3. Terminal Mode (Claude only)
-```bash
-npm run start:terminal
-# or
-node server.js --terminal
-```
-- ✅ Minimal interface with only Claude Code
-- ✅ No panel management or file explorer
-- ✅ Reduced attack surface
-
-## Installation
+## Quick Start
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/morphbox.git
-cd morphbox/web
+# Install MorphBox globally
+npm install -g morphbox
 
-# Install dependencies
-npm install
+# Run the installer to set up Docker environment
+morphbox-installer
 
-# Build the project
-npm run build
-```
-
-## Development
-
-```bash
-# Start in development mode (recommended)
-npm run dev
-
-# Start WebSocket server separately
-npm run dev:ws
-
-# Type checking
-npm run check
+# Start MorphBox
+morphbox
 ```
 
 ## Features
 
-- 🤖 **Claude Code Integration**: AI-powered coding assistant
-- 🖥️ **Terminal Access**: Full terminal with session persistence
-- 📁 **File Explorer**: Browse and edit files
-- 🎨 **Customizable Panels**: Drag-and-drop interface with color customization
-- 📊 **Responsive Layout**: Adapts to different screen sizes
-- 🔐 **Authentication**: Mandatory for external mode, optional for VPN
-- 🌙 **Theme Support**: Light and dark themes
+- 🐳 **Docker-based isolation**: Run code in secure containers
+- 🤖 **Claude AI integration**: Built-in Claude Code terminal
+- 💾 **Persistent workspace**: Files and sessions persist
+- 🌐 **Web-based IDE**: Full-featured code editor
+- 🖥️ **Terminal access**: Direct container terminal
+- 📁 **File management**: Built-in file explorer
+- 🔐 **Secure access modes**: Local, VPN, or authenticated external
 
-## Architecture
+## Requirements
 
-- **Frontend**: SvelteKit with TypeScript
-- **Backend**: Node.js with WebSocket support
-- **Terminal**: node-pty for terminal emulation
-- **Database**: SQLite for session and panel persistence
-- **Authentication**: Token-based with secure session management
+- Node.js 14+
+- Docker Desktop or Docker Engine
+- Git
+- macOS, Linux, or Windows (WSL2)
 
-## Configuration
+## Installation
 
-### Environment Variables
-- `MORPHBOX_HOST`: Bind address (default: localhost)
-- `MORPHBOX_AUTH_MODE`: Authentication mode (none/vpn/external)
-- `MORPHBOX_AUTH_USERNAME`: Auth username (auto-generated if not set)
-- `MORPHBOX_AUTH_PASSWORD`: Auth password (auto-generated if not set)
+### Method 1: Global Install (Recommended)
 
-## Production Deployment
+```bash
+npm install -g morphbox
+morphbox-installer
+```
 
-**⚠️ WARNING: This application is designed for LOCAL DEVELOPMENT USE ONLY!**
+### Method 2: npx (No Install)
 
-If you must deploy to production:
-1. **NEVER use --external mode**
-2. Use a proper reverse proxy (nginx, Apache)
-3. Enable HTTPS/TLS
-4. Use proper authentication (OAuth, SAML)
-5. Implement rate limiting
-6. Add request logging and monitoring
-7. Isolate in containers/VMs
-8. Regular security audits
+```bash
+npx morphbox-installer
+```
 
-## Contributing
+## Usage
 
-Please ensure any contributions maintain or improve security:
-- No features that bypass authentication
-- No features that increase attack surface
-- Security warnings must remain prominent
-- Default to secure configurations
+### Basic Commands
+
+```bash
+# Start web interface (http://localhost:8008)
+morphbox
+
+# Terminal mode - Claude only, no web UI
+morphbox --terminal
+
+# Show all options
+morphbox --help
+```
+
+### Access Modes
+
+```bash
+# Local only (default, safest)
+morphbox
+
+# VPN access (Tailscale, WireGuard, etc.)
+morphbox --vpn
+
+# External with auth (⚠️ DANGEROUS)
+morphbox --external
+```
+
+## What's Included
+
+- **Claude Code**: AI coding assistant
+- **Monaco Editor**: VS Code editor in browser
+- **Terminal**: Full Linux terminal
+- **File Explorer**: Browse and edit files
+- **Git Panel**: Visual git operations
+- **Task Runner**: Background tasks
+- **Custom Panels**: Create your own tools
+
+## Security
+
+MorphBox runs in Docker containers isolated from your host system. By default, only local access is allowed. External access requires explicit flags and authentication.
+
+⚠️ **WARNING**: The `--external` flag exposes your environment to the network. Use with extreme caution!
+
+## Documentation
+
+- [GitHub](https://github.com/MicahBly/morphbox)
+- [User Manual](https://github.com/MicahBly/morphbox/blob/main/docs/USER_MANUAL.md)
+- [API Reference](https://github.com/MicahBly/morphbox/blob/main/docs/API_REFERENCE.md)
 
 ## License
 
-Apache License 2.0 - See LICENSE file for details.
-
----
-
-**Remember: With great power comes great responsibility. MorphBox gives you powerful tools - use them wisely and securely!**
+Apache-2.0

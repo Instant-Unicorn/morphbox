@@ -1,5 +1,5 @@
 <script>
-  import { Keyboard, Command, Option, Shift, Control, Tab, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-svelte';
+  import { Keyboard, Command, Option, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-svelte';
   
   const shortcuts = [
     {

@@ -213,7 +213,7 @@
         </button>
         
         {#if showTargetMenu}
-          <div class="target-menu" on:click|stopPropagation>
+          <div class="target-menu" on:click|stopPropagation on:keydown|stopPropagation role="menu">
             <div class="menu-header">Open files in:</div>
             <button 
               class="target-option" 

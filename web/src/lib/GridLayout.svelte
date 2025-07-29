@@ -31,7 +31,7 @@
   let loadedComponents: Record<string, any> = {};
   
   let showLoadingOverlay = true;
-  let websocketUrl = browser ? `ws://${window.location.hostname}:8009` : '';
+  let websocketUrl = browser ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:8009` : '';
   let gridContainer: HTMLElement;
   
   // Get component for a panel type

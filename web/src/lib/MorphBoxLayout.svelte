@@ -21,7 +21,7 @@
   let showLoadingOverlay = true;
   
   // Use the same host as the current page
-  $: websocketUrl = browser ? `ws://${window.location.hostname}:8009` : '';
+  $: websocketUrl = browser ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:8009` : '';
   
   // State for UI
   let isConnected = false;

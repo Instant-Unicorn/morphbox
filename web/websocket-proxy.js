@@ -91,7 +91,7 @@ wss.on('connection', (ws, req) => {
           // Small delay to ensure prompt is ready
           setTimeout(() => {
             console.log('[WebSocket Proxy] Launching Claude...');
-            stream.write('claude\n');
+            stream.write('cd /workspace && claude\n');
           }, 100);
         }
       });

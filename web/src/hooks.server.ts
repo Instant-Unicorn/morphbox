@@ -1,6 +1,5 @@
 import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { building } from '$app/environment';
-import { WebSocketServer } from 'ws';
 import { handleWebSocketConnection } from '$lib/server/websocket';
 import { AgentManager } from '$lib/server/agent-manager';
 import { StateManager } from '$lib/server/state-manager';

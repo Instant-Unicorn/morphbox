@@ -1,7 +1,7 @@
 import { text } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { readFile } from 'fs/promises';
-import { normalize, isAbsolute } from 'path';
+import { normalize } from 'path';
 import { homedir } from 'os';
 
 const PANELS_DIR = normalize(`${homedir()}/morphbox/panels`);

@@ -3,7 +3,8 @@
   
   export let websocketUrl = 'ws://localhost:3000';
   export let panelId: string = '';
-  export let autoLaunchClaude: boolean = true; // Accept this prop even though it's always true for Claude
+  // Accept autoLaunchClaude prop for external reference (always true for Claude)
+  export const autoLaunchClaude: boolean = true;
   
   // Pass through any other props
   export let terminalSessionId: string | null = null;

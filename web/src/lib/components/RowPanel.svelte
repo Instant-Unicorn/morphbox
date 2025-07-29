@@ -570,6 +570,8 @@
   on:dragover={handleDragOver}
   on:dragleave={handleDragLeave}
   on:drop={handleDrop}
+  role="group"
+  aria-label="Panel: {panel.title}"
 >
   <div class="panel-header" style="background-color: {panel.headerColor || '#636363'}">
     <!-- Drag handle -->
@@ -578,6 +580,15 @@
       draggable="true"
       on:dragstart={handleDragStart}
       on:dragend={handleDragEnd}
+      on:keydown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          // Could implement keyboard-based reordering here
+        }
+      }}
+      role="button"
+      tabindex="0"
+      aria-label="Drag to reorder panel"
       title="Drag to reorder"
     >
       <GripVertical size={16} />
@@ -598,7 +609,7 @@
         
         {#if showColorPopup}
           <!-- Mobile backdrop -->
-          <div class="color-popup-backdrop" on:click={() => showColorPopup = false}></div>
+          <div class="color-popup-backdrop" on:click={() => showColorPopup = false} on:keydown={(e) => e.key === 'Escape' && (showColorPopup = false)} role="button" tabindex="-1" aria-label="Close color picker"></div>
           <div class="color-popup" bind:this={colorPopupElement}>
             <div class="color-popup-header">
               <h4>Panel Colors</h4>
@@ -757,7 +768,10 @@
     title="Resize width"
     role="separator"
     aria-orientation="vertical"
-    tabindex="0"
+    aria-label="Resize panel width from left"
+    aria-valuenow={panel.widthPercent || 100}
+    aria-valuemin="10"
+    aria-valuemax="100"
   ></div>
   <div 
     class="resize-handle resize-right"
@@ -766,7 +780,10 @@
     title="Resize width"
     role="separator"
     aria-orientation="vertical"
-    tabindex="0"
+    aria-label="Resize panel width from right"
+    aria-valuenow={panel.widthPercent || 100}
+    aria-valuemin="10"
+    aria-valuemax="100"
   ></div>
   <div 
     class="resize-handle resize-top"
@@ -775,7 +792,10 @@
     title="Resize height"
     role="separator"
     aria-orientation="horizontal"
-    tabindex="0"
+    aria-label="Resize panel height from top"
+    aria-valuenow={panel.heightPixels || 400}
+    aria-valuemin="150"
+    aria-valuemax={Math.floor(window.innerHeight * 0.8)}
   ></div>
   <div 
     class="resize-handle resize-bottom"
@@ -784,7 +804,10 @@
     title="Resize height"
     role="separator"
     aria-orientation="horizontal"
-    tabindex="0"
+    aria-label="Resize panel height from bottom"
+    aria-valuenow={panel.heightPixels || 400}
+    aria-valuemin="150"
+    aria-valuemax={Math.floor(window.innerHeight * 0.8)}
   ></div>
   
   <!-- Mobile-specific resize handle -->
@@ -795,7 +818,10 @@
     title="Drag to resize"
     role="separator"
     aria-orientation="horizontal"
-    tabindex="0"
+    aria-label="Resize panel height"
+    aria-valuenow={panel.heightPixels || 400}
+    aria-valuemin="100"
+    aria-valuemax={Math.floor(window.innerHeight * 0.9)}
   >
     <div class="mobile-resize-indicator"></div>
     {#if isMobileResizing && currentResizeHeight > 0}

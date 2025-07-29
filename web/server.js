@@ -22,7 +22,7 @@ const wsPort = env('WS_PORT', '8009');
 
 // Start the websocket server in a separate process
 const wsServerPath = join(__dirname, 'src/lib/server/websocket-server.ts');
-const wsProcess = spawn('tsx', [wsServerPath], {
+const wsProcess = spawn('npx', ['tsx', wsServerPath], {
   stdio: 'inherit',
   env: { ...process.env, WS_PORT: wsPort }
 });

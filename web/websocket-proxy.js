@@ -40,6 +40,20 @@ wss.on('connection', (ws, req) => {
   ssh.on('ready', () => {
     console.log('[WebSocket Proxy] SSH connection established');
     
+    // Send initial connection message
+    ws.send(JSON.stringify({
+      type: 'CONNECTED',
+      payload: { message: 'Welcome to MorphBox Terminal' }
+    }));
+    
+    // If we have a session ID, send it
+    if (sessionId) {
+      ws.send(JSON.stringify({
+        type: 'TERMINAL_SESSION_ID',
+        payload: { sessionId }
+      }));
+    }
+    
     // Start appropriate agent
     const command = autoLaunchClaude ? 'claude' : 'bash';
     
@@ -52,14 +66,22 @@ wss.on('connection', (ws, req) => {
       
       shellStream = stream;
       
+      // Send agent launched message if Claude
+      if (autoLaunchClaude) {
+        ws.send(JSON.stringify({
+          type: 'AGENT_LAUNCHED',
+          payload: { agentId: 'ssh-claude' }
+        }));
+      }
+      
       let firstData = true;
       
       // Handle data from SSH to WebSocket
       stream.on('data', (data) => {
         if (ws.readyState === ws.OPEN) {
           ws.send(JSON.stringify({
-            type: 'output',
-            data: data.toString()
+            type: 'OUTPUT',
+            payload: { data: data.toString() }
           }));
         }
         
@@ -91,10 +113,10 @@ wss.on('connection', (ws, req) => {
     try {
       const msg = JSON.parse(message.toString());
       
-      if (msg.type === 'input' && shellStream) {
-        shellStream.write(msg.data);
-      } else if (msg.type === 'resize' && shellStream) {
-        shellStream.setWindow(msg.rows, msg.cols);
+      if (msg.type === 'SEND_INPUT' && shellStream) {
+        shellStream.write(msg.payload.input);
+      } else if (msg.type === 'RESIZE' && shellStream) {
+        shellStream.setWindow(msg.payload.rows, msg.payload.cols);
       }
     } catch (err) {
       console.error('[WebSocket Proxy] Message parse error:', err);

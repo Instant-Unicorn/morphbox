@@ -2,12 +2,7 @@
 
 import { handler } from './build/handler.js';
 import { env } from './build/env.js';
-import { createServer } from 'http';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import polka from 'polka';
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -15,88 +10,68 @@ const terminalMode = args.includes('--terminal');
 
 // Environment variables
 const path = env('SOCKET_PATH', false);
-const host = env('HOST', env('MORPHBOX_HOST', '127.0.0.1'));
+const host = env('HOST', env('MORPHBOX_HOST', '0.0.0.0'));
 const port = env('PORT', !path && '8008');
+const wsPort = env('WS_PORT', '8009');
 
+// In packaged mode, websocket server is handled separately by websocket-proxy.js
+console.log('🚀 Server running in packaged mode - managers handled by Docker');
+
+// Log configuration for debugging
 console.log('[INFO] Starting MorphBox packaged server...');
 console.log('[DEBUG] Environment variables:');
-console.log('  - SOCKET_PATH:', path);
-console.log('  - HOST:', host);
-console.log('  - PORT:', port);
-
-// For packaged version, WebSocket server runs inside Docker container
+console.log(`  - SOCKET_PATH: ${path}`);
+console.log(`  - HOST: ${host}`);
+console.log(`  - PORT: ${port}`);
 console.log('[INFO] WebSocket server is provided by Docker container');
-
-// IMPORTANT: Don't initialize agent managers here since node-pty isn't available
 console.log('[INFO] Agent management is handled by the Docker container');
 
-// Create the HTTP server
-const server = createServer(async (req, res) => {
-  console.log(`[DEBUG] Incoming request: ${req.method} ${req.url}`);
-  
-  // Inject terminal mode
+// Create the main server
+const server = polka();
+
+// Add middleware to inject terminal mode flag
+server.use((req, res, next) => {
+  // Inject terminal mode into the request so the app can access it
   req.terminalMode = terminalMode;
   
-  try {
-    // Handle with SvelteKit
-    await handler(req, res);
-  } catch (err) {
-    console.error('[ERROR] Handler error:', err);
-    res.statusCode = 500;
-    res.end('Internal Server Error');
+  // Also set it as a header that the client can read
+  if (terminalMode) {
+    res.setHeader('X-Terminal-Mode', 'true');
   }
+  
+  next();
 });
+
+// Use the SvelteKit handler
+server.use(handler);
 
 // Start the server
-const listenPort = parseInt(port);
-// Convert localhost to 127.0.0.1 for proper binding
-let listenHost = host;
-if (host === 'localhost') {
-  listenHost = '127.0.0.1';
-}
-console.log(`[DEBUG] Binding to ${listenHost}:${listenPort}`);
-
-server.listen(listenPort, listenHost, () => {
-  const addr = server.address();
-  console.log('[INFO] Server address:', addr);
-  console.log(`[INFO] MorphBox web interface running on http://${listenHost}:${listenPort}`);
+server.listen({ path, host, port }, () => {
+  const address = server.server.address();
+  const actualHost = address.address === '::' ? '0.0.0.0' : address.address;
+  
+  console.log(`[DEBUG] Binding to ${actualHost}:${port}`);
+  console.log('[INFO] Server address:', address);
+  console.log(`[INFO] MorphBox web interface running on http://${actualHost}:${port}`);
+  console.log('[INFO] Server is ready to accept connections');
   
   if (terminalMode) {
-    console.log('[INFO] Terminal mode enabled - UI is minimal');
+    console.log(`\n🖥️  Morphbox Terminal Mode (Claude Code only)`);
+    console.log(`📍 Running on ${path ? path : `http://${host}:${port}`}`);
+    console.log(`🔌 WebSocket server on ws://${host}:${wsPort}`);
+    console.log('\nPress Ctrl+C to exit\n');
   }
-  
-  // Log that server is ready
-  console.log('[INFO] Server is ready to accept connections');
 });
 
-server.on('error', (err) => {
-  console.error('[ERROR] Server error:', err);
-  process.exit(1);
-});
-
-// Handle process termination
-process.on('SIGTERM', () => {
-  console.log('[INFO] Received SIGTERM, shutting down...');
-  server.close(() => {
-    process.exit(0);
-  });
-});
-
+// Handle cleanup
 process.on('SIGINT', () => {
-  console.log('[INFO] Received SIGINT, shutting down...');
-  server.close(() => {
-    process.exit(0);
-  });
+  console.log('\n🛑 Shutting down...');
+  process.exit(0);
 });
 
-// Catch any unhandled errors
-process.on('uncaughtException', (err) => {
-  console.error('[ERROR] Uncaught exception:', err);
-  console.error(err.stack);
-  process.exit(1);
+process.on('SIGTERM', () => {
+  process.exit(0);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('[ERROR] Unhandled rejection at:', promise, 'reason:', reason);
-  process.exit(1);
-});
+// Export for programmatic usage
+export { server, terminalMode };

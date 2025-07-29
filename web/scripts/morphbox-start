@@ -279,8 +279,25 @@ if [[ "$TERMINAL_MODE" == "true" ]]; then
     exit 0
 fi
 
-# WebSocket server runs in Docker container for packaged version
-info "WebSocket server is provided by Docker container"
+# Start WebSocket proxy server on host
+info "Starting WebSocket proxy server..."
+
+# Use the WebSocket proxy for packaged version
+WS_PROXY_SCRIPT="$WEB_DIR/websocket-proxy.js"
+if [[ -f "$WS_PROXY_SCRIPT" ]]; then
+    MORPHBOX_VM_HOST=localhost \
+    MORPHBOX_VM_PORT=2222 \
+    MORPHBOX_VM_USER=morphbox \
+    HOST="$BIND_HOST" \
+    PORT=8009 \
+    node "$WS_PROXY_SCRIPT" > "$SCRIPT_DIR/morphbox-ws.log" 2>&1 &
+    WS_PID=$!
+    info "WebSocket proxy server started (PID: $WS_PID)"
+    sleep 2  # Give it time to start
+else
+    warn "WebSocket proxy not found - WebSocket functionality will not work"
+    warn "This is a critical error for the packaged version"
+fi
 
 # Start the packaged server
 info "Starting MorphBox server..."
@@ -327,7 +344,9 @@ cleanup() {
     echo ""
     info "Stopping MorphBox..."
     [[ -n "$WEB_PID" ]] && kill $WEB_PID 2>/dev/null || true
+    [[ -n "$WS_PID" ]] && kill $WS_PID 2>/dev/null || true
     pkill -f "node server-packaged" 2>/dev/null || true
+    pkill -f "tsx.*websocket-server" 2>/dev/null || true
     
     # Automatically stop Docker container
     if docker ps | grep -q morphbox-vm; then

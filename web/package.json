@@ -46,7 +46,8 @@
     "better-sqlite3": "^12.2.0",
     "node-pty": "^1.0.0",
     "polka": "^0.5.2",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "ssh2": "^1.15.0"
   },
   "type": "module",
   "keywords": [
@@ -89,6 +90,7 @@
     "README.npm.md",
     "server.js",
     "server-packaged.js",
+    "websocket-proxy.js",
     "morphbox-terminal",
     "package.json",
     "svelte.config.js",

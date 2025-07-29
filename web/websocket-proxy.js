@@ -52,6 +52,8 @@ wss.on('connection', (ws, req) => {
       
       shellStream = stream;
       
+      let firstData = true;
+      
       // Handle data from SSH to WebSocket
       stream.on('data', (data) => {
         if (ws.readyState === ws.OPEN) {
@@ -60,17 +62,22 @@ wss.on('connection', (ws, req) => {
             data: data.toString()
           }));
         }
+        
+        // Send claude command after first prompt appears
+        if (firstData && autoLaunchClaude) {
+          firstData = false;
+          // Small delay to ensure prompt is ready
+          setTimeout(() => {
+            console.log('[WebSocket Proxy] Launching Claude...');
+            stream.write('claude\n');
+          }, 100);
+        }
       });
       
       stream.on('close', () => {
         console.log('[WebSocket Proxy] SSH stream closed');
         ws.close();
       });
-      
-      // Send initial command if launching Claude
-      if (autoLaunchClaude) {
-        stream.write('claude\n');
-      }
     });
   });
   

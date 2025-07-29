@@ -281,7 +281,7 @@ fi
 
 # Start WebSocket proxy
 info "Starting WebSocket proxy..."
-node "$WEB_DIR/websocket-proxy.js" "$BIND_HOST" > "$SCRIPT_DIR/websocket-proxy.log" 2>&1 &
+node "$WEB_DIR/websocket-proxy.js" "$BIND_HOST" > /tmp/morphbox-websocket-proxy.log 2>&1 &
 WS_PID=$!
 
 # Start the packaged server
@@ -296,11 +296,24 @@ MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
 HOST="$BIND_HOST" \
 PORT=8008 \
 WS_PORT=8009 \
-node "$WEB_DIR/server-packaged.js" > "$SCRIPT_DIR/morphbox.log" 2>&1 &
+node "$WEB_DIR/server-packaged.js" > /tmp/morphbox-server.log 2>&1 &
 WEB_PID=$!
 
 # Wait for web server
 sleep 3
+
+# Debug: Check if processes are still running
+if kill -0 $WEB_PID 2>/dev/null; then
+    info "Web server is running (PID: $WEB_PID)"
+else
+    error "Web server failed to start or died immediately"
+fi
+
+if kill -0 $WS_PID 2>/dev/null; then
+    info "WebSocket proxy is running (PID: $WS_PID)"
+else
+    error "WebSocket proxy failed to start or died immediately"
+fi
 
 info "MorphBox is running!"
 echo ""

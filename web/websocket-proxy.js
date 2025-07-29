@@ -127,15 +127,25 @@ wss.on('error', (err) => {
 
 // Handle shutdown
 process.on('SIGTERM', () => {
-  console.log('[WebSocket Proxy] Shutting down...');
+  console.log('[WebSocket Proxy] Received SIGTERM, shutting down...');
   wss.close(() => {
     process.exit(0);
   });
 });
 
 process.on('SIGINT', () => {
-  console.log('[WebSocket Proxy] Shutting down...');
+  console.log('[WebSocket Proxy] Received SIGINT, shutting down...');
   wss.close(() => {
     process.exit(0);
   });
+});
+
+// Add error handlers to prevent crashes
+process.on('uncaughtException', (err) => {
+  console.error('[WebSocket Proxy] Uncaught exception:', err);
+  console.error(err.stack);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[WebSocket Proxy] Unhandled rejection at:', promise, 'reason:', reason);
 });

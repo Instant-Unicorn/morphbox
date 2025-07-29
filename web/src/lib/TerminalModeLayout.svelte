@@ -4,8 +4,8 @@
   import Claude from '$lib/Claude.svelte';
   import { settings, applyTheme } from '$lib/panels/Settings/settings-store';
   
-  // WebSocket server runs on port 8009
-  let websocketUrl = browser ? `ws://${window.location.hostname}:8009` : '';
+  // WebSocket URL should use the same hostname as the web interface
+  let websocketUrl = browser ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:8009` : '';
   let claudeComponent: any;
   
   onMount(() => {

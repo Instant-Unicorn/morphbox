@@ -40,4 +40,26 @@ git checkout src/hooks.server.ts
 rm -f scripts/*.bak
 
 echo "Package preparation complete!"
-echo "Now run: npm pack"
+
+# Clean up any existing installation
+echo "Cleaning up existing installation..."
+sudo rm -rf ~/.npm-global/lib/node_modules/morphbox ~/.npm-global/lib/node_modules/.morphbox-* 2>/dev/null || true
+
+# Create npm package
+echo "Creating npm package..."
+npm pack
+
+# Get the package filename
+PACKAGE_FILE=$(ls morphbox-*.tgz | sort -V | tail -n1)
+
+if [[ -z "$PACKAGE_FILE" ]]; then
+    echo "Error: No package file found!"
+    exit 1
+fi
+
+echo "Installing package: $PACKAGE_FILE"
+npm install -g "$PACKAGE_FILE"
+
+echo ""
+echo "✅ MorphBox has been packaged and installed!"
+echo "You can now run: morphbox --help"

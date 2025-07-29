@@ -218,7 +218,7 @@
       // Set timeout for connection
       const connectionTimeout = setTimeout(() => {
         if (ws.readyState !== WebSocket.OPEN) {
-          writeln('\r\n❌ WebSocket connection timeout. Please check if the WebSocket server is running on port 8009.');
+          writeln(`\r\n❌ WebSocket connection timeout. Please check if the WebSocket server is running at ${url}.`);
           console.error('WebSocket connection timeout');
         }
       }, 5000);

@@ -14,8 +14,8 @@ cp ../Dockerfile docker/
 cp ../docker-compose.yml docker/
 cp ../docker-compose.persist.yml docker/
 
-# Copy scripts
-cp ../morphbox-start scripts/
+# Copy scripts - use the packaged version for morphbox-start
+cp scripts/morphbox-start-packaged scripts/morphbox-start
 cp ../morphbox-start-docker scripts/
 chmod +x scripts/*
 
@@ -23,12 +23,18 @@ chmod +x scripts/*
 cp -r ../scripts/* scripts/ 2>/dev/null || true
 cp ../tmux.conf docker/ 2>/dev/null || true
 
-# Update paths in morphbox-start to work from npm package location
-# First, escape the original line properly
-original_line='SCRIPT_DIR="\$( cd "\$( dirname "\${BASH_SOURCE\[0\]}" )" && pwd )"'
-new_line='SCRIPT_DIR="\$( cd "\$( dirname "\${BASH_SOURCE\[0\]}" )" \&\& cd .. \&\& pwd )"'
-sed -i.bak "s|${original_line}|${new_line}|" scripts/morphbox-start
-sed -i.bak 's|WEB_DIR="\$SCRIPT_DIR/web"|WEB_DIR="\$SCRIPT_DIR"|' scripts/morphbox-start
+# Replace server-packaged.js with version that doesn't use agents
+cp server-packaged-noagents.js server-packaged.js
+
+# Use production hooks that don't initialize agent managers
+cp src/hooks.server.production.ts src/hooks.server.ts
+
+# Rebuild to use production hooks
+echo "Rebuilding with production hooks..."
+npm run build
+
+# Restore original hooks
+git checkout src/hooks.server.ts
 
 # Clean up backup files
 rm -f scripts/*.bak

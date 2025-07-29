@@ -4,7 +4,8 @@
   import Claude from '$lib/Claude.svelte';
   import { settings, applyTheme } from '$lib/panels/Settings/settings-store';
   
-  let websocketUrl = browser ? `ws://${window.location.hostname}:8009` : '';
+  // In packaged mode, WebSocket runs on the same port as HTTP
+  let websocketUrl = browser ? `ws://${window.location.hostname}:${window.location.port || '8008'}` : '';
   let claudeComponent: any;
   
   onMount(() => {

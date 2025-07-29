@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# MorphBox Launcher - Simplified version
+# MorphBox Launcher - Packaged version
 
 # Colors
 GREEN='\033[0;32m'
@@ -109,9 +109,6 @@ if ! command -v node > /dev/null; then
     error "Node.js is not installed. Please install Node.js 18 or later"
 fi
 
-# Skip dependency installation for packaged version
-# Dependencies are already bundled in the npm package
-
 # Setup authentication
 if [[ "$ACCESS_MODE" == "external" ]] || ([[ "$ACCESS_MODE" == "vpn" ]] && [[ "$AUTH_ENABLED" == "true" ]]); then
     # External mode always requires auth, VPN mode only if --auth is specified
@@ -185,8 +182,7 @@ elif [[ "$ACCESS_MODE" == "vpn" ]]; then
 fi
 
 # Kill any existing processes
-pkill -f "tsx.*websocket-server" 2>/dev/null || true
-pkill -f "vite dev" 2>/dev/null || true
+pkill -f "node server-packaged" 2>/dev/null || true
 
 # Start Docker container if not running
 info "Checking Docker container..."
@@ -231,7 +227,8 @@ check_claude_updates() {
 }
 
 # Run update check
-check_claude_updates
+# Disabled for packaged version due to Docker exec issues
+# check_claude_updates
 
 # Get local IP for external mode
 if [[ "$ACCESS_MODE" == "external" ]]; then
@@ -282,9 +279,12 @@ if [[ "$TERMINAL_MODE" == "true" ]]; then
     exit 0
 fi
 
-# For packaged version, start the pre-built server
+# WebSocket server runs in Docker container for packaged version
+info "WebSocket server is provided by Docker container"
+
+# Start the packaged server
 info "Starting MorphBox server..."
-cd "$WEB_DIR"
+# Don't cd for packaged version - run with full path
 MORPHBOX_HOME="$HOME/.morphbox" \
 MORPHBOX_HOST="$BIND_HOST" \
 MORPHBOX_AUTH_MODE="$MORPHBOX_AUTH_MODE" \
@@ -294,7 +294,7 @@ MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
 HOST="$BIND_HOST" \
 PORT=8008 \
 WS_PORT=8009 \
-node server-packaged.js > "$SCRIPT_DIR/morphbox.log" 2>&1 &
+node "$WEB_DIR/server-packaged.js" > "$SCRIPT_DIR/morphbox.log" 2>&1 &
 WEB_PID=$!
 
 # Wait for web server
@@ -327,7 +327,7 @@ cleanup() {
     echo ""
     info "Stopping MorphBox..."
     [[ -n "$WEB_PID" ]] && kill $WEB_PID 2>/dev/null || true
-    pkill -f "node server" 2>/dev/null || true
+    pkill -f "node server-packaged" 2>/dev/null || true
     
     # Automatically stop Docker container
     if docker ps | grep -q morphbox-vm; then

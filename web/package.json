@@ -17,7 +17,8 @@
     "cleanup:claude": "./scripts/cleanup-claude.sh",
     "cleanup:claude:force": "./scripts/cleanup-claude.sh --force",
     "prepublishOnly": "cp README.npm.md README.md",
-    "postpublish": "git checkout README.md"
+    "postpublish": "git checkout README.md",
+    "postinstall": "node scripts/postinstall-simple.js || exit 0"
   },
   "devDependencies": {
     "@monaco-editor/loader": "^1.5.0",
@@ -42,10 +43,10 @@
     "vite": "^5.0.0"
   },
   "dependencies": {
-    "polka": "^0.5.2",
-    "ws": "^8.18.0",
     "better-sqlite3": "^12.2.0",
-    "node-pty": "^1.0.0"
+    "node-pty": "^1.0.0",
+    "polka": "^0.5.2",
+    "ws": "^8.18.0"
   },
   "type": "module",
   "keywords": [

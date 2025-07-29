@@ -30,7 +30,7 @@
   let loadedComponents: Record<string, any> = {};
   
   let showLoadingOverlay = true;
-  let websocketUrl = browser ? `ws://${window.location.hostname}:8009` : '';
+  let websocketUrl = browser ? `ws://${window.location.hostname}:${window.location.port || '8008'}` : '';
   let layoutContainer: HTMLElement;
   
   // Row layout state

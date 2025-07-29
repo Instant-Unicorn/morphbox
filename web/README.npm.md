@@ -37,8 +37,10 @@ morphbox
 
 ```bash
 npm install -g morphbox
-morphbox  # Auto-installs on first run
+morphbox  # Ready to use!
 ```
+
+**Note**: If you get "command not found", your npm global bin directory may not be in PATH. See [Troubleshooting](#troubleshooting-installation) below.
 
 ### Method 2: npx (No Install)
 
@@ -83,6 +85,54 @@ morphbox --external
 - **Git Panel**: Visual git operations
 - **Task Runner**: Background tasks
 - **Custom Panels**: Create your own tools
+
+## Known Limitations
+
+The npm package version is currently in beta and has significant limitations:
+
+1. **Server Startup Issues**: The web server component does not properly start in the packaged version. The server process exits immediately after initialization, preventing the web interface from being accessible.
+
+2. **Terminal Mode Works**: Despite the web interface issues, terminal mode (`morphbox --terminal`) works correctly and provides full Claude AI functionality.
+
+3. **Development Version Recommended**: For the full experience including the web interface, we strongly recommend running from source:
+   ```bash
+   git clone https://github.com/yourusername/morphbox.git
+   cd morphbox
+   ./morphbox-start
+   ```
+
+## Troubleshooting Installation
+
+### "command not found" Error
+If you get "command not found" after installing, your npm global bin directory isn't in PATH:
+
+```bash
+# Find your npm prefix
+npm config get prefix
+# Add the bin directory to PATH
+export PATH="$(npm config get prefix)/bin:$PATH"
+```
+
+### "ENOTEMPTY" Error During Installation
+If you see "directory not empty" errors:
+
+```bash
+# Clean up with sudo
+sudo rm -rf ~/.npm-global/lib/node_modules/morphbox* ~/.npm-global/lib/node_modules/.morphbox-*
+
+# Reinstall
+npm install -g morphbox
+```
+
+## Workaround
+
+Until the packaging issues are resolved, you can use MorphBox in terminal mode:
+
+```bash
+morphbox --terminal
+```
+
+This will launch Claude directly in your terminal without the web interface.
 
 ## Security
 

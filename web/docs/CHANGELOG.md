@@ -1,5 +1,19 @@
 # Changelog
 
+## 2025-07-29
+
+### Fixed
+- **Build Warnings**: Resolved all Svelte build warnings
+  - Fixed accessibility (A11y) warnings for click handlers without keyboard support
+  - Fixed non-interactive elements with tabindex issues
+  - Removed unused imports (isAbsolute from path, WebSocketServer from ws)
+  - Fixed unused export property warning in Claude.svelte
+  - Added proper ARIA roles and labels to drag/drop areas
+  
+- **WebSocket Connection**: Fixed WebSocket connection error in packaged terminal mode
+  - WebSocket server runs on dedicated port 8009, not same port as HTTP (8008)
+  - Corrected WebSocket URLs in all layout components
+
 ## 2025-07-21
 
 ### Fixed

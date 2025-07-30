@@ -358,3 +358,61 @@ export function initializeCustomPanels(): void {
   // Start watching for changes
   watchCustomPanels();
 }
+
+/**
+ * Load custom panels metadata from the server
+ */
+export async function loadCustomPanelsMetadata(): Promise<void> {
+  try {
+    // Get list of custom panels
+    const response = await fetch('/api/custom-panels/list');
+    if (!response.ok) {
+      console.error('Failed to list custom panels');
+      return;
+    }
+    
+    const panelPaths: string[] = await response.json();
+    console.log('[loadCustomPanelsMetadata] Found panel paths:', panelPaths);
+    
+    // Load metadata for each panel
+    for (const path of panelPaths) {
+      const id = path.split('/').pop()?.replace('.svelte', '');
+      if (!id) continue;
+      
+      try {
+        console.log(`[loadCustomPanelsMetadata] Loading metadata for panel: ${id}`);
+        
+        // Try to get metadata
+        const metadataResponse = await fetch(`/api/custom-panels/metadata/${id}`);
+        if (metadataResponse.ok) {
+          const metadata = await metadataResponse.json();
+          console.log(`[loadCustomPanelsMetadata] Loaded metadata for ${id}:`, metadata);
+          
+          // Register the panel - IMPORTANT: use the filename-based ID, not metadata.id
+          const panelId = id; // This is the filename without .svelte extension
+          const definition: PanelDefinition = {
+            id: panelId, // Always use the filename as the ID
+            name: metadata.name || id,
+            description: metadata.description || 'Custom panel',
+            component: null, // Will be loaded on demand
+            path: path,
+            features: metadata.features || [],
+            createdAt: metadata.createdAt ? new Date(metadata.createdAt) : new Date(),
+            isCustom: true
+          };
+          
+          console.log(`[loadCustomPanelsMetadata] Registering panel definition:`, definition);
+          panelRegistry.register(definition);
+        } else {
+          console.error(`[loadCustomPanelsMetadata] Failed to load metadata for ${id}: ${metadataResponse.status} ${metadataResponse.statusText}`);
+        }
+      } catch (error) {
+        console.error(`Failed to load metadata for panel ${id}:`, error);
+      }
+    }
+    
+    console.log('[loadCustomPanelsMetadata] Loading complete');
+  } catch (error) {
+    console.error('Failed to load custom panels metadata:', error);
+  }
+}

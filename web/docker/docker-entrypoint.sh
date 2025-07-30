@@ -40,6 +40,63 @@ check_and_update_claude() {
 # Run Claude update check
 check_and_update_claude
 
+# Create restricted Claude wrapper
+echo "🔧 Setting up Claude wrapper for directory restriction..."
+cat > /usr/local/bin/claude-restricted << 'EOF'
+#!/bin/bash
+# Restricted Claude wrapper that prevents directory traversal above /workspace
+
+# Check if user tries to go above /workspace
+check_directory() {
+    local current_dir=$(pwd)
+    if [[ ! "$current_dir" =~ ^/workspace ]]; then
+        echo "⚠️  Directory access restricted to /workspace and subdirectories"
+        echo "   Current directory: $current_dir"
+        echo "   Returning to /workspace..."
+        cd /workspace
+    fi
+}
+
+# Override cd command to prevent going above /workspace
+cd() {
+    if [ $# -eq 0 ]; then
+        # No arguments, go to home directory within workspace
+        builtin cd /workspace
+    else
+        local target="$1"
+        
+        # Get absolute path of target
+        local abs_path
+        if [[ "$target" == /* ]]; then
+            abs_path="$target"
+        else
+            abs_path="$(builtin cd "$(dirname "$target")" && pwd)/$(basename "$target")"
+        fi
+        
+        # Check if target is within /workspace
+        if [[ "$abs_path" =~ ^/workspace ]]; then
+            builtin cd "$target" 2>/dev/null || {
+                echo "Directory not found: $target"
+                return 1
+            }
+        else
+            echo "⚠️  Access denied: Directory outside /workspace"
+            echo "   Attempted: $target"
+            echo "   Staying in current directory: $(pwd)"
+            return 1
+        fi
+    fi
+}
+
+# Export the cd function
+export -f cd
+
+# Run the original Claude command
+exec /usr/local/bin/claude "$@"
+EOF
+
+chmod +x /usr/local/bin/claude-restricted
+
 # Start SSH daemon
 echo "🔐 Starting SSH daemon..."
 exec /usr/sbin/sshd -D

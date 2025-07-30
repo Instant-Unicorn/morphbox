@@ -279,7 +279,7 @@
 <div class="settings-panel">
   <header class="settings-header">
     <h2>Settings</h2>
-    <button class="close-button" on:click={() => dispatch('close')} on:keydown={(e) => e.key === 'Enter' && dispatch('close')}>×</button>
+    <button class="close-button" on:click={() => dispatch('close')}>×</button>
   </header>
   
   <nav class="settings-tabs">
@@ -287,7 +287,6 @@
       class="tab" 
       class:active={activeTab === 'appearance'}
       on:click={() => activeTab = 'appearance'}
-      on:keydown={(e) => e.key === 'Enter' && (activeTab = 'appearance')}
     >
       Appearance
     </button>
@@ -295,7 +294,6 @@
       class="tab" 
       class:active={activeTab === 'editor'}
       on:click={() => activeTab = 'editor'}
-      on:keydown={(e) => e.key === 'Enter' && (activeTab = 'editor')}
     >
       Editor
     </button>
@@ -303,7 +301,6 @@
       class="tab" 
       class:active={activeTab === 'explorer'}
       on:click={() => activeTab = 'explorer'}
-      on:keydown={(e) => e.key === 'Enter' && (activeTab = 'explorer')}
     >
       Explorer
     </button>
@@ -311,7 +308,6 @@
       class="tab" 
       class:active={activeTab === 'panels'}
       on:click={() => activeTab = 'panels'}
-      on:keydown={(e) => e.key === 'Enter' && (activeTab = 'panels')}
     >
       Panels
     </button>
@@ -319,7 +315,6 @@
       class="tab" 
       class:active={activeTab === 'layout'}
       on:click={() => activeTab = 'layout'}
-      on:keydown={(e) => e.key === 'Enter' && (activeTab = 'layout')}
     >
       Layout
     </button>
@@ -327,7 +322,6 @@
       class="tab" 
       class:active={activeTab === 'shortcuts'}
       on:click={() => activeTab = 'shortcuts'}
-      on:keydown={(e) => e.key === 'Enter' && (activeTab = 'shortcuts')}
     >
       Shortcuts
     </button>
@@ -335,7 +329,6 @@
       class="tab" 
       class:active={activeTab === 'security'}
       on:click={() => activeTab = 'security'}
-      on:keydown={(e) => e.key === 'Enter' && (activeTab = 'security')}
     >
       Security
     </button>
@@ -878,6 +871,7 @@
   }
   
   input[type="text"],
+  input[type="number"],
   select {
     background-color: var(--input-bg, #3c3c3c);
     color: var(--text-color, #cccccc);
@@ -888,6 +882,7 @@
   }
   
   input[type="text"]:focus,
+  input[type="number"]:focus,
   select:focus {
     outline: none;
     border-color: var(--accent-color, #007acc);
@@ -924,6 +919,35 @@
     font-size: 14px;
   }
   
+  .panel-position {
+    margin-bottom: 16px;
+    padding: 12px;
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+  }
+  
+  .panel-position h5 {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  
+  .position-inputs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  
+  .position-inputs label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+  }
+  
+  .position-inputs input {
+    width: 100%;
+  }
   
   .shortcuts-list {
     display: flex;

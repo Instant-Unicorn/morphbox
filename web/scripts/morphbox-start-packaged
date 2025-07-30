@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+# Mark this as packaged version for different behavior
+export MORPHBOX_PACKAGED="true"
+
 # MorphBox Launcher - Packaged version
 
 # Colors

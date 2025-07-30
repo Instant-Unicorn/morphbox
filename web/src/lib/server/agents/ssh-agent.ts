@@ -62,7 +62,7 @@ export class SSHAgent extends EventEmitter implements Agent {
       '-it',
       'morphbox-vm',
       'su', '-', vmUser, '-c',
-      'cd /workspace 2>/dev/null || cd /home/morphbox; PROJECT_DIR=$(ls -d */.git 2>/dev/null | head -n1 | xargs dirname 2>/dev/null); if [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ]; then cd "$PROJECT_DIR"; fi; claude-restricted --dangerously-skip-permissions --continue || claude-restricted --dangerously-skip-permissions'
+      'cd /workspace 2>/dev/null || cd /home/morphbox; PROJECT_DIR=$(ls -d */.git 2>/dev/null | head -n1 | xargs dirname 2>/dev/null); if [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ]; then cd "$PROJECT_DIR"; fi; exec claude-restricted --dangerously-skip-permissions --continue || exec claude-restricted --dangerously-skip-permissions'
     ];
 
     const ptyOptions = {

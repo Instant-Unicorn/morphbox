@@ -42,6 +42,9 @@
 	"/api/log/browser": [
 		"src/routes/api/log/browser/+server.ts"
 	],
+	"/api/panels/layout": [
+		"src/routes/api/panels/layout/+server.ts"
+	],
 	"/api/sessions": [
 		"src/routes/api/sessions/+server.ts"
 	],

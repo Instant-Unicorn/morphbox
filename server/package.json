@@ -1,6 +1,6 @@
 {
-  "name": "morphbox",
-  "version": "2.0.0",
+  "name": "morphbox-server",
+  "version": "0.7.1",
   "description": "MorphBox - AI Development Environment with secure VM isolation",
   "type": "module",
   "main": "index.js",

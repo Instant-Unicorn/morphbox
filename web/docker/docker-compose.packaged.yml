@@ -1,0 +1,5 @@
+services:
+  morphbox-vm:
+    volumes:
+      # Override the morphbox mount to use parent directory (web)
+      - ../:/workspace/morphbox

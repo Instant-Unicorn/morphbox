@@ -238,6 +238,7 @@
         <svelte:component 
           this={component} 
           panelId={panel.id}
+          panelType={panel.type}
           {...panel.content}
         />
       {/if}
@@ -335,7 +336,7 @@
   
   .drag-handle {
     cursor: move;
-    color: var(--panel-control-color, #858585);
+    color: var(--panel-control-color, rgb(210, 210, 210));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -346,14 +347,14 @@
   
   .drag-handle:hover {
     background-color: var(--panel-control-hover-bg, rgba(255, 255, 255, 0.1));
-    color: var(--panel-title-color, #cccccc);
+    color: var(--panel-title-color, rgb(210, 210, 210));
   }
   
   .panel-title {
     margin: 0;
     font-size: 12px;
     font-weight: 500;
-    color: var(--panel-title-color, #cccccc);
+    color: var(--panel-title-color, rgb(210, 210, 210));
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -370,7 +371,7 @@
   .control-btn {
     background: none;
     border: none;
-    color: var(--panel-control-color, #858585);
+    color: var(--panel-control-color, rgb(210, 210, 210));
     cursor: pointer;
     padding: 2px;
     border-radius: 3px;
@@ -384,7 +385,7 @@
   
   .control-btn:hover {
     background-color: var(--panel-control-hover-bg, rgba(255, 255, 255, 0.1));
-    color: var(--panel-title-color, #cccccc);
+    color: var(--panel-title-color, rgb(210, 210, 210));
   }
   
   .control-btn:active {

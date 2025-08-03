@@ -200,6 +200,18 @@ Use: `morphbox-panel` and select "{template.name}"
 3. Modify code and metadata
 4. Save to apply changes
 
+## .morph File Format
+
+### Export Panels
+- Click export button in Panel Manager
+- Creates portable `.morph` file
+- Includes code, metadata, and history
+
+### Import Panels
+- Click import button in Panel Manager
+- Select `.morph` file
+- Auto-handles ID conflicts
+
 ## Troubleshooting
 
 ### Panel Not Appearing
@@ -222,4 +234,18 @@ Use: `morphbox-panel` and select "{template.name}"
 
 <style>
   /* Component styles */
+  .template {
+    margin: 1rem 0;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+  }
+  
+  h1, h2, h3 {
+    color: var(--text-primary);
+  }
+  
+  p {
+    color: var(--text-secondary);
+  }
 </style>

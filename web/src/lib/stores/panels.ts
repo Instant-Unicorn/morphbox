@@ -99,7 +99,7 @@ export const defaultPanelConfigs: Record<string, Partial<Panel>> = {
     type: 'fileExplorer',
     title: 'File Explorer',
     size: { width: 300, height: 600 },
-    persistent: true
+    persistent: false
   },
   editor: {
     type: 'editor',
@@ -369,11 +369,16 @@ function createPanelStore() {
     addPanel: (type: string, config?: Partial<Panel>) => {
       update(state => {
         const defaultConfig = defaultPanelConfigs[type] || {};
-        const id = generateId();
+        
+        // For custom panels (those starting with a lowercase letter or containing dashes),
+        // use the type as the ID to match the filename
+        const isCustomPanel = type.match(/^[a-z]/) || type.includes('-');
+        const id = isCustomPanel ? type : generateId();
+        
         const position = config?.position || getNextPosition(state.panels);
         const zIndex = getHighestZIndex(state.panels) + 1;
 
-        // Ensure we never use a config-provided id
+        // Ensure we never use a config-provided id (except for custom panels)
         const { id: configId, ...configWithoutId } = config || {};
         
         // Get settings for default panel colors

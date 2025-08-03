@@ -7,7 +7,12 @@
   import FileExplorer from '$lib/panels/FileExplorer/FileExplorer.svelte';
   import CodeEditor from '$lib/panels/CodeEditor/CodeEditor.svelte';
   import Settings from '$lib/panels/Settings/Settings.svelte';
-    import RowPanel from '$lib/components/RowPanel.svelte';
+  import PromptQueue from '$lib/panels/PromptQueue/PromptQueue.svelte';
+  import WebBrowser from '$lib/panels/WebBrowser/WebBrowser.svelte';
+  import GitPanel from '$lib/panels/GitPanel/GitPanel.svelte';
+  import TaskRunner from '$lib/panels/TaskRunner/TaskRunner.svelte';
+  import CustomPanelRenderer from '$lib/components/CustomPanelRenderer.svelte';
+  import RowPanel from '$lib/components/RowPanel.svelte';
   import PanelManager from '$lib/components/PanelManager.svelte';
   import SectionTabs from '$lib/components/SectionTabs.svelte';
   import { settings, applyTheme } from '$lib/panels/Settings/settings-store';
@@ -23,11 +28,54 @@
     'file-explorer': FileExplorer,
     codeEditor: CodeEditor,
     'code-editor': CodeEditor,
-    settings: Settings
+    settings: Settings,
+    promptQueue: PromptQueue,
+    'prompt-queue': PromptQueue,
+    webBrowser: WebBrowser,
+    'web-browser': WebBrowser,
+    gitPanel: GitPanel,
+    'git-panel': GitPanel,
+    taskRunner: TaskRunner,
+    'task-runner': TaskRunner
   };
   
   // Store for dynamically loaded components
   let loadedComponents: Record<string, any> = {};
+  
+  // Get component for a panel type
+  async function getComponentForPanel(type: string) {
+    // Check built-in components first
+    if (builtinComponents[type]) {
+      return builtinComponents[type];
+    }
+    
+    // Check if already loaded
+    if (loadedComponents[type]) {
+      return loadedComponents[type];
+    }
+    
+    // Try to load from registry
+    const panelDef = panelRegistry.get(type);
+    if (panelDef) {
+      // If it's a custom panel, use the CustomPanelRenderer
+      if (panelDef.isCustom) {
+        loadedComponents[type] = CustomPanelRenderer;
+        return CustomPanelRenderer;
+      }
+      
+      try {
+        const component = await panelRegistry.loadComponent(type);
+        if (component) {
+          loadedComponents[type] = component;
+          return component;
+        }
+      } catch (error) {
+        console.error(`Failed to load panel component: ${type}`, error);
+      }
+    }
+    
+    return null;
+  }
   
   let showLoadingOverlay = true;
   let websocketUrl = browser ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:8009` : '';
@@ -90,32 +138,6 @@
       // Restore original layout from server
       loadLayoutFromServer();
     }
-  }
-  
-  // Get component for a panel type
-  async function getComponentForPanel(type: string) {
-    if (builtinComponents[type]) {
-      return builtinComponents[type];
-    }
-    
-    if (loadedComponents[type]) {
-      return loadedComponents[type];
-    }
-    
-    const panelDef = panelRegistry.get(type);
-    if (panelDef) {
-      try {
-        const component = await panelRegistry.loadComponent(type);
-        if (component) {
-          loadedComponents[type] = component;
-          return component;
-        }
-      } catch (error) {
-        console.error(`Failed to load panel component: ${type}`, error);
-      }
-    }
-    
-    return null;
   }
   
   // Debounce function for resize events
@@ -561,6 +583,8 @@
   
   // Add new panel to layout
   function addNewPanel(type: string, data?: any) {
+    console.log('[RowLayout] Adding new panel:', { type, data });
+    
     // Always create a new row at the bottom for new panels
     const newRowIndex = rows.length > 0 ? Math.max(...rows.map(r => parseInt(r.id.split('-')[1]))) + 1 : 0;
     
@@ -769,6 +793,8 @@
     const newMap: Record<string, any> = {};
     
     for (const panel of $panels) {
+      console.log('[RowLayout] Loading component for panel:', { id: panel.id, type: panel.type });
+      
       // Reuse existing component if available
       if (panelComponentMap[panel.id]) {
         newMap[panel.id] = panelComponentMap[panel.id];

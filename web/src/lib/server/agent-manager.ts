@@ -125,6 +125,47 @@ export class AgentManager extends EventEmitter {
     return this.agents.get(agentId);
   }
 
+  // Detach agent without stopping it (for persistence)
+  detachAgent(agentId: string): void {
+    const agent = this.agents.get(agentId);
+    if (!agent) {
+      return;
+    }
+
+    // Remove event listeners to prevent memory leaks
+    agent.removeAllListeners();
+    
+    console.log(`Detached agent: ${agentId}`);
+  }
+
+  // Reattach to an existing agent
+  reattachAgent(agentId: string): boolean {
+    const agent = this.agents.get(agentId);
+    if (!agent) {
+      return false;
+    }
+
+    // Re-add event listeners
+    agent.on('output', (data: any) => {
+      this.emit('agent_output', { agentId, data });
+    });
+
+    agent.on('error', (error: any) => {
+      this.emit('agent_error', { agentId, error });
+    });
+
+    agent.on('exit', (code: number | null) => {
+      this.handleAgentExit(agentId, code);
+    });
+
+    agent.on('sessionId', (sessionId: string) => {
+      this.emit('agent_sessionId', { agentId, sessionId });
+    });
+
+    console.log(`Reattached to agent: ${agentId}`);
+    return true;
+  }
+
   private handleAgentExit(agentId: string, code: number | null): void {
     console.log(`Agent ${agentId} exited with code ${code}`);
     this.agents.delete(agentId);

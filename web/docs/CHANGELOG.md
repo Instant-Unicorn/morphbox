@@ -14,6 +14,68 @@
   - WebSocket server runs on dedicated port 8009, not same port as HTTP (8008)
   - Corrected WebSocket URLs in all layout components
 
+## 2025-07-23
+
+### Added
+- **Web Browser Panel**: Built-in preview browser panel for development
+  - Automatically detects local development servers (checks common ports)
+  - Defaults to detected server or shows blank page with URL bar
+  - Zoom controls: 25%, 50%, and 100% zoom levels for fitting more content
+  - Navigation controls: Back, Forward, Refresh, Home
+  - Opens external links in new tabs
+  - Responsive iframe scaling with transform origin
+  - Loading indicator during page loads
+  - Cross-origin safe URL tracking
+
+- **Prompt Queue Panel**: Automated prompt management for Claude
+  - Queue multiple prompts to send sequentially
+  - Drag-and-drop reordering (except active prompts)
+  - Play/pause queue processing
+  - Edit prompts with modal dialog
+  - Plan ahead functionality using Claude SDK
+  - Auto-detection of Claude readiness
+  - Green highlighting for active prompts
+  - Auto-removal of completed prompts
+  - Force send button for manual override
+  - Persistent queue storage in localStorage
+
+## 2025-07-22
+
+### Added
+- **Server-side Session Persistence for Mobile Browsers**
+  - Sessions remain active when switching away from browser
+  - Resume sessions from different devices using session ID
+  - In-memory session store with 30-minute timeout
+  - Output buffering while disconnected
+  - Agent detachment/reattachment without process termination
+  - Session IDs stored in localStorage for cross-browser persistence
+
+- **Automatic Claude Update Persistence in Docker**
+  - Claude automatically updates when container starts
+  - Updates are persisted using Docker volumes (no re-downloads)
+  - Created docker-entrypoint.sh for update checks on startup
+  - Enabled persistence volumes by default in docker-compose.yml
+  - Added update status display in morphbox-start script
+  - Comprehensive documentation in CLAUDE_PERSISTENCE.md
+
+### Fixed
+- Terminal persistence now works correctly for mobile usage
+- Fixed reference error to `providedTerminalSessionId` in websocket handler
+- WebSocket reconnection flow properly handles buffered output
+
+### Merged
+- Successfully merged all feature branches into main:
+  - `terminal-width` - Terminal width fixes and DOM inspection
+  - `comments` - All terminal fixes, keyboard emulation, mobile UI improvements  
+  - `persistence` - Server-side session persistence implementation
+
+### Technical Details
+- New `session-store.ts` module for in-memory session management
+- Updated `agent-manager.ts` with detach/reattach methods
+- Enhanced `websocket.ts` with session ID handling and reconnection logic
+- Terminal component supports session persistence via URL parameters
+>>>>>>> origin/morph-file-format
+
 ## 2025-07-21
 
 ### Fixed

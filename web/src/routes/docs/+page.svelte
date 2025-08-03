@@ -25,16 +25,16 @@
       icon: '⚡'
     },
     {
-      title: 'Panel System',
-      description: 'Learn about MorphBox\'s flexible panel-based UI',
-      href: '/docs/user-guide/panels',
-      icon: '📊'
-    },
-    {
       title: 'Custom Panels',
-      description: 'Create and share custom panels stored in ~/morphbox/panels',
+      description: 'Create, share, and import panels with .morph files',
       href: '/docs/user-guide/custom-panels',
       icon: '🎨'
+    },
+    {
+      title: 'API Reference',
+      description: 'Complete API documentation for panel development',
+      href: '/docs/api-reference/overview',
+      icon: '🔧'
     },
     {
       title: 'Terminal Sessions',
@@ -43,43 +43,43 @@
       icon: '🖥️'
     },
     {
-      title: 'Keyboard Shortcuts',
-      description: 'Master MorphBox with keyboard shortcuts and emulation',
-      href: '/docs/user-guide/keyboard-shortcuts',
-      icon: '⌨️'
+      title: 'Mobile Usage',
+      description: 'Use MorphBox on tablets and phones with touch support',
+      href: '/docs/user-guide/mobile-usage',
+      icon: '📱'
     }
   ];
 
   const features = [
     {
+      title: '.morph File Format',
+      description: 'Portable custom panels in a single file. Export and import panels with complete history. Share with the community easily.',
+      icon: '📦'
+    },
+    {
+      title: 'AI Panel Generation',
+      description: 'Create custom panels using natural language. Claude generates complete HTML/CSS/JS panels. Modify existing panels with AI assistance.',
+      icon: '🤖'
+    },
+    {
       title: 'Persistent Sessions',
-      description: 'Terminal sessions continue running with GNU Screen, surviving disconnections and browser restarts. Access sessions from Session Manager panel.',
+      description: 'Terminal sessions survive disconnections and browser restarts. Multiple independent terminals with full PTY support.',
       icon: '🔄'
     },
     {
-      title: 'Custom Panels',
-      description: 'Create single-file Svelte panels stored in ~/morphbox/panels. Use morphbox-panel CLI for easy creation with templates.',
-      icon: '🎨'
-    },
-    {
-      title: 'Keyboard Emulation',
-      description: 'ESC and Shift+Tab buttons in terminal headers for better navigation. Keys sent directly to terminal emulation.',
-      icon: '⌨️'
-    },
-    {
-      title: 'Mobile-First Design',
-      description: 'Touch-friendly resize handles, mobile-optimized code editor, responsive panels with bottom-up height dragging.',
+      title: 'Mobile Support',
+      description: 'Touch-friendly interface with virtual keyboard. Bottom sheet panel manager. Responsive design for all devices.',
       icon: '📱'
     },
     {
-      title: 'Claude Persistence',
-      description: 'Claude auto-updates cached in Docker image. Multiple persistence strategies for faster startup.',
-      icon: '🚀'
+      title: 'NPM Distribution',
+      description: 'Install globally with npm or use npx. Cross-platform support for macOS, Linux, and Windows.',
+      icon: '📦'
     },
     {
-      title: 'Panel Customization',
-      description: 'Single palette icon for all color settings. Customize header, background, and border colors easily.',
-      icon: '🎨'
+      title: 'Secure Sandbox',
+      description: 'VM isolation with network filtering. Whitelist-based domain access. Clean snapshots with --reset.',
+      icon: '🔒'
     }
   ];
 </script>
@@ -99,7 +99,7 @@
       </p>
       <div class="hero-stats">
         <div class="stat">
-          <strong>Version 3.0.0</strong>
+          <strong>Version 0.7.1</strong>
           <span>Latest Release</span>
         </div>
         <div class="stat">

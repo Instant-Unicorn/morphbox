@@ -54,6 +54,10 @@ USER root
 ENV TERM=xterm-256color
 ENV COLORTERM=truecolor
 
+# Copy entrypoint script
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
 EXPOSE 22
 
-CMD ["/usr/sbin/sshd", "-D"]
+ENTRYPOINT ["/docker-entrypoint.sh"]

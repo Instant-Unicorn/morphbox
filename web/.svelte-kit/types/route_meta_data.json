@@ -6,14 +6,32 @@
 	"/api/auth/login": [
 		"src/routes/api/auth/login/+server.ts"
 	],
+	"/api/custom-panels/code/[id]": [
+		"src/routes/api/custom-panels/code/[id]/+server.ts"
+	],
 	"/api/custom-panels/create": [
 		"src/routes/api/custom-panels/create/+server.ts"
+	],
+	"/api/custom-panels/delete": [
+		"src/routes/api/custom-panels/delete/+server.ts"
+	],
+	"/api/custom-panels/export/[id]": [
+		"src/routes/api/custom-panels/export/[id]/+server.ts"
+	],
+	"/api/custom-panels/import": [
+		"src/routes/api/custom-panels/import/+server.ts"
 	],
 	"/api/custom-panels/list": [
 		"src/routes/api/custom-panels/list/+server.ts"
 	],
 	"/api/custom-panels/load": [
 		"src/routes/api/custom-panels/load/+server.ts"
+	],
+	"/api/custom-panels/metadata/[id]": [
+		"src/routes/api/custom-panels/metadata/[id]/+server.ts"
+	],
+	"/api/custom-panels/morph": [
+		"src/routes/api/custom-panels/morph/+server.ts"
 	],
 	"/api/custom-panels/watch": [
 		"src/routes/api/custom-panels/watch/+server.ts"
@@ -39,6 +57,33 @@
 	"/api/files/write": [
 		"src/routes/api/files/write/+server.ts"
 	],
+	"/api/git/checkout": [
+		"src/routes/api/git/checkout/+server.ts"
+	],
+	"/api/git/commits": [
+		"src/routes/api/git/commits/+server.ts"
+	],
+	"/api/git/commit": [
+		"src/routes/api/git/commit/+server.ts"
+	],
+	"/api/git/discard": [
+		"src/routes/api/git/discard/+server.ts"
+	],
+	"/api/git/pull": [
+		"src/routes/api/git/pull/+server.ts"
+	],
+	"/api/git/push": [
+		"src/routes/api/git/push/+server.ts"
+	],
+	"/api/git/stage": [
+		"src/routes/api/git/stage/+server.ts"
+	],
+	"/api/git/status": [
+		"src/routes/api/git/status/+server.ts"
+	],
+	"/api/git/unstage": [
+		"src/routes/api/git/unstage/+server.ts"
+	],
 	"/api/log/browser": [
 		"src/routes/api/log/browser/+server.ts"
 	],
@@ -47,6 +92,18 @@
 	],
 	"/api/sessions": [
 		"src/routes/api/sessions/+server.ts"
+	],
+	"/api/tasks/npm-scripts": [
+		"src/routes/api/tasks/npm-scripts/+server.ts"
+	],
+	"/api/tasks/output/[id]": [
+		"src/routes/api/tasks/output/[id]/+server.ts"
+	],
+	"/api/tasks/run": [
+		"src/routes/api/tasks/run/+server.ts"
+	],
+	"/api/tasks/stop": [
+		"src/routes/api/tasks/stop/+server.ts"
 	],
 	"/api/ws": [
 		"src/routes/api/ws/+server.ts"

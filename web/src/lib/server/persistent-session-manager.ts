@@ -46,6 +46,21 @@ export class PersistentSessionManager {
       session.lastActivity = new Date().toISOString();
     }
   }
+  
+  // Additional async methods for compatibility
+  async createSession(id: string) {
+    this.saveSession(id, id, {});
+    return { id, created: new Date().toISOString() };
+  }
+  
+  async getSession(id: string) {
+    return this.sessions.get(id) || null;
+  }
+  
+  async destroySession(id: string) {
+    this.deleteSession(id);
+    return true;
+  }
 }
 
 // Singleton instance
@@ -57,3 +72,8 @@ export function getPersistentSessionManager(): PersistentSessionManager {
   }
   return instance;
 }
+
+// Export type for usage in other files
+export type { PersistentSessionManager as PersistentSessionManagerType };
+
+export default PersistentSessionManager;

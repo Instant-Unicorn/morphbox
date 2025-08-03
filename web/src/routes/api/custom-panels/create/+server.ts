@@ -2,432 +2,27 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
-import { homedir } from 'os';
+import { homedir, tmpdir } from 'os';
+import { spawn } from 'child_process';
+import { writeFileSync, unlinkSync, mkdirSync, rmSync } from 'fs';
+import type { MorphFileFormat } from '$lib/types/morph';
+import { createMorphFile } from '$lib/types/morph';
 
 const PANELS_DIR = join(homedir(), 'morphbox', 'panels');
 
-// Panel templates
-const templates = {
-  basic: `<!--
-@morphbox-panel
-id: {id}
-name: {name}
-description: {description}
-version: 1.0.0
-features: []
--->
-
-<script lang="ts">
-  import { onMount } from 'svelte';
-  
-  // Panel properties passed from the panel system
-  export let panelId: string;
-  export let data: any = {};
-  
-  let message = 'Hello from {name}!';
-  
-  onMount(() => {
-    console.log('Panel mounted:', panelId);
-  });
-</script>
-
-<div class="custom-panel">
-  <h2>{message}</h2>
-  <p>{description}</p>
-</div>
-
-<style>
-  .custom-panel {
-    padding: 20px;
-    height: 100%;
-    overflow: auto;
-  }
-  
-  h2 {
-    margin: 0 0 10px 0;
-    color: var(--text-primary);
-  }
-  
-  p {
-    color: var(--text-secondary);
-  }
-</style>`,
-
-  api: `<!--
-@morphbox-panel
-id: {id}
-name: {name}
-description: {description}
-version: 1.0.0
-features: [api, async]
--->
-
-<script lang="ts">
-  import { onMount } from 'svelte';
-  
-  export let panelId: string;
-  export let data: any = {};
-  
-  let loading = true;
-  let error: string | null = null;
-  let apiData: any = null;
-  
-  async function fetchData() {
-    try {
-      loading = true;
-      error = null;
-      
-      // Example API call - replace with your endpoint
-      const response = await fetch('/api/example');
-      if (!response.ok) throw new Error('Failed to fetch data');
-      
-      apiData = await response.json();
-    } catch (err) {
-      error = err instanceof Error ? err.message : 'Unknown error';
-    } finally {
-      loading = false;
-    }
-  }
-  
-  onMount(() => {
-    fetchData();
-  });
-</script>
-
-<div class="api-panel">
-  <div class="header">
-    <h2>{name}</h2>
-    <button on:click={fetchData} disabled={loading}>
-      {loading ? 'Loading...' : 'Refresh'}
-    </button>
-  </div>
-  
-  {#if error}
-    <div class="error">Error: {error}</div>
-  {:else if loading}
-    <div class="loading">Loading...</div>
-  {:else if apiData}
-    <pre>{JSON.stringify(apiData, null, 2)}</pre>
-  {/if}
-</div>
-
-<style>
-  .api-panel {
-    padding: 20px;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-  }
-  
-  h2 {
-    margin: 0;
-    color: var(--text-primary);
-  }
-  
-  button {
-    padding: 6px 12px;
-    background: var(--button-bg);
-    color: var(--button-text);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    cursor: pointer;
-  }
-  
-  button:hover:not(:disabled) {
-    background: var(--button-hover-bg);
-  }
-  
-  button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-  
-  .error {
-    color: var(--error-color, #f44336);
-    padding: 10px;
-    background: rgba(244, 67, 54, 0.1);
-    border-radius: 4px;
-  }
-  
-  .loading {
-    color: var(--text-secondary);
-    text-align: center;
-    padding: 20px;
-  }
-  
-  pre {
-    flex: 1;
-    overflow: auto;
-    background: var(--bg-secondary);
-    padding: 10px;
-    border-radius: 4px;
-    margin: 0;
-    color: var(--text-primary);
-  }
-</style>`,
-
-  chart: `<!--
-@morphbox-panel
-id: {id}
-name: {name}
-description: {description}
-version: 1.0.0
-features: [visualization, chart]
--->
-
-<script lang="ts">
-  import { onMount } from 'svelte';
-  
-  export let panelId: string;
-  export let data: any = {};
-  
-  let canvas: HTMLCanvasElement;
-  let chart: any;
-  
-  // Sample data - replace with your own
-  const chartData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    values: [12, 19, 3, 5, 2, 3]
-  };
-  
-  function drawChart() {
-    if (!canvas) return;
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Simple bar chart implementation
-    const padding = 40;
-    const chartWidth = canvas.width - padding * 2;
-    const chartHeight = canvas.height - padding * 2;
-    const barWidth = chartWidth / chartData.labels.length;
-    const maxValue = Math.max(...chartData.values);
-    
-    // Draw bars
-    ctx.fillStyle = 'var(--accent-color, #4CAF50)';
-    chartData.values.forEach((value, index) => {
-      const barHeight = (value / maxValue) * chartHeight;
-      const x = padding + index * barWidth + barWidth * 0.1;
-      const y = canvas.height - padding - barHeight;
-      const width = barWidth * 0.8;
-      
-      ctx.fillRect(x, y, width, barHeight);
-    });
-    
-    // Draw labels
-    ctx.fillStyle = 'var(--text-primary)';
-    ctx.font = '12px sans-serif';
-    ctx.textAlign = 'center';
-    
-    chartData.labels.forEach((label, index) => {
-      const x = padding + index * barWidth + barWidth / 2;
-      const y = canvas.height - padding + 20;
-      ctx.fillText(label, x, y);
-    });
-  }
-  
-  onMount(() => {
-    // Set canvas size
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
-    
-    drawChart();
-    
-    // Redraw on resize
-    const resizeObserver = new ResizeObserver(() => {
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-      drawChart();
-    });
-    
-    resizeObserver.observe(canvas);
-    
-    return () => {
-      resizeObserver.disconnect();
-    };
-  });
-</script>
-
-<div class="chart-panel">
-  <h2>{name}</h2>
-  <canvas bind:this={canvas}></canvas>
-</div>
-
-<style>
-  .chart-panel {
-    padding: 20px;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  h2 {
-    margin: 0 0 20px 0;
-    color: var(--text-primary);
-  }
-  
-  canvas {
-    flex: 1;
-    width: 100%;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    background: var(--bg-secondary);
-  }
-</style>`,
-
-  form: `<!--
-@morphbox-panel
-id: {id}
-name: {name}
-description: {description}
-version: 1.0.0
-features: [form, input]
--->
-
-<script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  
-  export let panelId: string;
-  export let data: any = {};
-  
-  const dispatch = createEventDispatcher();
-  
-  // Form data
-  let formData = {
-    name: '',
-    email: '',
-    message: ''
-  };
-  
-  function handleSubmit() {
-    // Dispatch event with form data
-    dispatch('submit', formData);
-    
-    // You can also save to localStorage or send to an API
-    console.log('Form submitted:', formData);
-    
-    // Reset form
-    formData = { name: '', email: '', message: '' };
-  }
-</script>
-
-<div class="form-panel">
-  <h2>{name}</h2>
-  
-  <form on:submit|preventDefault={handleSubmit}>
-    <div class="form-group">
-      <label for="name">Name:</label>
-      <input
-        id="name"
-        type="text"
-        bind:value={formData.name}
-        required
-      />
-    </div>
-    
-    <div class="form-group">
-      <label for="email">Email:</label>
-      <input
-        id="email"
-        type="email"
-        bind:value={formData.email}
-        required
-      />
-    </div>
-    
-    <div class="form-group">
-      <label for="message">Message:</label>
-      <textarea
-        id="message"
-        bind:value={formData.message}
-        rows="4"
-        required
-      ></textarea>
-    </div>
-    
-    <button type="submit">Submit</button>
-  </form>
-</div>
-
-<style>
-  .form-panel {
-    padding: 20px;
-    height: 100%;
-    overflow: auto;
-  }
-  
-  h2 {
-    margin: 0 0 20px 0;
-    color: var(--text-primary);
-  }
-  
-  form {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    max-width: 400px;
-  }
-  
-  .form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-  }
-  
-  label {
-    color: var(--text-primary);
-    font-size: 14px;
-    font-weight: 500;
-  }
-  
-  input,
-  textarea {
-    padding: 8px 12px;
-    background: var(--input-bg, var(--bg-secondary));
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    font-family: inherit;
-    font-size: 14px;
-  }
-  
-  input:focus,
-  textarea:focus {
-    outline: none;
-    border-color: var(--accent-color);
-  }
-  
-  button {
-    padding: 10px 20px;
-    background: var(--accent-color, #4CAF50);
-    color: white;
-    border: none;
-    border-radius: 4px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    align-self: flex-start;
-  }
-  
-  button:hover {
-    opacity: 0.9;
-  }
-  
-  button:active {
-    transform: translateY(1px);
-  }
-</style>`
-};
+interface PanelMetadata {
+  id: string;
+  name: string;
+  description: string;
+  promptHistory: Array<{
+    prompt: string;
+    timestamp: string;
+    type: 'create' | 'morph';
+  }>;
+  version: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 function generatePanelId(name: string): string {
   return name
@@ -438,16 +33,221 @@ function generatePanelId(name: string): string {
     Date.now().toString(36);
 }
 
+async function generatePanelWithClaude(name: string, description: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    console.log('=== Starting Claude Panel Generation ===');
+    console.log('Panel Name:', name);
+    console.log('Description:', description);
+    
+    const prompt = `Create a vanilla JavaScript panel for MorphBox with the following requirements:
+
+Panel Name: ${name}
+Description: ${description}
+
+Generate a complete HTML/CSS/JavaScript panel that:
+1. Uses vanilla JavaScript (no frameworks)
+2. Has access to these variables: panelId, data, websocketUrl
+3. Uses MorphBox CSS variables for theming (--bg-primary, --text-primary, --border-color, etc.)
+4. Implements the functionality described above
+5. Uses proper error handling and loading states where applicable
+6. IMPORTANT: The JavaScript code will be automatically wrapped in an onMount() function, so you can safely access DOM elements directly without waiting for DOMContentLoaded
+
+IMPORTANT: Return ONLY the HTML code starting with <div> tags. Do not include any markdown formatting, code blocks, or explanations. Just the raw HTML/CSS/JavaScript code.
+6. Is responsive and works well on mobile
+
+The panel should follow this structure:
+<!--
+@morphbox-panel
+id: (will be generated)
+name: ${name}
+description: ${description}
+version: 1.0.0
+-->
+
+<div class="custom-panel">
+  <div class="panel-header">
+    <h2>${name}</h2>
+  </div>
+  <div class="panel-content">
+    <!-- Panel content here -->
+  </div>
+</div>
+
+<style>
+  /* Panel styles using CSS variables */
+</style>
+
+<script>
+  // Panel logic here
+  // Available: panelId, data, websocketUrl
+  // Use vanilla JS, no frameworks
+</script>
+
+Make it fully functional and production-ready. Use modern JavaScript features.`;
+
+    console.log('Prompt length:', prompt.length);
+    
+    // Use Claude CLI in a dedicated temporary directory
+    const startTime = Date.now();
+    console.log('Executing Claude CLI in dedicated temp directory...');
+    
+    // Create a temporary directory for this Claude session
+    const tempDir = join(tmpdir(), `claude-session-${Date.now()}`);
+    mkdirSync(tempDir, { recursive: true });
+    console.log('Created temp directory:', tempDir);
+    
+    const claude = spawn('claude', ['-p', prompt], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      cwd: tempDir, // Run Claude in the temp directory
+      env: { ...process.env }
+    });
+
+    console.log('Claude process spawned, PID:', claude.pid);
+    console.log('Command:', `claude -p [prompt] (in ${tempDir})`);
+
+    let output = '';
+    let error = '';
+    let isResolved = false;
+
+    // Set a timeout (2 minutes for complex panel generation)
+    const timeout = setTimeout(() => {
+      if (!isResolved) {
+        console.error('=== Claude Process Timeout ===');
+        console.error('Process took longer than 120 seconds');
+        console.error('Output received so far:', output.length, 'characters');
+        console.error('Error output:', error);
+        claude.kill('SIGTERM');
+        reject(new Error('Claude process timed out after 120 seconds'));
+      }
+    }, 120000);
+
+    // Handle stdout
+    claude.stdout.on('data', (data) => {
+      const chunk = data.toString();
+      output += chunk;
+      console.log(`Received stdout chunk: ${chunk.length} characters`);
+      console.log('Chunk preview:', chunk.substring(0, 200));
+    });
+
+    // Handle stderr
+    claude.stderr.on('data', (data) => {
+      const chunk = data.toString();
+      error += chunk;
+      console.error('Received stderr:', chunk);
+    });
+
+    // Handle errors
+    claude.on('error', (err) => {
+      clearTimeout(timeout);
+      isResolved = true;
+      console.error('Claude spawn error:', err);
+      reject(err);
+    });
+
+    // Handle exit
+    claude.on('exit', (code) => {
+      clearTimeout(timeout);
+      isResolved = true;
+      
+      // Clean up temp directory
+      try {
+        rmSync(tempDir, { recursive: true, force: true });
+        console.log('Cleaned up temp directory');
+      } catch (e) {
+        console.warn('Failed to clean up temp directory:', e);
+      }
+      
+      const duration = Date.now() - startTime;
+      console.log(`=== Claude Process Completed ===`);
+      console.log(`Exit code: ${code}`);
+      console.log(`Duration: ${duration}ms`);
+      console.log(`Total output: ${output.length} characters`);
+      console.log(`Total error: ${error.length} characters`);
+      
+      if (code !== 0) {
+        console.error('Claude process failed with code:', code);
+        console.error('Error output:', error);
+        console.error('Standard output preview:', output.substring(0, 500));
+        reject(new Error(`Claude process exited with code ${code}: ${error}`));
+      } else {
+        console.log('Claude completed successfully');
+        console.log('Full output preview (first 1000 chars):', output.substring(0, 1000));
+        
+        // Try multiple patterns to extract the component
+        // 1. Look for content between code blocks (most common)
+        const codeBlockPatterns = [
+          /```(?:html|svelte|xml|javascript)?\s*\n([\s\S]*?)```/,
+          /```\s*\n([\s\S]*?)```/
+        ];
+        
+        for (const pattern of codeBlockPatterns) {
+          const match = output.match(pattern);
+          if (match && match[1]) {
+            console.log('Found code block match with pattern:', pattern);
+            resolve(match[1].trim());
+            return;
+          }
+        }
+        
+        // 2. Look for complete HTML structure with metadata
+        const fullMatch = output.match(/<!--\s*@morphbox-panel[\s\S]*?<\/script>/i);
+        if (fullMatch) {
+          console.log('Found full panel match');
+          resolve(fullMatch[0]);
+          return;
+        }
+        
+        // 3. Look for any HTML-like structure
+        const htmlMatch = output.match(/(<div[\s\S]*?<\/script>)/i);
+        if (htmlMatch) {
+          console.log('Found HTML structure match');
+          resolve(htmlMatch[1]);
+          return;
+        }
+        
+        // 4. Look for DOCTYPE html
+        const doctypeMatch = output.match(/<!DOCTYPE html>[\s\S]*/i);
+        if (doctypeMatch) {
+          console.log('Found DOCTYPE match');
+          resolve(doctypeMatch[0]);
+          return;
+        }
+        
+        // 5. Check if entire output looks like HTML
+        if (output.trim().startsWith('<') && (output.includes('</div>') || output.includes('</html>'))) {
+          console.log('Output appears to be raw HTML');
+          resolve(output.trim());
+          return;
+        }
+        
+        // If nothing matched, log the output for debugging
+        console.error('=== Could not parse Claude response ===');
+        console.error('Output length:', output.length);
+        console.error('First 500 chars:', output.substring(0, 500));
+        console.error('Last 500 chars:', output.substring(output.length - 500));
+        
+        // Try to return the raw output if it looks like HTML
+        if (output.trim().length > 0) {
+          console.log('Returning raw output as fallback');
+          resolve(output.trim());
+          return;
+        }
+        
+        reject(new Error('Could not extract panel component from Claude response'));
+      }
+    });
+
+    // Close stdin immediately since we're passing prompt as argument
+    claude.stdin.end();
+  });
+}
+
 export const POST: RequestHandler = async ({ request }) => {
   try {
-    const { name, description, template } = await request.json();
+    const { name, description } = await request.json();
     
-    if (!name || !description || !template) {
-      return json({ error: 'Missing required fields' }, { status: 400 });
-    }
-    
-    if (!templates[template as keyof typeof templates]) {
-      return json({ error: 'Invalid template' }, { status: 400 });
+    if (!name || !description) {
+      return json({ error: 'Name and description are required' }, { status: 400 });
     }
     
     // Ensure the directory exists
@@ -455,25 +255,84 @@ export const POST: RequestHandler = async ({ request }) => {
     
     // Generate panel ID and filename
     const id = generatePanelId(name);
-    const filename = `${id}.svelte`;
+    const filename = `${id}.morph`;
     const filepath = join(PANELS_DIR, filename);
     
-    // Generate panel content from template
-    const content = templates[template as keyof typeof templates]
-      .replace(/{id}/g, id)
-      .replace(/{name}/g, name)
-      .replace(/{description}/g, description);
+    // Generate panel content using Claude
+    let content: string;
+    try {
+      content = await generatePanelWithClaude(name, description);
+      
+      // Update the metadata in the generated content with the actual ID
+      content = content.replace(
+        /id:\s*\(will be generated\)/,
+        `id: ${id}`
+      );
+    } catch (error) {
+      console.error('Failed to generate panel with Claude:', error);
+      
+      // Return error instead of creating fallback content
+      let errorMessage = 'Failed to generate panel with Claude';
+      let errorDetails = '';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Claude process timed out')) {
+          errorMessage = 'Claude took too long to respond';
+          errorDetails = 'Please ensure Claude CLI is running and try again.';
+        } else if (error.message.includes('exited with code')) {
+          errorMessage = 'Claude CLI failed to generate panel';
+          errorDetails = 'Please check that Claude CLI is properly installed and configured.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      return json({ 
+        error: errorMessage,
+        details: errorDetails
+      }, { status: 500 });
+    }
     
-    // Write the file
-    await writeFile(filepath, content, 'utf-8');
+    // Create .morph file with all data
+    const morphFile = createMorphFile(
+      {
+        id,
+        name,
+        description,
+        version: '1.0.0',
+        features: [],
+        tags: []
+      },
+      content,
+      description
+    );
+    
+    // Write the .morph file
+    await writeFile(filepath, JSON.stringify(morphFile, null, 2), 'utf-8');
     
     return json({
       id,
       filename,
-      path: filepath
+      path: filepath,
+      metadata: morphFile.metadata,
+      format: 'morph'
     });
   } catch (error) {
     console.error('Failed to create custom panel:', error);
-    return json({ error: 'Failed to create panel' }, { status: 500 });
+    
+    let errorMessage = 'Failed to create panel';
+    let errorDetails = '';
+    
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      if (error.message.includes('Claude process')) {
+        errorDetails = 'The Claude CLI might be unavailable or took too long to respond. The panel was created with a basic template instead.';
+      }
+    }
+    
+    return json({ 
+      error: errorMessage,
+      details: errorDetails
+    }, { status: 500 });
   }
 };

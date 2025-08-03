@@ -151,7 +151,7 @@
   .title-text {
     font-weight: 500;
     font-size: var(--panel-title-size, 14px);
-    color: var(--panel-title-color, #333);
+    color: var(--panel-title-color, rgb(210, 210, 210));
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -190,14 +190,14 @@
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    color: var(--panel-action-color, #666);
+    color: var(--panel-action-color, rgb(210, 210, 210));
     transition: all 0.2s ease;
   }
   
   .collapse-button:hover,
   .close-button:hover {
     background: var(--panel-action-hover-bg, rgba(0, 0, 0, 0.05));
-    color: var(--panel-action-hover-color, #333);
+    color: var(--panel-action-hover-color, rgb(210, 210, 210));
   }
   
   .collapse-button:active,

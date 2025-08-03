@@ -50,6 +50,7 @@
   let isReconnecting = false;
   let connectionStatus: 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
   export let terminalSessionId: string | null = null;
+  let sessionId: string | null = null;
   let isInitializing = true;
   let hideLogoTimeout: number | null = null;
   
@@ -201,6 +202,17 @@
       if (terminalSessionId) {
         urlObj.searchParams.set('terminalSessionId', terminalSessionId);
       }
+      // For session persistence, try to use existing session ID
+      if (sessionId) {
+        urlObj.searchParams.set('sessionId', sessionId);
+      } else if (browser) {
+        // Try to get session ID from localStorage
+        const storedSessionId = localStorage.getItem('morphbox-websocket-session');
+        if (storedSessionId) {
+          sessionId = storedSessionId;
+          urlObj.searchParams.set('sessionId', sessionId);
+        }
+      }
       urlObj.searchParams.set('autoLaunchClaude', autoLaunchClaude.toString());
       url = urlObj.toString();
     }
@@ -255,6 +267,16 @@
         switch (message.type) {
           case 'CONNECTED':
             writeln(`\r\n${message.payload?.message || 'Connected'}`);
+            // Store session ID if provided
+            if (message.payload?.sessionId) {
+              sessionId = message.payload.sessionId;
+              if (browser) {
+                localStorage.setItem('morphbox-websocket-session', sessionId);
+              }
+              if (message.payload.isReconnection) {
+                writeln(`\r\n🔄 Reconnected to session: ${sessionId.substring(0, 8)}...`);
+              }
+            }
             break;
           case 'SESSION_CREATED':
             dispatch('session', { sessionId: message.payload?.sessionId });
@@ -281,11 +303,20 @@
                 localStorage.setItem('morphbox-terminal-session', terminalSessionId);
               }
               if (isNewSession) {
-                writeln(`\r\n✨ New session created: ${terminalSessionId.substring(0, 8)}...`);
+                writeln(`\r\n✨ New terminal session created: ${terminalSessionId.substring(0, 8)}...`);
               } else {
-                writeln(`\r\n✅ Session restored: ${terminalSessionId.substring(0, 8)}...`);
+                writeln(`\r\n✅ Terminal session restored: ${terminalSessionId.substring(0, 8)}...`);
               }
             }
+            break;
+          case 'RECONNECTED':
+            writeln(`\r\n✅ Reconnected to agent: ${message.payload?.agentId}`);
+            dispatch('agent', { 
+              status: 'Active', 
+              agentId: message.payload?.agentId 
+            });
+            // Agent is already running, hide loading overlay
+            isInitializing = false;
             break;
           case 'AGENT_EXIT':
             dispatch('agent', { status: 'No agent' });
@@ -426,7 +457,7 @@
     let fontSize = currentSettings?.terminal.fontSize || 14;
     if (viewport.isSmall) {
       // Ensure minimum readable font size on small screens
-      fontSize = Math.max(14, Math.min(fontSize, 16));
+      fontSize = Math.max(12, Math.min(fontSize, 14));
     }
     
     // Get container dimensions if available
@@ -448,8 +479,8 @@
     
     // Calculate columns and rows based on actual container size
     const charWidth = fontSize * 0.55; // Better approximation for monospace fonts
-    const lineHeight = fontSize * (currentSettings?.terminal.lineHeight || 1.2);
-    const padding = viewport.isSmall ? 10 : 20;
+    const lineHeight = fontSize * (currentSettings?.terminal.lineHeight || 1.1);
+    const padding = viewport.isSmall ? 5 : 10;
     
     const cols = Math.max(40, Math.floor((containerWidth - padding * 2) / charWidth));
     const rows = Math.max(10, Math.floor((containerHeight - padding * 2) / lineHeight));
@@ -470,7 +501,7 @@
       fontFamily: currentSettings?.terminal.fontFamily || '"Cascadia Code", "Fira Code", monospace',
       cols,
       rows,
-      lineHeight: currentSettings?.terminal.lineHeight || 1.2,
+      lineHeight: currentSettings?.terminal.lineHeight || 1.1,
       cursorStyle: currentSettings?.terminal.cursorStyle || 'block',
       cursorBlink: currentSettings?.terminal.cursorBlink ?? true,
       allowProposedApi: true,
@@ -631,8 +662,8 @@
         console.warn('[Terminal] Terminal element not found, using rough estimates');
         const fontSize = terminal.options.fontSize || 14;
         const charWidth = fontSize * 0.55; // Better approximation for monospace
-        const lineHeight = fontSize * (terminal.options.lineHeight || 1.2);
-        const padding = 20;
+        const lineHeight = fontSize * (terminal.options.lineHeight || 1.1);
+        const padding = 10;
         
         const cols = Math.max(40, Math.floor((rect.width - padding * 2) / charWidth));
         const rows = Math.max(10, Math.floor((rect.height - padding * 2) / lineHeight));
@@ -1679,7 +1710,7 @@
   }
   
   :global(.terminal-wrapper .xterm) {
-    padding: 10px;
+    padding: 5px;
     height: 100%;
     width: 100%;
     display: block;
@@ -1738,5 +1769,20 @@
   /* Prevent zoom on input focus for iOS */
   :global(.xterm-helper-textarea) {
     font-size: 16px !important;
+  }
+  
+  /* Compact Claude output styling */
+  :global(.xterm .xterm-rows) {
+    line-height: 1.1 !important;
+  }
+  
+  /* Reduce spacing between lines for more compact display */
+  :global(.xterm-screen) {
+    line-height: 1.1 !important;
+  }
+  
+  /* Make terminal text more compact */
+  :global(.xterm .xterm-row) {
+    line-height: 1.1 !important;
   }
 </style>

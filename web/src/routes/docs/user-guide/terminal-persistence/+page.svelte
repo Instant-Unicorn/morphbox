@@ -1,4 +1,3 @@
-
 <svelte:head>
   <title>Terminal Persistence - MorphBox Documentation</title>
 </svelte:head>

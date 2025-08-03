@@ -1,17 +1,23 @@
 {
-  "name": "@morphbox/installer",
-  "version": "2.0.0",
-  "description": "One-command installer for MorphBox - Docker-based AI sandbox for development",
+  "name": "morphbox",
+  "version": "0.7.1",
+  "description": "MorphBox - Safe AI sandbox for development with Claude integration",
   "bin": {
+    "morphbox": "./bin/morphbox.js",
     "morphbox-installer": "./bin/install.js"
   },
   "files": [
     "bin/",
-    "lib/",
-    "README.npm.md"
+    "web/",
+    "docker-compose.yml",
+    "Dockerfile",
+    "morphbox-start",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
-    "test": "node bin/install.js --dry-run"
+    "start": "./morphbox-start",
+    "test": "echo \"No tests configured\""
   },
   "keywords": [
     "morphbox",

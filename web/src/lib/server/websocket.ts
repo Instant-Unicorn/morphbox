@@ -244,7 +244,7 @@ export function handleWebSocketConnection(
               try {
                 currentAgentId = await agentManager.launchAgent('ssh', {
                   sessionId: currentSessionId,
-                  terminalSessionId: terminalSessionId || undefined,
+                  terminalSessionId: terminalSessionId ?? undefined,
                   vmHost,
                   vmPort,
                   vmUser

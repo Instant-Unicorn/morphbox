@@ -423,18 +423,28 @@ info "Press Ctrl+C to stop all services"
 cleanup() {
     echo ""
     info "Stopping MorphBox..."
+    
+    # Kill child processes first
     [[ -n "$WEB_PID" ]] && kill $WEB_PID 2>/dev/null || true
     [[ -n "$WS_PID" ]] && kill $WS_PID 2>/dev/null || true
+    
+    # Give them a moment to stop gracefully
+    sleep 1
+    
+    # Force kill any remaining processes
     pkill -f "node server-packaged" 2>/dev/null || true
     pkill -f "node.*websocket-proxy" 2>/dev/null || true
     
     # Automatically stop Docker container
     if docker ps | grep -q morphbox-vm; then
         info "Stopping Docker container..."
-        docker stop morphbox-vm
+        docker stop morphbox-vm >/dev/null 2>&1
     fi
     
     info "MorphBox stopped"
+    
+    # Kill the parent script and all children
+    kill -TERM $$ 2>/dev/null
     exit 0
 }
 

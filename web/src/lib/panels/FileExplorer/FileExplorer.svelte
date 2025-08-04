@@ -191,12 +191,37 @@
   }
   
   function handleGlobalKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape' && contextMenu) {
-      contextMenu = null;
+    if (e.key === 'Escape') {
+      if (contextMenu) {
+        contextMenu = null;
+      }
+      if (showTargetMenu) {
+        showTargetMenu = false;
+      }
+    }
+  }
+  
+  function handleTargetMenuKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      showTargetMenu = false;
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const buttons = e.currentTarget.querySelectorAll('.target-option');
+      const currentIndex = Array.from(buttons).findIndex(btn => btn === document.activeElement);
+      let newIndex = currentIndex;
+      
+      if (e.key === 'ArrowDown') {
+        newIndex = currentIndex + 1 >= buttons.length ? 0 : currentIndex + 1;
+      } else {
+        newIndex = currentIndex - 1 < 0 ? buttons.length - 1 : currentIndex - 1;
+      }
+      
+      (buttons[newIndex] as HTMLElement).focus();
     }
   }
 </script>
 
+<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
 <div class="file-explorer" role="region" aria-label="File Explorer" on:click={handleGlobalClick} on:keydown={handleGlobalKeydown}>
   <div class="file-explorer-header">
     <h3>Explorer</h3>
@@ -206,6 +231,8 @@
           class="target-btn" 
           on:click|stopPropagation={() => showTargetMenu = !showTargetMenu}
           title="Select target panel for opening files"
+          aria-expanded={showTargetMenu}
+          aria-haspopup="menu"
         >
           <span class="target-icon">🎯</span>
           <span class="target-label">{currentTarget ? currentTarget.title : 'New Panel'}</span>
@@ -213,11 +240,13 @@
         </button>
         
         {#if showTargetMenu}
-          <div class="target-menu" on:click|stopPropagation>
+          <div class="target-menu" role="menu" tabindex="0" on:click|stopPropagation on:keydown={handleTargetMenuKeydown}>
             <div class="menu-header">Open files in:</div>
             <button 
               class="target-option" 
               class:selected={!targetPanelId}
+              role="menuitem"
+              aria-current={!targetPanelId ? "true" : undefined}
               on:click={() => {
                 targetPanelId = null;
                 fileTargetStore.clearTarget(panelId);
@@ -234,6 +263,8 @@
               <button 
                 class="target-option" 
                 class:selected={panel.id === targetPanelId}
+                role="menuitem"
+                aria-current={panel.id === targetPanelId ? "true" : undefined}
                 on:click={() => selectTarget(panel)}
               >
                 <span class="panel-type">{panel.type}</span>
@@ -423,13 +454,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  
-  .no-targets {
-    padding: 12px;
-    text-align: center;
-    color: var(--text-secondary, #969696);
-    font-size: 12px;
   }
   
   .refresh-btn {

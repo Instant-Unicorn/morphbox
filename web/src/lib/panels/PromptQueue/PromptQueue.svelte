@@ -426,6 +426,7 @@
           class:drag-over={draggedOverIndex === index}
           class:draggable={item.status === 'pending'}
           draggable={item.status === 'pending'}
+          role="listitem"
           on:dragstart={(e) => handleDragStart(e, item, index)}
           on:dragend={handleDragEnd}
           on:dragover={(e) => handleDragOver(e, index)}

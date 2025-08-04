@@ -234,18 +234,4 @@ Use: `morphbox-panel` and select "{template.name}"
 
 <style>
   /* Component styles */
-  .template {
-    margin: 1rem 0;
-    padding: 1rem;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-  }
-  
-  h1, h2, h3 {
-    color: var(--text-primary);
-  }
-  
-  p {
-    color: var(--text-secondary);
-  }
 </style>

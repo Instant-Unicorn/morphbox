@@ -3,6 +3,7 @@
   
   export let orientation: 'horizontal' | 'vertical' = 'horizontal';
   export let disabled: boolean = false;
+  export let currentValue: number = 50;
   
   const dispatch = createEventDispatcher();
   
@@ -103,6 +104,14 @@
         e.preventDefault();
         delta = step;
         break;
+      case 'Home':
+        e.preventDefault();
+        dispatch('home');
+        return;
+      case 'End':
+        e.preventDefault();
+        dispatch('end');
+        return;
       default:
         return;
     }
@@ -126,10 +135,9 @@
   role={disabled ? "presentation" : "separator"}
   aria-orientation={orientation}
   aria-disabled={disabled}
-  aria-valuenow={0}
-  aria-valuemin={-100}
+  aria-valuenow={currentValue}
+  aria-valuemin={0}
   aria-valuemax={100}
-  tabindex={disabled ? -1 : 0}
 >
   <div class="handle-grip"></div>
 </div>

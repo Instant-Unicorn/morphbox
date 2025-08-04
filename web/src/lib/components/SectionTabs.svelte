@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { createEventDispatcher, onMount, tick } from 'svelte';
   import { writable } from 'svelte/store';
   
   const dispatch = createEventDispatcher();
@@ -51,12 +51,20 @@
   }
   
   // Start editing section name
-  function startEditing(sectionId: string) {
+  async function startEditing(sectionId: string) {
     const section = $sections.find(s => s.id === sectionId);
     if (!section) return;
     
     editingSection = sectionId;
     editingName = section.name;
+    
+    // Wait for DOM update then focus the input
+    await tick();
+    const input = document.querySelector('.tab-name-input') as HTMLInputElement;
+    if (input) {
+      input.focus();
+      input.select();
+    }
   }
   
   // Save section name
@@ -178,7 +186,6 @@
                 if (e.key === 'Enter') saveSectionName();
                 if (e.key === 'Escape') cancelEditing();
               }}
-              autofocus
             />
           {:else}
             <span 

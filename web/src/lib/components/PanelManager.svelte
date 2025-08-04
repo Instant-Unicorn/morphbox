@@ -248,7 +248,7 @@
     <!-- Backdrop -->
     <div class="panel-manager-backdrop" on:click={() => showManager = false} on:keydown={(e) => e.key === 'Escape' && (showManager = false)} role="button" tabindex="-1" aria-label="Close panel manager"></div>
     
-    <div class="panel-manager" role="dialog" aria-label="Panel Manager" on:click|stopPropagation>
+    <div class="panel-manager" role="dialog" aria-label="Panel Manager">
     <div class="manager-header">
       <h3>Panel Manager</h3>
       <button class="close-button" on:click={() => showManager = false} on:keydown={(e) => e.key === 'Enter' && (showManager = false)}>×</button>

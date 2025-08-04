@@ -91,7 +91,7 @@ wss.on('connection', (ws, req) => {
           // Small delay to ensure prompt is ready
           setTimeout(() => {
             console.log('[WebSocket Proxy] Launching Claude...');
-            stream.write('PROJECT_DIR=$(ls -d /workspace/*/ 2>/dev/null | head -n1 | xargs basename 2>/dev/null); cd /workspace/${PROJECT_DIR:-} 2>/dev/null || cd /workspace && claude\n');
+            stream.write('claude --dangerously-skip-permissions\n');
           }, 100);
         }
       });

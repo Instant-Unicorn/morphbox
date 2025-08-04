@@ -16,44 +16,22 @@ export const nodes = [
 	() => import('./nodes/9'),
 	() => import('./nodes/10'),
 	() => import('./nodes/11'),
-	() => import('./nodes/12'),
-	() => import('./nodes/13'),
-	() => import('./nodes/14'),
-	() => import('./nodes/15'),
-	() => import('./nodes/16'),
-	() => import('./nodes/17'),
-	() => import('./nodes/18'),
-	() => import('./nodes/19'),
-	() => import('./nodes/20'),
-	() => import('./nodes/21'),
-	() => import('./nodes/22'),
-	() => import('./nodes/23')
+	() => import('./nodes/12')
 ];
 
 export const server_loads = [0];
 
 export const dictionary = {
 		"/": [3],
-		"/code-editor-demo": [4],
-		"/color-picker-test": [5],
-		"/command-palette-demo": [6],
-		"/docs": [7,[2]],
-		"/docs/api-reference/overview": [9,[2]],
-		"/docs/getting-started/installation": [10,[2]],
-		"/docs/user-guide/custom-panels": [11,[2]],
-		"/docs/user-guide/keyboard-shortcuts": [12,[2]],
-		"/docs/user-guide/mobile-usage": [13,[2]],
-		"/docs/user-guide/terminal-persistence": [14,[2]],
-		"/docs/[...slug]": [~8,[2]],
-		"/file-explorer-demo": [15],
-		"/layout-test": [16],
-		"/login": [17],
-		"/mobile-test": [18],
-		"/panel-menu-demo": [19],
-		"/panel-test": [20],
-		"/terminal-test": [21],
-		"/test-ws": [23],
-		"/test": [22]
+		"/docs": [4,[2]],
+		"/docs/api-reference/overview": [6,[2]],
+		"/docs/getting-started/installation": [7,[2]],
+		"/docs/user-guide/custom-panels": [8,[2]],
+		"/docs/user-guide/keyboard-shortcuts": [9,[2]],
+		"/docs/user-guide/mobile-usage": [10,[2]],
+		"/docs/user-guide/terminal-persistence": [11,[2]],
+		"/docs/[...slug]": [~5,[2]],
+		"/login": [12]
 	};
 
 export const hooks = {

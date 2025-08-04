@@ -108,15 +108,6 @@
 	"/api/ws": [
 		"src/routes/api/ws/+server.ts"
 	],
-	"/code-editor-demo": [
-		"src/routes/+layout.server.ts"
-	],
-	"/color-picker-test": [
-		"src/routes/+layout.server.ts"
-	],
-	"/command-palette-demo": [
-		"src/routes/+layout.server.ts"
-	],
 	"/docs": [
 		"src/routes/+layout.server.ts",
 		"src/routes/+layout.server.ts"
@@ -143,31 +134,7 @@
 		"src/routes/docs/[...slug]/+page.server.ts",
 		"src/routes/+layout.server.ts"
 	],
-	"/file-explorer-demo": [
-		"src/routes/+layout.server.ts"
-	],
-	"/layout-test": [
-		"src/routes/+layout.server.ts"
-	],
 	"/login": [
-		"src/routes/+layout.server.ts"
-	],
-	"/mobile-test": [
-		"src/routes/+layout.server.ts"
-	],
-	"/panel-menu-demo": [
-		"src/routes/+layout.server.ts"
-	],
-	"/panel-test": [
-		"src/routes/+layout.server.ts"
-	],
-	"/terminal-test": [
-		"src/routes/+layout.server.ts"
-	],
-	"/test-ws": [
-		"src/routes/+layout.server.ts"
-	],
-	"/test": [
 		"src/routes/+layout.server.ts"
 	]
 }

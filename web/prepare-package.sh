@@ -44,6 +44,7 @@ echo "Package preparation complete!"
 # Clean up any existing installation
 echo "Cleaning up existing installation..."
 sudo rm -rf ~/.npm-global/lib/node_modules/morphbox ~/.npm-global/lib/node_modules/.morphbox-* 2>/dev/null || true
+sudo rm -f ~/.npm-global/bin/morphbox 2>/dev/null || true
 
 # Create npm package
 echo "Creating npm package..."

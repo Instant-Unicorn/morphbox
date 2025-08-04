@@ -419,8 +419,17 @@ fi
 info ""
 info "Press Ctrl+C to stop all services"
 
+# Track if cleanup is already running
+CLEANUP_IN_PROGRESS=false
+
 # Cleanup function
 cleanup() {
+    # Prevent recursive cleanup
+    if [[ "$CLEANUP_IN_PROGRESS" == "true" ]]; then
+        return
+    fi
+    CLEANUP_IN_PROGRESS=true
+    
     echo ""
     info "Stopping MorphBox..."
     
@@ -443,8 +452,8 @@ cleanup() {
     
     info "MorphBox stopped"
     
-    # Kill the parent script and all children
-    kill -TERM $$ 2>/dev/null
+    # Exit cleanly without triggering trap again
+    trap - SIGINT SIGTERM
     exit 0
 }
 

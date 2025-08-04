@@ -9,8 +9,6 @@
   "files": [
     "bin/",
     "web/",
-    "docker-compose.yml",
-    "Dockerfile",
     "morphbox-start",
     "README.md",
     "LICENSE"

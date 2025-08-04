@@ -101,10 +101,14 @@ async function main() {
     process.exit(1);
   }
   
+  // Set environment variable for user's current directory
+  process.env.MORPHBOX_USER_DIR = process.cwd();
+  
   // Forward all arguments to morphbox-start
   const child = spawn(morphboxStart, args, {
     stdio: 'inherit',
-    cwd: morphboxHome
+    cwd: morphboxHome,
+    env: process.env  // Pass environment variables including MORPHBOX_USER_DIR
   });
   
   child.on('error', (err) => {

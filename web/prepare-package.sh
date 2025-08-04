@@ -5,14 +5,29 @@ set -e
 
 echo "Preparing MorphBox package..."
 
+# Skip Docker recreation during packaging
+echo "📦 Packaging mode - skipping Docker container recreation"
+export SKIP_DOCKER_RECREATE=true
+
 # Create directories
 mkdir -p scripts
-mkdir -p docker
+# Don't create docker directory yet - check if it exists with files first
 
-# Copy Docker files
-cp ../Dockerfile docker/
-cp ../docker-compose.yml docker/
-cp ../docker-compose.persist.yml docker/
+# Check if docker directory already exists with required files
+if [[ -f docker/Dockerfile ]] && [[ -f docker/docker-entrypoint.sh ]] && [[ -f docker/docker-compose.yml ]]; then
+    echo "✅ Using Docker files from web/docker directory"
+    # Docker files already in place, nothing to copy
+else
+    echo "❌ ERROR: Docker files not found in web/docker directory!"
+    echo "   Expected files:"
+    echo "   - docker/Dockerfile"
+    echo "   - docker/docker-entrypoint.sh"
+    echo "   - docker/docker-compose.yml"
+    echo "   - docker/docker-compose.persist.yml (optional)"
+    echo ""
+    echo "   Please ensure Docker files exist in web/docker/ before packaging."
+    exit 1
+fi
 
 # Copy scripts - use the packaged version for morphbox-start
 cp scripts/morphbox-start-packaged scripts/morphbox-start

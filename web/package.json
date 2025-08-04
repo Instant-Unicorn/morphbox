@@ -1,5 +1,5 @@
 {
-  "name": "morphbox-web",
+  "name": "morphbox",
   "version": "0.7.1",
   "description": "Docker-based AI sandbox for development with Claude integration",
   "bin": {

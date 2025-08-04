@@ -8,7 +8,7 @@ MorphBox provides a secure, isolated development environment with Claude AI inte
 
 ```bash
 # Install MorphBox globally
-npm install -g morphbox-web
+npm install -g morphbox
 
 # Start MorphBox (will auto-install on first run)
 morphbox

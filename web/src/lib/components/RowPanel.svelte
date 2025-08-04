@@ -554,6 +554,80 @@
     dispatch('open', event.detail);
   }
   
+  // Keyboard handler for resize handles
+  function handleResizeKeydown(e: KeyboardEvent, direction: 'horizontal' | 'vertical', side: 'left' | 'right' | 'top' | 'bottom') {
+    const step = e.shiftKey ? 10 : 1; // Larger steps with shift key
+    let handled = false;
+    
+    if (direction === 'horizontal') {
+      const currentWidth = panel.widthPercent || 100;
+      let newWidth = currentWidth;
+      
+      if (e.key === 'ArrowLeft') {
+        newWidth = Math.max(10, currentWidth - step);
+        handled = true;
+      } else if (e.key === 'ArrowRight') {
+        newWidth = Math.min(100, currentWidth + step);
+        handled = true;
+      } else if (e.key === 'Home') {
+        newWidth = 10;
+        handled = true;
+      } else if (e.key === 'End') {
+        newWidth = 100;
+        handled = true;
+      }
+      
+      if (handled && newWidth !== currentWidth) {
+        dispatch('resize', { 
+          panelId: panel.id, 
+          newWidth,
+          isLeftResize: side === 'left'
+        });
+      }
+    } else if (direction === 'vertical') {
+      const currentHeight = panel.heightPixels || 400;
+      const minHeight = side === 'bottom' ? 100 : 150; // Mobile handle has lower minimum
+      const maxHeight = Math.floor(window.innerHeight * (side === 'bottom' ? 0.9 : 0.8));
+      let newHeight = currentHeight;
+      
+      if (e.key === 'ArrowUp') {
+        if (side === 'bottom') {
+          newHeight = Math.max(minHeight, currentHeight - step * 10);
+        } else {
+          newHeight = Math.min(maxHeight, currentHeight + step * 10);
+        }
+        handled = true;
+      } else if (e.key === 'ArrowDown') {
+        if (side === 'bottom') {
+          newHeight = Math.min(maxHeight, currentHeight + step * 10);
+        } else {
+          newHeight = Math.max(minHeight, currentHeight - step * 10);
+        }
+        handled = true;
+      } else if (e.key === 'Home') {
+        newHeight = minHeight;
+        handled = true;
+      } else if (e.key === 'End') {
+        newHeight = maxHeight;
+        handled = true;
+      }
+      
+      if (handled && newHeight !== currentHeight) {
+        dispatch('resize', { 
+          panelId: panel.id, 
+          newHeight,
+          moveTop: side === 'top',
+          deltaY: side === 'top' ? currentHeight - newHeight : 0
+        });
+      }
+    }
+    
+    if (handled) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+  
   // These keyboard emulation functions are already defined earlier in the file
 </script>
 
@@ -580,12 +654,6 @@
       draggable="true"
       on:dragstart={handleDragStart}
       on:dragend={handleDragEnd}
-      on:keydown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          // Could implement keyboard-based reordering here
-        }
-      }}
       role="button"
       tabindex="0"
       aria-label="Drag to reorder panel"
@@ -774,8 +842,10 @@
     class="resize-handle resize-left"
     on:mousedown={(e) => handleHorizontalResizeStart(e, 'left')}
     on:touchstart={(e) => handleHorizontalResizeStart(e, 'left')}
+    on:keydown={(e) => handleResizeKeydown(e, 'horizontal', 'left')}
     title="Resize width"
-    role="separator"
+    role="slider"
+    tabindex="0"
     aria-orientation="vertical"
     aria-label="Resize panel width from left"
     aria-valuenow={panel.widthPercent || 100}
@@ -786,8 +856,10 @@
     class="resize-handle resize-right"
     on:mousedown={(e) => handleHorizontalResizeStart(e, 'right')}
     on:touchstart={(e) => handleHorizontalResizeStart(e, 'right')}
+    on:keydown={(e) => handleResizeKeydown(e, 'horizontal', 'right')}
     title="Resize width"
-    role="separator"
+    role="slider"
+    tabindex="0"
     aria-orientation="vertical"
     aria-label="Resize panel width from right"
     aria-valuenow={panel.widthPercent || 100}
@@ -798,8 +870,10 @@
     class="resize-handle resize-top"
     on:mousedown={(e) => handleVerticalResizeStart(e, 'top')}
     on:touchstart={(e) => handleVerticalResizeStart(e, 'top')}
+    on:keydown={(e) => handleResizeKeydown(e, 'vertical', 'top')}
     title="Resize height"
-    role="separator"
+    role="slider"
+    tabindex="0"
     aria-orientation="horizontal"
     aria-label="Resize panel height from top"
     aria-valuenow={panel.heightPixels || 400}
@@ -810,8 +884,10 @@
     class="resize-handle resize-bottom"
     on:mousedown={(e) => handleVerticalResizeStart(e, 'bottom')}
     on:touchstart={(e) => handleVerticalResizeStart(e, 'bottom')}
+    on:keydown={(e) => handleResizeKeydown(e, 'vertical', 'bottom')}
     title="Resize height"
-    role="separator"
+    role="slider"
+    tabindex="0"
     aria-orientation="horizontal"
     aria-label="Resize panel height from bottom"
     aria-valuenow={panel.heightPixels || 400}
@@ -824,8 +900,10 @@
     class="mobile-resize-handle"
     on:touchstart={(e) => handleVerticalResizeStart(e, 'bottom')}
     on:mousedown={(e) => handleVerticalResizeStart(e, 'bottom')}
+    on:keydown={(e) => handleResizeKeydown(e, 'vertical', 'bottom')}
     title="Drag to resize"
-    role="separator"
+    role="slider"
+    tabindex="0"
     aria-orientation="horizontal"
     aria-label="Resize panel height"
     aria-valuenow={panel.heightPixels || 400}
@@ -1177,6 +1255,18 @@
     background-color: var(--accent-color, #0e639c);
   }
   
+  .resize-handle:focus {
+    outline: 2px solid var(--accent-color, #0e639c);
+    outline-offset: -2px;
+    background-color: rgba(14, 99, 156, 0.2);
+  }
+  
+  .resize-handle:focus-visible {
+    outline: 2px solid var(--accent-color, #0e639c);
+    outline-offset: -2px;
+    background-color: rgba(14, 99, 156, 0.3);
+  }
+  
   .resize-handle::after {
     content: '';
     position: absolute;
@@ -1469,6 +1559,23 @@
     background-color: var(--accent-color, #0e639c);
     width: 6px;
     height: 6px;
+  }
+  
+  /* Focus states for mobile resize handle */
+  .mobile-resize-handle:focus {
+    outline: 2px solid var(--accent-color, #0e639c);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  
+  .mobile-resize-handle:focus .mobile-resize-indicator {
+    background-color: var(--accent-color, #0e639c);
+    box-shadow: 0 2px 6px rgba(14, 99, 156, 0.3);
+  }
+  
+  .mobile-resize-handle:focus .mobile-resize-indicator::before,
+  .mobile-resize-handle:focus .mobile-resize-indicator::after {
+    background-color: var(--accent-color, #0e639c);
   }
   
   /* Ensure resize handle is visible even when panel is at bottom of viewport */

@@ -871,7 +871,6 @@
   }
   
   input[type="text"],
-  input[type="number"],
   select {
     background-color: var(--input-bg, #3c3c3c);
     color: var(--text-color, #cccccc);
@@ -882,7 +881,6 @@
   }
   
   input[type="text"]:focus,
-  input[type="number"]:focus,
   select:focus {
     outline: none;
     border-color: var(--accent-color, #007acc);
@@ -917,36 +915,6 @@
   
   .color-setting label {
     font-size: 14px;
-  }
-  
-  .panel-position {
-    margin-bottom: 16px;
-    padding: 12px;
-    background-color: rgba(0, 0, 0, 0.1);
-    border-radius: 4px;
-  }
-  
-  .panel-position h5 {
-    margin: 0 0 8px 0;
-    font-size: 14px;
-    font-weight: 500;
-  }
-  
-  .position-inputs {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-  }
-  
-  .position-inputs label {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 12px;
-  }
-  
-  .position-inputs input {
-    width: 100%;
   }
   
   .shortcuts-list {

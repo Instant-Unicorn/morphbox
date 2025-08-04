@@ -143,8 +143,9 @@
   }
 </script>
 
-<div class="modal-overlay" on:click={close} on:keydown={handleEscape}>
-  <div class="modal-content" on:click|stopPropagation transition:fade={{ duration: 200 }}>
+<div class="modal-overlay" role="button" tabindex="-1" on:click={close} on:keydown={handleEscape}>
+  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
+  <div class="modal-content" role="dialog" aria-modal="true" on:click|stopPropagation transition:fade={{ duration: 200 }}>
     <div class="modal-header">
       <h2>Edit Custom Panel: {panelName}</h2>
       <button class="close-button" on:click={close} aria-label="Close">×</button>

@@ -30,8 +30,9 @@
 </script>
 
 {#if isOpen}
-  <div class="modal-backdrop" on:click={close} on:keydown={handleKeydown}>
-    <div class="modal" on:click|stopPropagation>
+  <div class="modal-backdrop" role="button" tabindex="-1" on:click={close} on:keydown={handleKeydown}>
+    <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
+    <div class="modal" role="dialog" aria-modal="true" on:click|stopPropagation>
       <div class="modal-header">
         <h3>Edit Prompt</h3>
         <button class="close-button" on:click={close}>

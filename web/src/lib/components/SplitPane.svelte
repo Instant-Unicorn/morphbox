@@ -90,44 +90,6 @@
     dispatch('splitend', { split: currentSplit });
   }
   
-  function handleKeyDown(event: KeyboardEvent) {
-    if (disabled) return;
-    
-    const step = event.shiftKey ? 10 : 1;
-    let newSplit = currentSplit;
-    
-    switch (event.key) {
-      case 'ArrowLeft':
-      case 'ArrowUp':
-        event.preventDefault();
-        newSplit = Math.max(
-          (minSize / containerSize) * 100,
-          currentSplit - step
-        );
-        break;
-      case 'ArrowRight':
-      case 'ArrowDown':
-        event.preventDefault();
-        newSplit = Math.min(
-          ((containerSize - minSize) / containerSize) * 100,
-          currentSplit + step
-        );
-        break;
-      case 'Home':
-        event.preventDefault();
-        newSplit = (minSize / containerSize) * 100;
-        break;
-      case 'End':
-        event.preventDefault();
-        newSplit = ((containerSize - minSize) / containerSize) * 100;
-        break;
-      default:
-        return;
-    }
-    
-    currentSplit = newSplit;
-    dispatch('splitchange', { split: currentSplit });
-  }
   
   onMount(() => {
     updateContainerSize();
@@ -152,10 +114,8 @@
   bind:this={container}
   class="split-pane {orientation} {className}"
   class:disabled
-  role="application"
+  role="group"
   aria-label="Split pane container"
-  tabindex="0"
-  on:keydown={handleKeyDown}
 >
   <div
     bind:this={pane1}
@@ -167,9 +127,18 @@
   <DragHandle
     {orientation}
     {disabled}
+    currentValue={currentSplit}
     on:dragstart={handleDragStart}
     on:drag={handleDrag}
     on:dragend={handleDragEnd}
+    on:home={() => {
+      currentSplit = (minSize / containerSize) * 100;
+      dispatch('splitchange', { split: currentSplit });
+    }}
+    on:end={() => {
+      currentSplit = ((containerSize - minSize) / containerSize) * 100;
+      dispatch('splitchange', { split: currentSplit });
+    }}
   />
   
   <div

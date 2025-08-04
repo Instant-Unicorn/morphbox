@@ -22,8 +22,9 @@
   }
 </script>
 
-<div class="modal-overlay" on:click={handleCancel} on:keydown={handleKeydown}>
-  <div class="modal-content" on:click|stopPropagation transition:fade={{ duration: 200 }}>
+<div class="modal-overlay" role="button" tabindex="-1" on:click={handleCancel} on:keydown={handleKeydown}>
+  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
+  <div class="modal-content" role="dialog" aria-modal="true" on:click|stopPropagation transition:fade={{ duration: 200 }}>
     <div class="modal-header">
       <h3>Delete Custom Panel</h3>
     </div>

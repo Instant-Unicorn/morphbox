@@ -839,6 +839,8 @@
         {#if row.panels.length === 0}
           <div 
             class="empty-row"
+            role="region"
+            aria-label="Empty row drop zone"
             on:dragover={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
             on:drop={(e) => {
               e.preventDefault();
@@ -882,6 +884,8 @@
     {#if draggedPanelId}
       <div 
         class="new-row-drop-zone"
+        role="region"
+        aria-label="New row drop zone"
         on:dragover={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
         on:drop={(e) => {
           e.preventDefault();

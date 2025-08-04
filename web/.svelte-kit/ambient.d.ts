@@ -41,11 +41,9 @@ declare module '$env/static/private' {
 	export const SHLVL: string;
 	export const npm_config_noproxy: string;
 	export const HOME: string;
-	export const OLDPWD: string;
 	export const SSH_TTY: string;
 	export const npm_package_json: string;
 	export const npm_package_engines_node: string;
-	export const SKIP_DOCKER_RECREATE: string;
 	export const npm_config_userconfig: string;
 	export const npm_config_local_prefix: string;
 	export const DBUS_SESSION_BUS_ADDRESS: string;
@@ -135,11 +133,9 @@ declare module '$env/dynamic/private' {
 		SHLVL: string;
 		npm_config_noproxy: string;
 		HOME: string;
-		OLDPWD: string;
 		SSH_TTY: string;
 		npm_package_json: string;
 		npm_package_engines_node: string;
-		SKIP_DOCKER_RECREATE: string;
 		npm_config_userconfig: string;
 		npm_config_local_prefix: string;
 		DBUS_SESSION_BUS_ADDRESS: string;

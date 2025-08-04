@@ -2,7 +2,6 @@
   "name": "morphbox-web",
   "version": "0.7.1",
   "description": "Docker-based AI sandbox for development with Claude integration",
-  "private": true,
   "bin": {
     "morphbox": "./bin/morphbox.js"
   },

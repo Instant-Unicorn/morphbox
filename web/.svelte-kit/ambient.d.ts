@@ -42,6 +42,7 @@ declare module '$env/static/private' {
 	export const SSH_TTY: string;
 	export const npm_package_json: string;
 	export const npm_package_engines_node: string;
+	export const SKIP_DOCKER_RECREATE: string;
 	export const npm_config_userconfig: string;
 	export const npm_config_local_prefix: string;
 	export const DBUS_SESSION_BUS_ADDRESS: string;
@@ -126,6 +127,7 @@ declare module '$env/dynamic/private' {
 		SSH_TTY: string;
 		npm_package_json: string;
 		npm_package_engines_node: string;
+		SKIP_DOCKER_RECREATE: string;
 		npm_config_userconfig: string;
 		npm_config_local_prefix: string;
 		DBUS_SESSION_BUS_ADDRESS: string;

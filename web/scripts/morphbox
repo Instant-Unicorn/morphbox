@@ -1,0 +1,25 @@
+#!/bin/bash
+# MorphBox launcher wrapper - captures user's current directory
+
+# Save the user's current directory BEFORE changing to script location
+export MORPHBOX_USER_DIR="$(pwd)"
+
+# Get the directory where this script is located (npm global bin)
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Find the actual morphbox package location
+# When installed globally, the bin script is in the npm bin directory
+# and the actual package is in ../lib/node_modules/morphbox-web
+if [[ -f "$SCRIPT_DIR/../lib/node_modules/morphbox-web/scripts/morphbox-start-packaged" ]]; then
+    # Global npm install
+    exec "$SCRIPT_DIR/../lib/node_modules/morphbox-web/scripts/morphbox-start-packaged" "$@"
+elif [[ -f "$SCRIPT_DIR/../scripts/morphbox-start-packaged" ]]; then
+    # Local npm install or development
+    exec "$SCRIPT_DIR/../scripts/morphbox-start-packaged" "$@"
+else
+    echo "Error: Could not find morphbox-start-packaged script"
+    echo "Looking in:"
+    echo "  - $SCRIPT_DIR/../lib/node_modules/morphbox-web/scripts/morphbox-start-packaged"
+    echo "  - $SCRIPT_DIR/../scripts/morphbox-start-packaged"
+    exit 1
+fi

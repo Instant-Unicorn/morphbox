@@ -189,13 +189,92 @@ pkill -f "node server-packaged" 2>/dev/null || true
 
 # Start Docker container if not running
 info "Checking Docker container..."
-if ! docker ps | grep -q morphbox-vm; then
-    info "Starting MorphBox VM container..."
-    cd "$SCRIPT_DIR/docker"
-    docker compose up -d
-    sleep 2
+
+# Get the user's current directory (absolute path)
+# This is where the user ran 'morphbox' from, NOT where the script is located
+USER_DIR="${MORPHBOX_USER_DIR:-$(pwd)}"
+info "User workspace: $USER_DIR"
+
+# Check if container exists (running or stopped)
+if docker ps -a | grep -q morphbox-vm; then
+    # Container exists - check if volumes are correct
+    CONTAINER_WORKSPACE=$(docker inspect morphbox-vm --format '{{ range .Mounts }}{{ if eq .Destination "/workspace" }}{{ .Source }}{{ end }}{{ end }}')
+    
+    if [[ "$CONTAINER_WORKSPACE" != "$USER_DIR" ]]; then
+        info "Container exists but with wrong workspace ($CONTAINER_WORKSPACE)"
+        info "Removing old container to recreate with correct workspace..."
+        docker rm -f morphbox-vm 2>/dev/null || true
+        NEED_CREATE=true
+    elif ! docker ps | grep -q morphbox-vm; then
+        info "Starting existing MorphBox VM container..."
+        docker start morphbox-vm
+        sleep 2
+        NEED_CREATE=false
+    else
+        info "MorphBox VM container already running with correct workspace"
+        NEED_CREATE=false
+    fi
 else
-    info "MorphBox VM container already running"
+    NEED_CREATE=true
+fi
+
+if [[ "$NEED_CREATE" == "true" ]]; then
+    info "Creating MorphBox VM container with workspace: $USER_DIR"
+    
+    # Create a temporary docker-compose file with absolute paths
+    TEMP_COMPOSE="/tmp/morphbox-compose-$$.yml"
+    cat > "$TEMP_COMPOSE" << EOF
+services:
+  morphbox-vm:
+    build:
+      context: $SCRIPT_DIR/docker
+      dockerfile: Dockerfile
+    container_name: morphbox-vm
+    hostname: morphbox-vm
+    ports:
+      - "2222:22"  # SSH port mapping
+    volumes:
+      # Persist Claude authentication data
+      - claude-config:/home/morphbox/.config/claude-code
+      # Mount USER'S CURRENT DIRECTORY as workspace (absolute path)
+      - $USER_DIR:/workspace
+      # Mount morphbox package directory for access to project files
+      - $SCRIPT_DIR:/workspace/morphbox
+      # Persist bash history and other user data
+      - claude-home:/home/morphbox
+      # Persist Claude updates (prevents re-downloads)
+      - claude-npm-cache:/usr/local/lib/node_modules
+      - claude-npm-bin:/usr/local/bin
+    environment:
+      - TERM=xterm-256color
+      - COLORTERM=truecolor
+      - ANTHROPIC_API_KEY=\${ANTHROPIC_API_KEY:-}
+    restart: unless-stopped
+    networks:
+      - morphbox-network
+
+networks:
+  morphbox-network:
+    driver: bridge
+
+volumes:
+  claude-config:
+    driver: local
+  claude-home:
+    driver: local
+  claude-npm-cache:
+    driver: local
+  claude-npm-bin:
+    driver: local
+EOF
+    
+    # Use the temporary compose file to create container
+    docker compose -f "$TEMP_COMPOSE" up -d
+    
+    # Clean up temp file
+    rm -f "$TEMP_COMPOSE"
+    
+    sleep 2
 fi
 
 # Check for Claude updates in container
@@ -352,8 +431,7 @@ cleanup() {
     # Automatically stop Docker container
     if docker ps | grep -q morphbox-vm; then
         info "Stopping Docker container..."
-        cd "$SCRIPT_DIR/docker"
-        docker compose down
+        docker stop morphbox-vm
     fi
     
     info "MorphBox stopped"

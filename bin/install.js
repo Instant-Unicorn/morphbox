@@ -183,10 +183,14 @@ async function setupDockerContainer(morphboxHome) {
   
   process.chdir(morphboxHome);
   
-  // Check if docker-compose.yml exists
-  if (!fs.existsSync('docker-compose.yml')) {
-    throw new Error('docker-compose.yml not found in MorphBox directory');
+  // Check if docker-compose.yml exists in web/docker
+  const dockerComposePath = path.join('web', 'docker', 'docker-compose.yml');
+  if (!fs.existsSync(dockerComposePath)) {
+    throw new Error('docker-compose.yml not found in web/docker directory');
   }
+  
+  // Change to docker directory for docker commands
+  process.chdir(path.join(morphboxHome, 'web', 'docker'));
   
   try {
     // Pull the Docker image

@@ -200,6 +200,11 @@ export function handleWebSocketConnection(
             terminalSize: { cols: 80, rows: 24 },
             workingDirectory: process.cwd()
           });
+          
+          // Send initial prompt after a short delay to ensure terminal is ready
+          setTimeout(() => {
+            send('OUTPUT', { data: '\r\nmorphbox@morphbox-vm:/workspace$ ' });
+          }, 500);
         }
         
         // Get VM connection info for potential restarts

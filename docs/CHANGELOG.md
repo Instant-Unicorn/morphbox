@@ -1,5 +1,15 @@
 # MorphBox Changelog
 
+## 2025-01-05
+
+### Version 0.8.2 - Claude Auto-Update Restored
+
+**Changes**:
+- Bumped version from 0.7.1 to 0.8.2
+- Re-enabled Claude Code auto-update check on morphbox launch
+- Fixed the auto-update functionality that was previously commented out in the packaged version
+- Auto-update still runs automatically via docker-entrypoint.sh on container startup
+
 ## 2024-07-26
 
 ### Comprehensive Documentation Update

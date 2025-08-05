@@ -309,8 +309,7 @@ check_claude_updates() {
 }
 
 # Run update check
-# Disabled for packaged version due to Docker exec issues
-# check_claude_updates
+check_claude_updates
 
 # Get local IP for external mode
 if [[ "$ACCESS_MODE" == "external" ]]; then

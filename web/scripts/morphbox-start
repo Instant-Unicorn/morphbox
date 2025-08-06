@@ -6,6 +6,10 @@ export MORPHBOX_PACKAGED="true"
 
 # MorphBox Launcher - Packaged version
 
+# CRITICAL: Capture current directory BEFORE any cd commands
+# This ensures we get the user's actual working directory
+INITIAL_PWD="$(pwd)"
+
 # Colors
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -192,7 +196,8 @@ info "Checking Docker container..."
 
 # Get the user's current directory (absolute path)
 # This is where the user ran 'morphbox' from, NOT where the script is located
-USER_DIR="${MORPHBOX_USER_DIR:-$(pwd)}"
+# Use MORPHBOX_USER_DIR if set by wrapper, otherwise use INITIAL_PWD captured at script start
+USER_DIR="${MORPHBOX_USER_DIR:-$INITIAL_PWD}"
 info "User workspace: $USER_DIR"
 
 # Check if container exists (running or stopped)
@@ -309,7 +314,8 @@ check_claude_updates() {
 }
 
 # Run update check
-check_claude_updates
+# Disabled for packaged version due to Docker exec issues
+# check_claude_updates
 
 # Get local IP for external mode
 if [[ "$ACCESS_MODE" == "external" ]]; then

@@ -61,12 +61,15 @@ echo "Cleaning up existing installation..."
 sudo rm -rf ~/.npm-global/lib/node_modules/morphbox ~/.npm-global/lib/node_modules/.morphbox-* 2>/dev/null || true
 sudo rm -f ~/.npm-global/bin/morphbox 2>/dev/null || true
 
+# Remove old package files to avoid confusion
+rm -f morphbox*.tgz
+
 # Create npm package
 echo "Creating npm package..."
 npm pack
 
-# Get the package filename
-PACKAGE_FILE=$(ls morphbox-*.tgz | sort -V | tail -n1)
+# Get the package filename (should be morphbox-X.X.X.tgz)
+PACKAGE_FILE=$(ls morphbox-*.tgz 2>/dev/null | grep -E 'morphbox-[0-9]+\.[0-9]+\.[0-9]+\.tgz' | sort -V | tail -n1)
 
 if [[ -z "$PACKAGE_FILE" ]]; then
     echo "Error: No package file found!"

@@ -3,7 +3,9 @@ import { createServer } from 'http';
 import { handleWebSocketConnection } from './websocket';
 import { AgentManager } from './agent-manager';
 import { StateManager } from './state-manager';
-const PORT = process.env.WS_PORT || 8009;
+import { getAvailablePort } from './port-utils';
+
+const PREFERRED_PORT = parseInt(process.env.WS_PORT || '8009');
 const HOST = process.env.MORPHBOX_HOST || '0.0.0.0';
 
 // Initialize managers
@@ -12,6 +14,9 @@ const stateManager = new StateManager();
 
 async function startWebSocketServer() {
   try {
+    // Get available port
+    const PORT = await getAvailablePort(PREFERRED_PORT, HOST);
+    
     // Initialize managers
     await agentManager.initialize();
     await stateManager.initialize();

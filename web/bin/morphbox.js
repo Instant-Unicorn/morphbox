@@ -107,7 +107,8 @@ async function main() {
   // Forward all arguments to morphbox-start
   const child = spawn(morphboxStart, args, {
     stdio: 'inherit',
-    cwd: morphboxHome,
+    // Don't change directory - let the script run from user's current directory
+    // This ensures INITIAL_PWD captures the correct directory
     env: process.env  // Pass environment variables including MORPHBOX_USER_DIR
   });
   

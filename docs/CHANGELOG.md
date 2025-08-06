@@ -1,5 +1,68 @@
 # MorphBox Changelog
 
+## 2025-01-06
+
+### DEFINITIVE Fix for Workspace Directory Mounting
+
+**Root Cause Identified & Fixed**:
+- The Node.js wrapper was changing the working directory to morphbox installation directory before spawning the bash script
+- This caused all subsequent `pwd` calls to return the morphbox directory instead of the user's directory
+
+**The Solution**:
+- Removed the `cwd: morphboxHome` option from the spawn call in `bin/morphbox.js`
+- Now the bash script runs in the user's current directory, preserving the correct workspace mount
+
+**Previous Attempts (that were incomplete)**:
+- Added `INITIAL_PWD` capture (good, but was capturing after cwd change)
+- Set `MORPHBOX_USER_DIR` environment variable (good, but wasn't the only issue)
+- Fixed prepare-package script (necessary for deployment)
+
+**Files Modified**:
+- `web/bin/morphbox.js` - Removed cwd option that was changing directory
+- `web/scripts/morphbox-start-packaged` - Uses INITIAL_PWD and MORPHBOX_USER_DIR
+- `web/prepare-package.sh` - Ensures correct package installation
+
+### Automatic Version Increment on Git Merge
+
+**New Feature**:
+- Added automatic version increment (0.0.1) after every git merge
+- Implemented as a git post-merge hook for reliability
+- Automatically updates package.json and package-lock.json
+- Automatically updates CHANGELOG.md with version bump entry
+- Creates a commit with the version change after merge
+
+**Implementation Details**:
+- Created `scripts/setup-version-bump-hook.sh` to install the git hook
+- Git hook runs automatically after successful merges
+- Version increments the patch number (e.g., 0.8.2 → 0.8.3)
+- Hook can be disabled by deleting `.git/hooks/post-merge`
+
+**Usage**:
+- Run `./scripts/setup-version-bump-hook.sh` to enable (already done)
+- The hook will trigger automatically on `git merge` and `git pull`
+- To disable: `rm .git/hooks/post-merge`
+
+### Port Fallback Functionality
+
+**New Feature**:
+- Added automatic port fallback when default ports (8008 and 8009) are in use
+- Web server will automatically find the next available port if 8008 is occupied
+- WebSocket server will automatically find the next available port if 8009 is occupied
+- Console output clearly indicates when fallback ports are being used
+- Prevents application crashes due to "EADDRINUSE" errors
+
+**Implementation Details**:
+- Created `port-utils.ts` with utilities for checking port availability
+- Updated `server.js` to use async port allocation with fallback
+- Updated `websocket-server.ts` to check for available ports before binding
+- Vite dev server already has built-in fallback, enabled with `strictPort: false`
+
+**Files Modified**:
+- `web/src/lib/server/port-utils.ts` - New utility functions
+- `web/server.js` - Updated to use port fallback
+- `web/src/lib/server/websocket-server.ts` - Updated to use port fallback
+- `web/vite.config.ts` - Enabled Vite's built-in port fallback
+
 ## 2025-01-05
 
 ### Version 0.8.2 - Claude Auto-Update Restored

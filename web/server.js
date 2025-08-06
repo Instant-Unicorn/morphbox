@@ -6,6 +6,7 @@ import polka from 'polka';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { getAvailablePort } from './build/server/port-utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -17,64 +18,77 @@ const terminalMode = args.includes('--terminal');
 // Environment variables
 const path = env('SOCKET_PATH', false);
 const host = env('HOST', env('MORPHBOX_HOST', '0.0.0.0'));
-const port = env('PORT', !path && '8008');
-const wsPort = env('WS_PORT', '8009');
+const preferredPort = parseInt(env('PORT', !path && '8008'));
+const preferredWsPort = parseInt(env('WS_PORT', '8009'));
 
-// Start the websocket server in a separate process
-const wsServerPath = join(__dirname, 'src/lib/server/websocket-server.ts');
-const wsProcess = spawn('npx', ['tsx', wsServerPath], {
-  stdio: 'inherit',
-  env: { ...process.env, WS_PORT: wsPort }
-});
+// Main async function to handle port allocation
+async function startServers() {
+  // Get available ports
+  const port = path ? preferredPort : await getAvailablePort(preferredPort, host);
+  const wsPort = await getAvailablePort(preferredWsPort, host);
 
-wsProcess.on('error', (err) => {
-  console.error('Failed to start WebSocket server:', err);
+  // Start the websocket server in a separate process
+  const wsServerPath = join(__dirname, 'src/lib/server/websocket-server.ts');
+  const wsProcess = spawn('npx', ['tsx', wsServerPath], {
+    stdio: 'inherit',
+    env: { ...process.env, WS_PORT: wsPort.toString(), MORPHBOX_HOST: host }
+  });
+
+  wsProcess.on('error', (err) => {
+    console.error('Failed to start WebSocket server:', err);
+    process.exit(1);
+  });
+
+  // Create the main server
+  const server = polka();
+
+  // Add middleware to inject terminal mode flag
+  server.use((req, res, next) => {
+    // Inject terminal mode into the request so the app can access it
+    req.terminalMode = terminalMode;
+    
+    // Also set it as a header that the client can read
+    if (terminalMode) {
+      res.setHeader('X-Terminal-Mode', 'true');
+    }
+    
+    next();
+  });
+
+  // Use the SvelteKit handler
+  server.use(handler);
+
+  // Start the server
+  server.listen({ path, host, port }, () => {
+    if (terminalMode) {
+      console.log(`\n🖥️  Morphbox Terminal Mode (Claude Code only)`);
+      console.log(`📍 Running on ${path ? path : `http://${host}:${port}`}`);
+      console.log(`🔌 WebSocket server on ws://${host}:${wsPort}`);
+      console.log('\nPress Ctrl+C to exit\n');
+    } else {
+      console.log(`\n🚀 Morphbox running on ${path ? path : `http://${host}:${port}`}`);
+      console.log(`🔌 WebSocket server on ws://${host}:${wsPort}`);
+    }
+  });
+
+  // Handle cleanup
+  process.on('SIGINT', () => {
+    console.log('\n🛑 Shutting down...');
+    wsProcess.kill('SIGTERM');
+    process.exit(0);
+  });
+
+  process.on('SIGTERM', () => {
+    wsProcess.kill('SIGTERM');
+    process.exit(0);
+  });
+
+  // Export for programmatic usage
+  return { server, terminalMode };
+}
+
+// Start the servers
+startServers().catch(err => {
+  console.error('Failed to start servers:', err);
   process.exit(1);
 });
-
-// Create the main server
-const server = polka();
-
-// Add middleware to inject terminal mode flag
-server.use((req, res, next) => {
-  // Inject terminal mode into the request so the app can access it
-  req.terminalMode = terminalMode;
-  
-  // Also set it as a header that the client can read
-  if (terminalMode) {
-    res.setHeader('X-Terminal-Mode', 'true');
-  }
-  
-  next();
-});
-
-// Use the SvelteKit handler
-server.use(handler);
-
-// Start the server
-server.listen({ path, host, port }, () => {
-  if (terminalMode) {
-    console.log(`\n🖥️  Morphbox Terminal Mode (Claude Code only)`);
-    console.log(`📍 Running on ${path ? path : `http://${host}:${port}`}`);
-    console.log(`🔌 WebSocket server on ws://${host}:${wsPort}`);
-    console.log('\nPress Ctrl+C to exit\n');
-  } else {
-    console.log(`\n🚀 Morphbox running on ${path ? path : `http://${host}:${port}`}`);
-    console.log(`🔌 WebSocket server on ws://${host}:${wsPort}`);
-  }
-});
-
-// Handle cleanup
-process.on('SIGINT', () => {
-  console.log('\n🛑 Shutting down...');
-  wsProcess.kill('SIGTERM');
-  process.exit(0);
-});
-
-process.on('SIGTERM', () => {
-  wsProcess.kill('SIGTERM');
-  process.exit(0);
-});
-
-// Export for programmatic usage
-export { server, terminalMode };

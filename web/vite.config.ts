@@ -4,10 +4,11 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   plugins: [sveltekit()],
   server: {
-    port: 8008,
+    port: parseInt(process.env.PORT || process.env.WEB_PORT || '8008'),
+    strictPort: false, // Allow Vite to use next available port if default is taken
     host: true,
     hmr: {
-      port: 8008
+      port: parseInt(process.env.PORT || process.env.WEB_PORT || '8008')
     }
   },
   build: {

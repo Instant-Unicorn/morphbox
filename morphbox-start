@@ -275,32 +275,84 @@ if [[ "$TERMINAL_MODE" == "true" ]]; then
     exit 0
 fi
 
-# Start WebSocket server for web mode
-info "Starting WebSocket server..."
+# Start servers for web mode
 cd "$WEB_DIR"
-MORPHBOX_HOST="$BIND_HOST" \
-MORPHBOX_AUTH_MODE="$MORPHBOX_AUTH_MODE" \
-MORPHBOX_AUTH_ENABLED="$MORPHBOX_AUTH_ENABLED" \
-MORPHBOX_AUTH_USERNAME="$MORPHBOX_AUTH_USERNAME" \
-MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
-npm run dev:ws > "$SCRIPT_DIR/websocket.log" 2>&1 &
-WS_PID=$!
 
-# Wait for WebSocket server
-sleep 2
-
-# Start SvelteKit web server
-info "Starting MorphBox web interface..."
-MORPHBOX_HOST="$BIND_HOST" \
-MORPHBOX_AUTH_MODE="$MORPHBOX_AUTH_MODE" \
-MORPHBOX_AUTH_ENABLED="$MORPHBOX_AUTH_ENABLED" \
-MORPHBOX_AUTH_USERNAME="$MORPHBOX_AUTH_USERNAME" \
-MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
-npm run dev -- --host "$BIND_HOST" > "$SCRIPT_DIR/web.log" 2>&1 &
-WEB_PID=$!
+# Check if we should use production build (which has proper port fallback)
+if [[ "$DEV_MODE" != "true" ]] && [[ -f "$WEB_DIR/build/handler.js" ]]; then
+    info "Starting MorphBox in production mode (with automatic port fallback)..."
+    
+    # Start production server which handles both web and websocket
+    MORPHBOX_HOST="$BIND_HOST" \
+    MORPHBOX_AUTH_MODE="$MORPHBOX_AUTH_MODE" \
+    MORPHBOX_AUTH_ENABLED="$MORPHBOX_AUTH_ENABLED" \
+    MORPHBOX_AUTH_USERNAME="$MORPHBOX_AUTH_USERNAME" \
+    MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
+    npm start > "$SCRIPT_DIR/web.log" 2>&1 &
+    WEB_PID=$!
+    
+    # Production server starts websocket internally, so we don't need separate process
+    WS_PID=$WEB_PID
+else
+    # Development mode - use separate processes
+    info "Starting MorphBox in development mode..."
+    
+    # Start WebSocket server
+    info "Starting WebSocket server..."
+    MORPHBOX_HOST="$BIND_HOST" \
+    MORPHBOX_AUTH_MODE="$MORPHBOX_AUTH_MODE" \
+    MORPHBOX_AUTH_ENABLED="$MORPHBOX_AUTH_ENABLED" \
+    MORPHBOX_AUTH_USERNAME="$MORPHBOX_AUTH_USERNAME" \
+    MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
+    npm run dev:ws > "$SCRIPT_DIR/websocket.log" 2>&1 &
+    WS_PID=$!
+    
+    # Wait for WebSocket server
+    sleep 2
+    
+    # Start SvelteKit web server
+    info "Starting MorphBox web interface..."
+    MORPHBOX_HOST="$BIND_HOST" \
+    MORPHBOX_AUTH_MODE="$MORPHBOX_AUTH_MODE" \
+    MORPHBOX_AUTH_ENABLED="$MORPHBOX_AUTH_ENABLED" \
+    MORPHBOX_AUTH_USERNAME="$MORPHBOX_AUTH_USERNAME" \
+    MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
+    npm run dev -- --host "$BIND_HOST" > "$SCRIPT_DIR/web.log" 2>&1 &
+    WEB_PID=$!
+fi
 
 # Wait for web server
 sleep 3
+
+# Try to detect actual ports from logs
+ACTUAL_WEB_PORT=8008
+ACTUAL_WS_PORT=8009
+
+if [[ -f "$SCRIPT_DIR/web.log" ]]; then
+    # Try to extract port from production server log or vite log
+    DETECTED_PORT=$(grep -oE "(Running on|Network:).*:([0-9]+)" "$SCRIPT_DIR/web.log" | tail -1 | grep -oE "[0-9]+$")
+    if [[ -n "$DETECTED_PORT" ]]; then
+        ACTUAL_WEB_PORT=$DETECTED_PORT
+    fi
+fi
+
+if [[ -f "$SCRIPT_DIR/websocket.log" ]]; then
+    # Extract websocket port from log
+    DETECTED_WS_PORT=$(grep -oE "WebSocket server running on.*:([0-9]+)" "$SCRIPT_DIR/websocket.log" | tail -1 | grep -oE "[0-9]+$")
+    if [[ -n "$DETECTED_WS_PORT" ]]; then
+        ACTUAL_WS_PORT=$DETECTED_WS_PORT
+    fi
+fi
+
+# Update URLs with actual ports
+if [[ "$ACCESS_MODE" == "external" ]]; then
+    LOCAL_IP=$(hostname -I | awk '{print $1}')
+    WS_URL="ws://${LOCAL_IP}:${ACTUAL_WS_PORT}"
+    WEB_URL="http://${LOCAL_IP}:${ACTUAL_WEB_PORT}"
+else
+    WS_URL="ws://localhost:${ACTUAL_WS_PORT}"
+    WEB_URL="http://localhost:${ACTUAL_WEB_PORT}"
+fi
 
 info "MorphBox is running!"
 echo ""
@@ -313,7 +365,7 @@ fi
 if [[ "$ACCESS_MODE" == "external" ]]; then
     echo -e "${BLUE}External Access Enabled:${NC}"
     info "- Web interface: $WEB_URL"
-    info "- Also accessible at: http://${BIND_HOST}:8008"
+    info "- Also accessible at: http://${BIND_HOST}:${ACTUAL_WEB_PORT}"
     info "- WebSocket server: $WS_URL"
     echo ""
     warn "Remember to configure firewall rules if needed"

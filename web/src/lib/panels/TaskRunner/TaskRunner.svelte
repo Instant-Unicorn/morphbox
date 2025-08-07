@@ -24,6 +24,7 @@
   let taskOutputCache = new Map<string, number>(); // Track last line number per task
   
   onMount(async () => {
+    console.log('[TaskRunner] Component mounted');
     // Load npm scripts
     await loadPackageScripts();
     
@@ -435,7 +436,7 @@
               {:else}
                 Task failed with exit code {$activeTask.exitCode}
               {/if}
-              ({formatDuration($activeTask.startTime, $activeTask.endTime)})
+              {#if $activeTask.startTime}({formatDuration($activeTask.startTime, $activeTask.endTime)}){/if}
             </div>
           {/if}
         </div>
@@ -735,6 +736,7 @@
     flex: 1;
     display: flex;
     flex-direction: column;
+    background-color: var(--bg-color, #2d2d30);
   }
   
   .output-header {
@@ -743,7 +745,7 @@
     align-items: center;
     padding: 12px 16px;
     border-bottom: 1px solid var(--border-color, #3e3e42);
-    background-color: var(--panel-bg, #252526);
+    background-color: var(--bg-color, #2d2d30);
   }
   
   .task-info h3 {
@@ -817,7 +819,7 @@
     font-family: monospace;
     font-size: 13px;
     line-height: 1.4;
-    background-color: #1e1e1e;
+    background-color: var(--bg-color, #2d2d30);
   }
   
   .output-line {
@@ -852,6 +854,7 @@
     justify-content: center;
     height: 100%;
     color: var(--text-secondary, #858585);
+    background-color: var(--bg-color, #2d2d30);
   }
   
   .empty-state p {

@@ -1,5 +1,26 @@
 # MorphBox Changelog
 
+## 2025-01-07
+
+### Fix TaskRunner Panel Blank Screen Issue
+
+**Problem**:
+- TaskRunner panel was showing a completely black/blank screen
+- The panel was not visible regardless of theme settings
+
+**Root Cause**:
+- Hardcoded dark background colors (`#1e1e1e`, `#252526`) instead of CSS variables
+- TypeScript error with null `startTime` in `formatDuration` call
+
+**Solution**:
+- Replaced all hardcoded background colors with CSS variables (`var(--bg-color)`)
+- Fixed TypeScript error by adding null check for `startTime`
+- Added consistent background colors to all containers
+- Added debug logging for troubleshooting
+
+**Files Modified**:
+- `web/src/lib/panels/TaskRunner/TaskRunner.svelte` - Fixed styling and TypeScript issues
+
 ## 2025-01-06
 
 ### DEFINITIVE Fix for Workspace Directory Mounting

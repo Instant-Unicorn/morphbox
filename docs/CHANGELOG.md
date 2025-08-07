@@ -2,6 +2,23 @@
 
 ## 2025-01-07
 
+### Fix Docker Compose Path Issue
+
+**Problem**:
+- MorphBox failed to start with "no configuration file provided: not found" error
+- Claude auto-update was not running because container couldn't start
+
+**Root Cause**:
+- morphbox-start script was looking for docker-compose.yml in the project root directory
+- The actual file location is in web/docker/docker-compose.yml
+
+**Solution**:
+- Updated morphbox-start to use correct path: `cd "$SCRIPT_DIR/web/docker"`
+- This allows the container to start properly and run auto-updates
+
+**Files Modified**:
+- `morphbox-start` - Fixed docker compose directory path
+
 ### Fix TaskRunner Panel Blank Screen Issue
 
 **Problem**:

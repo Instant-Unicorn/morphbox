@@ -195,7 +195,7 @@ pkill -f "vite dev" 2>/dev/null || true
 info "Checking Docker container..."
 if ! docker ps | grep -q morphbox-vm; then
     info "Starting MorphBox VM container..."
-    cd "$SCRIPT_DIR"
+    cd "$SCRIPT_DIR/web/docker"
     docker compose up -d
     sleep 2
 else

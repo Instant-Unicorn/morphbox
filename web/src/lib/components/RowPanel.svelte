@@ -21,6 +21,7 @@
   export let component: any;
   export let websocketUrl: string = '';
   export let isDragging: boolean = false;
+  export let isActive: boolean = false;
   
   let componentInstance: any;
   let terminalMethods: any = null;
@@ -636,6 +637,7 @@
   bind:this={panelElement}
   data-panel-id={panel.id}
   class:dragging={isDragging}
+  class:active={isActive}
   class:drop-before={dropZone === 'before'}
   class:drop-after={dropZone === 'after'}
   class:drop-center={dropZone === 'center'}
@@ -929,10 +931,22 @@
     overflow: hidden;
     transition: opacity 0.2s, transform 0.2s;
     box-sizing: border-box;
+    min-width: 0; /* Allow panels to shrink as needed */
   }
   
   .row-panel.dragging {
     opacity: 0.5;
+  }
+  
+  .row-panel.active {
+    border: 2px solid var(--accent-color, #0e639c);
+    box-shadow: 0 0 0 1px rgba(14, 99, 156, 0.3);
+    z-index: 10;
+  }
+  
+  .row-panel.active .panel-header {
+    background-color: var(--accent-color, #0e639c) !important;
+    color: white;
   }
   
   .row-panel.drop-before::before,
@@ -967,6 +981,7 @@
     border-bottom: 1px solid var(--panel-border, #3e3e42);
     flex-shrink: 0;
     height: 28px;
+    min-width: 0; /* Allow header to shrink */
   }
   
   .drag-handle {
@@ -1001,6 +1016,8 @@
     gap: 6px;
     align-items: center;
     margin-left: auto;
+    flex-shrink: 0; /* Prevent controls from being squeezed */
+    padding-right: 4px; /* Ensure some padding on the right */
   }
   
   .control-btn {

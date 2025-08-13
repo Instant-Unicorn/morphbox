@@ -69,7 +69,8 @@
       });
       
       if (response.ok) {
-        gitStore.toggleStaged(file.path);
+        // Refresh git status to get actual state from git
+        await refreshGitStatus();
       }
     } catch (error) {
       console.error('[GitPanel] Error staging file:', error);
@@ -85,7 +86,8 @@
       });
       
       if (response.ok) {
-        gitStore.toggleStaged(file.path);
+        // Refresh git status to get actual state from git
+        await refreshGitStatus();
       }
     } catch (error) {
       console.error('[GitPanel] Error unstaging file:', error);
@@ -105,9 +107,14 @@
       if (response.ok) {
         commitMessage = '';
         await refreshGitStatus();
+      } else {
+        const error = await response.json();
+        console.error('[GitPanel] Commit failed:', error);
+        alert(`Failed to commit: ${error.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('[GitPanel] Error committing:', error);
+      alert(`Failed to commit: ${error}`);
     }
   }
   

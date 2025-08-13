@@ -12,6 +12,8 @@
   let showAddTask = false;
   let outputContainer: HTMLDivElement;
   let autoScroll = true;
+  let isLoading = true;
+  let loadError: string | null = null;
   let expandedSections = {
     npm: true,
     custom: true,
@@ -25,11 +27,21 @@
   
   onMount(async () => {
     console.log('[TaskRunner] Component mounted');
-    // Load npm scripts
-    await loadPackageScripts();
-    
-    // Start polling for active tasks
-    startPolling();
+    try {
+      // Load npm scripts
+      await loadPackageScripts();
+      console.log('[TaskRunner] NPM scripts loaded:', $npmScripts.length);
+      
+      // Start polling for active tasks
+      startPolling();
+      console.log('[TaskRunner] Polling started');
+      
+      isLoading = false;
+    } catch (error) {
+      console.error('[TaskRunner] Error during initialization:', error);
+      loadError = error instanceof Error ? error.message : 'Failed to initialize TaskRunner';
+      isLoading = false;
+    }
   });
   
   onDestroy(() => {
@@ -79,10 +91,16 @@
   
   async function loadPackageScripts() {
     try {
+      console.log('[TaskRunner] Fetching npm scripts...');
       const response = await fetch('/api/tasks/npm-scripts');
+      console.log('[TaskRunner] Response status:', response.status);
+      
       if (response.ok) {
         const scripts = await response.json();
+        console.log('[TaskRunner] Received scripts:', scripts);
         taskStore.loadNpmScripts(scripts);
+      } else {
+        console.error('[TaskRunner] Failed to fetch npm scripts:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('[TaskRunner] Failed to load npm scripts:', error);
@@ -103,6 +121,12 @@
       if (!response.ok) {
         throw new Error('Failed to start task');
       }
+      
+      const result = await response.json();
+      if (result.pid) {
+        taskStore.startTask(taskId, result.pid);
+        taskStore.appendOutput(taskId, `Starting: ${command}`);
+      }
     } catch (error) {
       console.error('[TaskRunner] Failed to run task:', error);
       taskStore.appendOutput(taskId, `Failed to start task: ${error}`);
@@ -114,11 +138,17 @@
     if (!task.pid) return;
     
     try {
-      await fetch('/api/tasks/stop', {
+      const response = await fetch('/api/tasks/stop', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pid: task.pid })
       });
+      
+      if (response.ok) {
+        // Update the task store to reflect that the task is stopped
+        taskStore.stopTask(task.id, -1); // -1 indicates manually stopped
+        taskStore.appendOutput(task.id, 'Task stopped by user');
+      }
     } catch (error) {
       console.error('[TaskRunner] Failed to stop task:', error);
     }
@@ -193,6 +223,21 @@
 </script>
 
 <div class="task-runner-container">
+  {#if isLoading}
+    <div class="loading-state">
+      <RefreshCw size={48} class="spinning" />
+      <p>Loading TaskRunner...</p>
+    </div>
+  {:else if loadError}
+    <div class="error-state">
+      <XCircle size={48} />
+      <p>Error loading TaskRunner</p>
+      <p class="error-message">{loadError}</p>
+      <button class="retry-button" on:click={() => location.reload()}>
+        Reload Page
+      </button>
+    </div>
+  {:else}
   <div class="panel-layout">
     <div class="sidebar">
       <div class="sidebar-header">
@@ -449,6 +494,7 @@
       {/if}
     </div>
   </div>
+  {/if}
 </div>
 
 <style>
@@ -864,5 +910,51 @@
   
   .hint {
     font-size: 13px;
+  }
+  
+  .error-state, .loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-color, #cccccc);
+    background-color: var(--bg-color, #2d2d30);
+    padding: 20px;
+  }
+  
+  .error-message {
+    color: #dc3545;
+    font-size: 12px;
+    margin-top: 8px;
+  }
+  
+  .retry-button {
+    margin-top: 16px;
+    background: none;
+    border: 1px solid var(--border-color, #3e3e42);
+    color: var(--text-color, #cccccc);
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .retry-button:hover {
+    background-color: var(--accent-color, #007acc);
+    color: white;
+    border-color: var(--accent-color, #007acc);
+  }
+  
+  .spinning {
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
   }
 </style>

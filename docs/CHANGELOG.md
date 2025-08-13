@@ -1,5 +1,48 @@
 # MorphBox Changelog
 
+## 2025-08-13
+
+### Fix File Explorer Folder Creation Error
+
+**Problem**:
+- "Failed to create folder" error when using contextual menu in File Explorer
+- File operations (create, delete, rename) were failing
+
+**Root Cause**:
+- File API endpoints were using hardcoded `/workspace` directory path
+- This path only exists in Docker containers, not in local development
+
+**Solution**:
+- Updated all file API endpoints to use dynamic WORKSPACE_DIR from workspace.ts
+- workspace.ts now properly detects environment:
+  - Docker: uses `/workspace`
+  - Local development: uses git root directory or current working directory
+
+**Files Modified**:
+- `src/routes/api/files/create/+server.ts` - Use dynamic workspace path
+- `src/routes/api/files/delete/+server.ts` - Use dynamic workspace path
+- `src/routes/api/files/read/+server.ts` - Use dynamic workspace path
+- `src/routes/api/files/rename/+server.ts` - Use dynamic workspace path
+- `src/routes/api/files/write/+server.ts` - Use dynamic workspace path
+
+### Fix Lint Errors and Accessibility Warnings
+
+**Issues Fixed**:
+- TypeScript errors in websocket.ts (null/undefined handling)
+- Missing properties in Settings interface (editor, defaultPanelColors)
+- Accessibility warnings in BasePanel, Terminal, WorkspaceTabs components
+- TypeScript annotations in JavaScript files
+
+**Files Modified**:
+- `src/lib/server/websocket.ts` - Fixed null sessionId handling
+- `src/lib/panels/Settings/settings-store.ts` - Added missing interface properties
+- `src/lib/stores/panels.ts` - Added optional chaining for defaultColors
+- `src/lib/panels/BasePanel.svelte` - Changed resize handle to button, added keyboard support
+- `src/lib/Terminal.svelte` - Added ARIA roles, fixed TypeScript errors
+- `src/lib/components/WorkspaceTabs.svelte` - Added dialog role and keyboard handling
+- `src/types/terminal.d.ts` - Created global type definitions
+- Various documentation pages - Fixed TypeScript annotations
+
 ## 2025-01-07
 
 ### Fix Docker Compose Path Issue

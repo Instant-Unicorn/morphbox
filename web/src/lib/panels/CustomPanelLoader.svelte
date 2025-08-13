@@ -54,7 +54,7 @@
           case 'svelte':
             return svelte;
           case 'svelte/internal':
-            return import('svelte/internal');
+            return import('svelte/internal' as any);
           case 'svelte/store':
             return import('svelte/store');
           default:

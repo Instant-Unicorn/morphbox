@@ -6,6 +6,8 @@ export interface Settings {
     background: string;
     foreground: string;
     accent: string;
+    surface?: string;
+    border?: string;
   };
   terminal: {
     fontSize: number;
@@ -22,9 +24,22 @@ export interface Settings {
     };
     snapToGrid: boolean;
     gridSize: number;
+    defaultPanelColors?: {
+      headerColor: string;
+      backgroundColor: string;
+      borderColor?: string;
+    };
   };
   shortcuts: {
     [action: string]: string;
+  };
+  editor?: {
+    fontSize: number;
+    fontFamily: string;
+    lineHeight: number;
+    wordWrap: boolean;
+    minimap: boolean;
+    theme: string;
   };
 }
 
@@ -58,6 +73,14 @@ export const defaultSettings: Settings = {
     'new-terminal': 'Ctrl+Shift+`',
     'close-panel': 'Escape',
     'save-settings': 'Ctrl+S'
+  },
+  editor: {
+    fontSize: 14,
+    fontFamily: '"Cascadia Code", "Fira Code", monospace',
+    lineHeight: 1.5,
+    wordWrap: false,
+    minimap: true,
+    theme: 'vs-dark'
   }
 };
 
@@ -134,7 +157,7 @@ export function applyTheme(theme: Settings['theme'], customTheme?: Settings['cus
         root.style.setProperty('--input-bg', adjustColor(customTheme.background, 10));
         root.style.setProperty('--text-secondary', adjustColor(customTheme.foreground, -40));
         root.style.setProperty('--hover-bg', adjustColor(customTheme.background, 15));
-        root.style.setProperty('--hover-border', adjustColor(customTheme.border, 10));
+        root.style.setProperty('--hover-border', adjustColor(customTheme.border || customTheme.background, 10));
         root.style.setProperty('--error-color', '#f48771');
         root.style.setProperty('--error-bg-hover', adjustColor('#5a1d1d', 10));
         root.style.setProperty('--scrollbar-thumb', adjustColor(customTheme.background, 30));

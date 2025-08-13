@@ -2,9 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { promises as fs } from 'fs';
 import path from 'path';
-
-// Base directory for file operations - restrict to /workspace for security
-const WORKSPACE_DIR = '/workspace';
+import { WORKSPACE_DIR } from '$lib/server/workspace';
 
 // Helper function to validate and normalize paths
 function validatePath(requestPath: string): string {

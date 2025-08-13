@@ -248,8 +248,8 @@ export function handleWebSocketConnection(
               console.log('Auto-restarting SSH agent after exit');
               try {
                 currentAgentId = await agentManager.launchAgent('ssh', {
-                  sessionId: currentSessionId,
-                  terminalSessionId: terminalSessionId ?? undefined,
+                  sessionId: currentSessionId || '',
+                  terminalSessionId: terminalSessionId || currentSessionId || '',
                   vmHost,
                   vmPort,
                   vmUser

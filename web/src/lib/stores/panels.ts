@@ -394,9 +394,9 @@ function createPanelStore() {
           size: { width: 400, height: 300 },
           persistent: false,
           zIndex,
-          headerColor: defaultColors.headerColor,
-          backgroundColor: defaultColors.backgroundColor,
-          borderColor: defaultColors.borderColor,
+          headerColor: defaultColors?.headerColor,
+          backgroundColor: defaultColors?.backgroundColor,
+          borderColor: defaultColors?.borderColor,
           ...defaultConfig,
           ...configWithoutId
         };

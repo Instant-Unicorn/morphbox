@@ -77,7 +77,7 @@
 
   let sidebarOpen = false;
   let searchQuery = '';
-  let searchResults = [];
+  let searchResults: any[] = [];
 
   onMount(() => {
     // Auto-close sidebar on route change (mobile)
@@ -94,18 +94,18 @@
     sidebarOpen = !sidebarOpen;
   }
 
-  function isActivePath(itemPath) {
+  function isActivePath(itemPath: string) {
     return $page.url.pathname === itemPath || $page.url.pathname.startsWith(itemPath + '/');
   }
 
-  function isParentActive(item) {
+  function isParentActive(item: any) {
     if (isActivePath(item.path)) return true;
-    return item.children?.some(child => isActivePath(child.path)) || false;
+    return item.children?.some((child: any) => isActivePath(child.path)) || false;
   }
 
   // Simple search functionality
-  function handleSearch(event) {
-    searchQuery = event.target.value;
+  function handleSearch(event: Event) {
+    searchQuery = (event.target as HTMLInputElement).value;
     if (searchQuery.length > 2) {
       searchResults = navigation.flatMap(section => 
         [section, ...(section.children || [])]

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
-  import { panels, panelStore, type Panel } from '$lib/stores/panels';
+  import { panels, panelStore, activePanel, type Panel } from '$lib/stores/panels';
   import Terminal from '$lib/Terminal.svelte';
   import Claude from '$lib/Claude.svelte';
   import FileExplorer from '$lib/panels/FileExplorer/FileExplorer.svelte';
@@ -202,6 +202,14 @@
     // Add resize listener
     window.addEventListener('resize', debouncedResize);
     
+    // Listen for file open events to create code editor in new row
+    const handleCreatePanelForFile = (event: CustomEvent) => {
+      const { type, config } = event.detail;
+      console.log('[RowLayout] Handling create-panel-for-file event:', { type, config });
+      addNewPanel(type, config);
+    };
+    window.addEventListener('create-panel-for-file', handleCreatePanelForFile);
+    
     // Add ResizeObserver for container-based responsiveness
     let resizeObserver: ResizeObserver;
     if (layoutContainer && 'ResizeObserver' in window) {
@@ -241,6 +249,7 @@
         unsubscribe();
       }
       window.removeEventListener('resize', debouncedResize);
+      window.removeEventListener('create-panel-for-file', handleCreatePanelForFile);
       if (resizeObserver) {
         resizeObserver.disconnect();
       }
@@ -357,6 +366,10 @@
       movePanel(draggedPanelId, rowId, targetPanelId, position);
     }
     
+    // Always clear dragged panel after drop
+    draggedPanelId = null;
+    dropTargetInfo = null;
+    
     saveLayoutToServer();
   }
   
@@ -370,32 +383,42 @@
     const targetRow = rows.find(row => row.panels.some(p => p.id === targetPanelId));
     if (!targetRow) return;
     
-    // Calculate new widths (split 50/50)
-    const newWidth = (targetPanel.widthPercent ?? 100) / 2;
-    
-    // Update target panel width
-    panelStore.updatePanel(targetPanelId, {
-      widthPercent: newWidth
-    });
-    
-    // Move dragged panel to same row with new width
-    panelStore.updatePanel(draggedPanelId, {
-      rowIndex: targetPanel.rowIndex,
-      widthPercent: newWidth,
-      heightPixels: targetPanel.heightPixels,
-      orderInRow: (targetPanel.orderInRow ?? 0) + 1
-    });
-    
-    // Update order of other panels in the row
-    targetRow.panels.forEach(panel => {
-      if (panel.orderInRow !== undefined && panel.orderInRow > (targetPanel.orderInRow ?? 0)) {
-        panelStore.updatePanel(panel.id, {
-          orderInRow: panel.orderInRow + 1
-        });
-      }
-    });
+    // Check if row already has 4 panels (maximum)
+    if (targetRow.panels.length >= 4) {
+      console.log('Row already has maximum 4 panels, cannot add more');
+      // Create a new row below instead
+      const newRowIndex = Math.max(...rows.map(r => parseInt(r.id.split('-')[1]))) + 1;
+      panelStore.updatePanel(draggedPanelId, {
+        rowIndex: newRowIndex,
+        heightPixels: targetPanel.heightPixels,
+        orderInRow: 0,
+        widthPercent: 100
+      });
+    } else {
+      // Move dragged panel to same row
+      panelStore.updatePanel(draggedPanelId, {
+        rowIndex: targetPanel.rowIndex,
+        heightPixels: targetPanel.heightPixels,
+        orderInRow: (targetPanel.orderInRow ?? 0) + 1
+      });
+      
+      // Update order of other panels in the row
+      targetRow.panels.forEach(panel => {
+        if (panel.orderInRow !== undefined && panel.orderInRow > (targetPanel.orderInRow ?? 0)) {
+          panelStore.updatePanel(panel.id, {
+            orderInRow: panel.orderInRow + 1
+          });
+        }
+      });
+    }
     
     organizePanelsIntoRows();
+    
+    // After organizing, recalculate widths to fit all panels equally
+    setTimeout(() => {
+      recalculateRowWidths(true);
+      saveLayoutToServer();
+    }, 0);
   }
   
   // Move panel to new position
@@ -409,7 +432,19 @@
     const rowIndex = parseInt(rowId.split('-')[1]);
     const targetRow = rows.find(r => r.id === rowId);
     
-    if (targetPanelId && position && targetRow) {
+    // Check if target row already has 4 panels (excluding the dragged panel if it's from the same row)
+    const panelsInTargetRow = targetRow ? targetRow.panels.filter(p => p.id !== panelId) : [];
+    if (panelsInTargetRow.length >= 4) {
+      console.log('Target row already has maximum 4 panels, creating new row');
+      // Create a new row instead
+      const newRowIndex = Math.max(...rows.map(r => parseInt(r.id.split('-')[1])), -1) + 1;
+      panelStore.updatePanel(panelId, {
+        rowIndex: newRowIndex,
+        orderInRow: 0,
+        heightPixels: targetRow?.height ?? 400,
+        widthPercent: 100
+      });
+    } else if (targetPanelId && position && targetRow) {
       // Insert before or after specific panel
       const targetPanel = targetRow.panels.find(p => p.id === targetPanelId);
       if (!targetPanel) return;
@@ -439,22 +474,18 @@
       panelStore.updatePanel(panelId, {
         rowIndex,
         orderInRow: maxOrder + 1,
-        heightPixels: targetRow?.height ?? 400,
-        widthPercent: targetRow ? 100 / (targetRow.panels.length + 1) : 100
+        heightPixels: targetRow?.height ?? 400
       });
     }
     
     // Reorganize first to update row structures
     organizePanelsIntoRows();
     
-    // Only recalculate widths if this was an actual drag operation (not initial load)
-    // The widthPercent should already be set correctly for the moved panel
-    if (draggedPanelId) {
-      console.log('📐 Recalculating widths after drag operation');
-      setTimeout(() => {
-        recalculateRowWidths();
-      }, 0);
-    }
+    // Always recalculate widths after moving panels
+    setTimeout(() => {
+      recalculateRowWidths(true);
+      saveLayoutToServer();
+    }, 0);
   }
   
   // Recalculate panel widths within rows
@@ -464,40 +495,17 @@
     rows.forEach(row => {
       const panelCount = row.panels.length;
       if (panelCount > 0) {
-        // Check if we need to recalculate widths
-        const totalWidth = row.panels.reduce((sum, p) => sum + (p.widthPercent || 0), 0);
-        const needsRecalculation = forceEqualWidths || Math.abs(totalWidth - 100) > 0.1;
+        // Always recalculate to ensure panels fit within viewport
+        const widthPerPanel = 100 / panelCount;
         
-        console.log(`  Row ${row.id}:`, {
-          panelCount,
-          totalWidth,
-          needsRecalculation,
-          panels: row.panels.map(p => ({ id: p.id, width: p.widthPercent }))
+        console.log(`  Row ${row.id}: ${panelCount} panels, ${widthPerPanel}% each`);
+        
+        row.panels.forEach((panel, index) => {
+          panelStore.updatePanel(panel.id, {
+            widthPercent: widthPerPanel,
+            orderInRow: index
+          });
         });
-        
-        // During initial load, if there's only one panel with 100% width, don't recalculate
-        if (isInitialLoad && panelCount === 1 && Math.abs(totalWidth - 100) < 0.1) {
-          console.log(`  ✅ Single panel with correct width, skipping recalculation`);
-          return;
-        }
-        
-        if (needsRecalculation && !isInitialLoad) {
-          const widthPerPanel = 100 / panelCount;
-          console.log(`  ⚠️ Recalculating widths to ${widthPerPanel}% per panel`);
-          row.panels.forEach((panel, index) => {
-            panelStore.updatePanel(panel.id, {
-              widthPercent: widthPerPanel,
-              orderInRow: index
-            });
-          });
-        } else {
-          // Just update orderInRow without changing widths
-          row.panels.forEach((panel, index) => {
-            panelStore.updatePanel(panel.id, {
-              orderInRow: index
-            });
-          });
-        }
       }
     });
   }
@@ -846,6 +854,8 @@
               e.preventDefault();
               if (draggedPanelId) {
                 movePanel(draggedPanelId, row.id);
+                draggedPanelId = null;
+                dropTargetInfo = null;
               }
             }}
           >
@@ -856,7 +866,7 @@
             {#if panelComponentMap[panel.id]}
               <div 
                 class="panel-container"
-                style="width: {panel.widthPercent}%; flex: 0 0 {panel.widthPercent}%; max-width: {panel.widthPercent}%;"
+                style="flex: 1 1 {panel.widthPercent || 25}%;"
                 data-panel-id={panel.id}
               >
                 {#key panel.id}
@@ -865,7 +875,9 @@
                     component={panelComponentMap[panel.id]}
                     {websocketUrl}
                     isDragging={draggedPanelId === panel.id}
+                    isActive={$activePanel?.id === panel.id}
                     on:dragstart={handleDragStart}
+                    on:click={() => panelStore.setActivePanel(panel.id)}
                     on:dragend={handleDragEnd}
                     on:drop={handlePanelDrop}
                     on:resize={handlePanelResize}
@@ -892,6 +904,8 @@
           if (draggedPanelId) {
             const newRowIndex = rows.length;
             movePanel(draggedPanelId, `row-${newRowIndex}`);
+            draggedPanelId = null;
+            dropTargetInfo = null;
           }
         }}
       >
@@ -919,13 +933,14 @@
     color: var(--text-primary, #d4d4d4);
     overflow: hidden;
     container-type: inline-size;
+    position: relative; /* Ensure proper positioning context */
   }
   
   .row-layout {
     flex: 1;
     width: 100%;
     max-width: 100%;
-    overflow-x: hidden;
+    overflow-x: hidden; /* No horizontal scroll needed */
     overflow-y: auto;
     scroll-behavior: smooth;
     background-color: var(--bg-secondary, #252526);
@@ -937,9 +952,29 @@
     padding-bottom: 30px;
   }
   
+  /* Custom scrollbar styling for vertical scrolling only */
+  .row-layout::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .row-layout::-webkit-scrollbar-track {
+    background: var(--scrollbar-track, #2a2a2a);
+    border-radius: 4px;
+  }
+  
+  .row-layout::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb, #555);
+    border-radius: 4px;
+  }
+  
+  .row-layout::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover, #777);
+  }
+  
   .row {
     display: flex;
     width: 100%;
+    max-width: 100%; /* Use container width */
     margin-bottom: var(--spacing-sm);
     position: relative;
     box-sizing: border-box;
@@ -947,23 +982,19 @@
     flex-wrap: nowrap;
     transition: margin 0.3s ease;
     /* Remove padding to maximize panel width */
-    padding: 0;
-    /* Ensure row takes full width */
-    max-width: 100%;
+    padding: 0 4px; /* Small padding for edge visibility */
   }
   
   .panel-container {
     /* Remove horizontal padding to maximize panel width */
-    /* padding: 0 var(--spacing-xs); */
     box-sizing: border-box;
     height: 100%;
-    width: 100%;
     display: flex;
-    min-width: 0; /* Allow flex items to shrink below content size */
+    min-width: 0; /* Allow panels to shrink as needed */
     overflow: hidden;
     transition: width 0.3s ease, flex 0.3s ease;
-    /* Ensure panel takes its allocated width */
-    flex-shrink: 0;
+    /* Use flex properties from inline style */
+    padding: 0 2px; /* Small padding to prevent panels from touching */
   }
   
   .empty-row {
@@ -1065,12 +1096,14 @@
       min-height: auto;
       /* Add extra padding at bottom for resize handles */
       padding-bottom: 20px;
+      min-width: unset; /* Allow mobile rows to fit viewport */
     }
     
     .panel-container {
       width: 100% !important;
       max-width: 100% !important;
       flex: 1 1 100% !important;
+      min-width: unset !important; /* Override min-width on mobile */
       /* padding: 0; Keep this to ensure no padding on mobile */
       padding: 0;
       margin-bottom: var(--spacing-xs);

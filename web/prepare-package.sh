@@ -5,6 +5,14 @@ set -e
 
 echo "Preparing MorphBox package..."
 
+# Request sudo password upfront to avoid interruption later
+echo "This script requires sudo access to clean up and install the package globally."
+echo "Please enter your password now to avoid interruption during the installation process."
+sudo -v
+
+# Keep sudo alive during the script execution
+while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+
 # Skip Docker recreation during packaging
 echo "📦 Packaging mode - skipping Docker container recreation"
 export SKIP_DOCKER_RECREATE=true

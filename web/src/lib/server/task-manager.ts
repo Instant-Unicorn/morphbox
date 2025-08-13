@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
+import { WORKSPACE_DIR } from './workspace';
 
 export interface TaskInfo {
   id: string;
@@ -40,7 +41,7 @@ class TaskManager extends EventEmitter {
     // Spawn process
     const proc = spawn(cmd, args, {
       shell: true,
-      cwd: process.cwd(),
+      cwd: WORKSPACE_DIR,
       env: { ...process.env }
     });
     

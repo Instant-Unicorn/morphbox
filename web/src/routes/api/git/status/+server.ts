@@ -1,18 +1,32 @@
 import { json } from '@sveltejs/kit';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { WORKSPACE_DIR } from '$lib/server/workspace';
 import type { RequestHandler } from './$types';
 
 const execAsync = promisify(exec);
 
 export const GET: RequestHandler = async () => {
   try {
+    // First check if it's a git repository
+    try {
+      await execAsync('git rev-parse --git-dir', { cwd: WORKSPACE_DIR });
+    } catch (error) {
+      // Not a git repository
+      return json({
+        currentBranch: '',
+        branches: [],
+        files: [],
+        error: 'Not a git repository'
+      });
+    }
+    
     // Get current branch
-    const { stdout: branch } = await execAsync('git branch --show-current');
-    const currentBranch = branch.trim();
+    const { stdout: branch } = await execAsync('git branch --show-current', { cwd: WORKSPACE_DIR });
+    const currentBranch = branch.trim() || 'main';
     
     // Get all branches
-    const { stdout: branchList } = await execAsync('git branch -a');
+    const { stdout: branchList } = await execAsync('git branch -a', { cwd: WORKSPACE_DIR });
     const branches = branchList
       .split('\n')
       .filter(b => b.trim())
@@ -23,15 +37,17 @@ export const GET: RequestHandler = async () => {
       });
     
     // Get file status
-    const { stdout: status } = await execAsync('git status --porcelain=v1');
+    const { stdout: status } = await execAsync('git status --porcelain=v1', { cwd: WORKSPACE_DIR });
     const files = status
       .split('\n')
       .filter(line => line.trim())
       .map(line => {
-        const [statusCode, ...pathParts] = line.substring(3).split(' ');
-        const path = pathParts.join(' ');
+        // Git porcelain format: XY filename
+        // X = index status, Y = working tree status
         const indexStatus = line[0];
         const workingStatus = line[1];
+        // File path starts at position 3 (after status codes and space)
+        const path = line.substring(3);
         
         let status = 'modified';
         let staged = false;

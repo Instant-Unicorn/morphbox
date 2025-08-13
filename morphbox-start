@@ -398,7 +398,7 @@ cleanup() {
 }
 
 # Set up signal handler
-trap cleanup SIGINT SIGTERM
+trap 'cleanup; exit 0' SIGINT SIGTERM
 
 # Keep script running
 while true; do

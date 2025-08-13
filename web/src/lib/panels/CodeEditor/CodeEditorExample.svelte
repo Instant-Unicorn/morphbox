@@ -1,6 +1,6 @@
 <script lang="ts">
   import CodeEditor from './CodeEditor.svelte';
-  import type { SaveEvent, ChangeEvent } from './types';
+  import type { SaveEvent, ChangeEvent, EditorTheme } from './types';
 
   let editor: CodeEditor;
   
@@ -119,7 +119,7 @@ body {
   ];
 
   // Editor settings
-  let theme = 'vs-dark';
+  let theme: EditorTheme = 'vs-dark';
   let fontSize = 14;
   let minimap = true;
   let lineNumbers = true;

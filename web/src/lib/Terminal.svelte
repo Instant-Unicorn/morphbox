@@ -5,18 +5,7 @@
   import { fade } from 'svelte/transition';
   import logger from '$lib/utils/browser-logger';
   
-  // Global terminal instances for debugging
-  declare global {
-    interface Window {
-      morphboxTerminals?: Record<string, {
-        sendInput: (input: string) => void;
-        write: (data: string) => void;
-        writeln: (data: string) => void;
-        clear: () => void;
-        clearSession: () => void;
-      }>;
-    }
-  }
+  // Global terminal instances for debugging - types defined in src/types/terminal.d.ts
   
   let Terminal: any;
   let FitAddon: any;
@@ -41,8 +30,8 @@
   export let panelId: string = '';
   
   let terminalContainer: HTMLDivElement;
-  let terminal: Terminal;
-  let fitAddon: FitAddon;
+  let terminal: any;
+  let fitAddon: any;
   let ws: WebSocket | null = null;
   let inputBuffer = '';
   let settingsUnsubscribe: (() => void) | null = null;
@@ -54,6 +43,11 @@
   let isInitializing = true;
   let hideLogoTimeout: number | null = null;
   
+  // Drag and drop state
+  let isDraggingOver = false;
+  let showUploadModal = false;
+  let draggedFiles: File[] = [];
+  
   // Store references to event handlers and observers for cleanup
   let resizeObserver: ResizeObserver | null = null;
   let mutationObserver: MutationObserver | null = null;
@@ -61,6 +55,102 @@
   let orientationChangeHandler: (() => void) | null = null;
   
   const dispatch = createEventDispatcher();
+  
+  // Check if running on remote server (not localhost)
+  function isRemoteServer(): boolean {
+    if (!browser) return false;
+    const hostname = window.location.hostname;
+    return hostname !== 'localhost' && hostname !== '127.0.0.1' && hostname !== '::1';
+  }
+  
+  // Handle drag over event
+  function handleDragOver(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    isDraggingOver = true;
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'copy';
+    }
+  }
+  
+  // Handle drag leave event
+  function handleDragLeave(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    isDraggingOver = false;
+  }
+  
+  // Handle drop event
+  function handleDrop(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    isDraggingOver = false;
+    
+    if (!event.dataTransfer || !event.dataTransfer.files.length) {
+      return;
+    }
+    
+    const files = Array.from(event.dataTransfer.files);
+    const items = event.dataTransfer.items ? Array.from(event.dataTransfer.items) : [];
+    
+    // Check if running on remote server
+    if (isRemoteServer()) {
+      draggedFiles = files;
+      showUploadModal = true;
+      return;
+    }
+    
+    // Process files for local terminal
+    processFilesForTerminal(files, items);
+  }
+  
+  // Process files and insert paths into terminal
+  async function processFilesForTerminal(files: File[], items: DataTransferItem[]) {
+    const paths: string[] = [];
+    
+    // Try to get full paths from items if available
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.kind === 'file') {
+        const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+        if (entry) {
+          paths.push(entry.fullPath || files[i].name);
+        } else {
+          // Fallback to file name if full path not available
+          paths.push(files[i].name);
+        }
+      }
+    }
+    
+    // If no paths from items, use file names
+    if (paths.length === 0) {
+      files.forEach(file => {
+        // Try to get the path from the File object (non-standard but sometimes available)
+        const path = (file as any).path || (file as any).webkitRelativePath || file.name;
+        paths.push(path);
+      });
+    }
+    
+    // Insert paths into terminal (space-separated)
+    if (paths.length > 0 && terminal) {
+      const pathString = paths.map(p => {
+        // Escape spaces and special characters
+        if (p.includes(' ') || p.includes('(') || p.includes(')') || p.includes('&')) {
+          return `'${p}'`;
+        }
+        return p;
+      }).join(' ');
+      
+      // Send the paths to the terminal
+      sendInput(pathString);
+    }
+  }
+  
+  // Close upload modal
+  function closeUploadModal() {
+    showUploadModal = false;
+    draggedFiles = [];
+  }
   
   // Dispatch ready event when component is mounted with methods
   onMount(() => {
@@ -229,7 +319,7 @@
       
       // Set timeout for connection
       const connectionTimeout = setTimeout(() => {
-        if (ws.readyState !== WebSocket.OPEN) {
+        if (ws && ws.readyState !== WebSocket.OPEN) {
           writeln(`\r\n❌ WebSocket connection timeout. Please check if the WebSocket server is running at ${url}.`);
           console.error('WebSocket connection timeout');
         }
@@ -270,10 +360,10 @@
             // Store session ID if provided
             if (message.payload?.sessionId) {
               sessionId = message.payload.sessionId;
-              if (browser) {
+              if (browser && sessionId) {
                 localStorage.setItem('morphbox-websocket-session', sessionId);
               }
-              if (message.payload.isReconnection) {
+              if (message.payload.isReconnection && sessionId) {
                 writeln(`\r\n🔄 Reconnected to session: ${sessionId.substring(0, 8)}...`);
               }
             }
@@ -299,12 +389,12 @@
               const isNewSession = terminalSessionId !== message.payload.sessionId;
               terminalSessionId = message.payload.sessionId;
               // Store in localStorage for persistence across browser restarts
-              if (browser) {
+              if (browser && terminalSessionId) {
                 localStorage.setItem('morphbox-terminal-session', terminalSessionId);
               }
-              if (isNewSession) {
+              if (isNewSession && terminalSessionId) {
                 writeln(`\r\n✨ New terminal session created: ${terminalSessionId.substring(0, 8)}...`);
-              } else {
+              } else if (terminalSessionId) {
                 writeln(`\r\n✅ Terminal session restored: ${terminalSessionId.substring(0, 8)}...`);
               }
             }
@@ -740,8 +830,8 @@
     } catch (error) {
       console.error('[Terminal.measureTerminal] Error during measurement:', {
         error,
-        errorMessage: error.message,
-        errorStack: error.stack,
+        errorMessage: (error as any)?.message || 'Unknown error',
+        errorStack: (error as any)?.stack || '',
         terminalState: {
           hasContainer: !!terminalContainer,
           hasTerminal: !!terminal,
@@ -1329,8 +1419,8 @@
       } catch (err) {
         const errorDetails = {
           error: err,
-          errorMessage: err.message,
-          errorStack: err.stack,
+          errorMessage: (err as any)?.message || 'Unknown error',
+          errorStack: (err as any)?.stack || '',
           terminalState: {
             cols: terminal?.cols,
             rows: terminal?.rows,
@@ -1379,7 +1469,7 @@
     
     // Wait for next frame to ensure DOM is ready before observing
     requestAnimationFrame(() => {
-      if (terminalContainer) {
+      if (terminalContainer && resizeObserver) {
         resizeObserver.observe(terminalContainer);
       }
     });
@@ -1621,7 +1711,31 @@
     bind:this={terminalContainer}
     class="terminal-container"
     class:loading={isInitializing || connectionStatus !== 'connected'}
+    class:dragging-over={isDraggingOver}
+    on:dragover={handleDragOver}
+    on:dragleave={handleDragLeave}
+    on:drop={handleDrop}
+    role="application"
+    aria-label="Terminal"
   />
+  
+  {#if showUploadModal}
+    <button class="upload-modal-backdrop" on:click={closeUploadModal} on:keydown={(e) => e.key === 'Escape' && closeUploadModal()} aria-label="Close modal" type="button">
+      <div class="upload-modal" on:click|stopPropagation role="presentation">
+        <h3>Upload Files First</h3>
+        <p>You're accessing MorphBox from a remote server. Please use the File Explorer to upload files before using them in the terminal.</p>
+        <div class="dropped-files">
+          <p>Files you tried to drop:</p>
+          <ul>
+            {#each draggedFiles as file}
+              <li>{file.name} ({(file.size / 1024).toFixed(1)} KB)</li>
+            {/each}
+          </ul>
+        </div>
+        <button class="close-modal-btn" on:click={closeUploadModal}>OK</button>
+      </div>
+    </button>
+  {/if}
 </div>
 
 <style>
@@ -1644,6 +1758,109 @@
   
   .terminal-container.loading {
     opacity: 0.2;
+  }
+  
+  .terminal-container.dragging-over {
+    border: 2px dashed var(--accent-color, #0e639c);
+    background-color: rgba(14, 99, 156, 0.1);
+  }
+  
+  .terminal-container.dragging-over::after {
+    content: 'Drop files here';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--accent-color, #0e639c);
+    font-size: 18px;
+    font-weight: bold;
+    pointer-events: none;
+    z-index: 10;
+    background: rgba(30, 30, 30, 0.9);
+    padding: 10px 20px;
+    border-radius: 4px;
+    border: 1px solid var(--accent-color, #0e639c);
+  }
+  
+  /* Upload modal styles */
+  .upload-modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .upload-modal {
+    background-color: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 24px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 70vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  }
+  
+  .upload-modal h3 {
+    margin: 0 0 16px 0;
+    color: #fff;
+    font-size: 20px;
+  }
+  
+  .upload-modal p {
+    color: #ccc;
+    margin: 0 0 16px 0;
+    line-height: 1.5;
+  }
+  
+  .dropped-files {
+    background-color: #1e1e1e;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 12px;
+    margin: 16px 0;
+  }
+  
+  .dropped-files p {
+    margin: 0 0 8px 0;
+    font-weight: bold;
+    color: #aaa;
+    font-size: 14px;
+  }
+  
+  .dropped-files ul {
+    margin: 0;
+    padding-left: 20px;
+    color: #ccc;
+  }
+  
+  .dropped-files li {
+    margin: 4px 0;
+    font-family: monospace;
+    font-size: 13px;
+  }
+  
+  .close-modal-btn {
+    background-color: var(--accent-color, #0e639c);
+    color: white;
+    border: none;
+    padding: 8px 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-top: 16px;
+    width: 100%;
+  }
+  
+  .close-modal-btn:hover {
+    background-color: #1976d2;
   }
   
   .loading-overlay {

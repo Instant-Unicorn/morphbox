@@ -137,8 +137,15 @@
   class="panel {state.isMaximized ? 'panel-maximized' : ''}"
   style={panelStyle}
   on:mousedown={handleMouseDown}
+  on:keydown={(e) => {
+    // Allow keyboard navigation for dialog
+    if (e.key === 'Escape' && config.closable) {
+      handleClose();
+    }
+  }}
   role="dialog"
   aria-label={config.title}
+  tabindex="-1"
 >
   <div class="panel-header">
     {#if config.icon}
@@ -192,7 +199,7 @@
   </div>
   
   {#if config.resizable && !state.isMaximized}
-    <div
+    <button
       class="panel-resize-handle"
       on:mousedown={startResizing}
       on:keydown={(e) => {
@@ -201,9 +208,8 @@
           // Keyboard resize not implemented yet
         }
       }}
-      role="separator"
       aria-label="Resize panel"
-      tabindex="0"
+      type="button"
     />
   {/if}
 </div>

@@ -15,12 +15,12 @@
 @panel-category: Tools
 -->
 
-<script>
+&lt;script&gt;
   export let panelId;
   export let data = {};
   
   let count = 0;
-<\/script>
+&lt;/script&gt;
 
 <div class="custom-panel">
   <h2>My Custom Panel</h2>

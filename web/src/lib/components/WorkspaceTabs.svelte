@@ -63,7 +63,7 @@
         {/if}
         
         {#if showDeleteConfirm === workspace.id}
-          <div class="delete-confirm" on:click|stopPropagation>
+          <div class="delete-confirm" on:click|stopPropagation on:keydown={(e) => e.key === 'Escape' && cancelDelete()} role="dialog" aria-label="Delete confirmation">
             <div class="confirm-content">
               <p>Delete "{workspace.name}"?</p>
               <div class="confirm-actions">

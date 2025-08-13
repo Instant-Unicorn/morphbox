@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { Keyboard, Command, Option, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-svelte';
   
   const shortcuts = [
@@ -77,8 +77,8 @@
     }
   ];
 
-  function formatKey(key) {
-    const specialKeys = {
+  function formatKey(key: string) {
+    const specialKeys: Record<string, string> = {
       'Cmd/Ctrl': '⌘/Ctrl',
       'Shift': '⇧',
       'Alt': '⌥',

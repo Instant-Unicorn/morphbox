@@ -1,6 +1,6 @@
 {
   "name": "morphbox",
-  "version": "0.8.2",
+  "version": "0.9.1",
   "description": "Docker-based AI sandbox for development with Claude integration",
   "bin": {
     "morphbox": "./bin/morphbox.js"

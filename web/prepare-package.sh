@@ -39,7 +39,7 @@ fi
 
 # Copy scripts - use the packaged version for morphbox-start
 cp scripts/morphbox-start-packaged scripts/morphbox-start
-cp ../morphbox-start-docker scripts/
+# morphbox-start-docker already exists in scripts/
 chmod +x scripts/*
 
 # Copy other necessary files

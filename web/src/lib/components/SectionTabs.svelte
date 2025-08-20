@@ -255,13 +255,13 @@
     align-items: center;
     overflow-x: auto;
     overflow-y: hidden;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    scrollbar-width: thin; /* Show scrollbar for better UX */
     /* Enable smooth touch scrolling */
     -webkit-overflow-scrolling: touch;
     scroll-snap-type: x proximity;
     /* Prevent the scrollable area from pushing out the panel manager */
     min-width: 0;
+    max-width: calc(100% - 60px); /* Leave space for panel manager */
   }
   
   .tabs-scrollable::-webkit-scrollbar {

@@ -1,5 +1,6 @@
 import { panelStore } from '$lib/stores/panels';
 import { get } from 'svelte/store';
+import { browser } from '$app/environment';
 
 export async function handleFileOpen(event: CustomEvent<{ path: string; targetPanelId?: string }>) {
   const { path, targetPanelId } = event.detail;
@@ -12,14 +13,25 @@ export async function handleFileOpen(event: CustomEvent<{ path: string; targetPa
   
   // If target panel doesn't exist or is not suitable, create a new editor
   if (!targetPanel || !['editor', 'codeEditor', 'code-editor', 'preview', 'terminal', 'claude'].includes(targetPanel.type)) {
-    // Always create a new code editor panel
+    // Dispatch a custom event to create a new panel in a new row
+    // This should be handled by the layout component
     const fileName = path.split('/').pop() || 'Untitled';
-    console.log('Creating new codeEditor panel for file:', fileName);
-    panelStore.addPanel('codeEditor', {
-      title: fileName,
-      content: { filePath: path }
-    });
-    console.log('Panel added, current panels:', get(panelStore).panels);
+    console.log('Dispatching event to create new codeEditor panel for file:', fileName);
+    
+    // Create a custom event that the RowLayout can listen to
+    if (browser) {
+      const createPanelEvent = new CustomEvent('create-panel-for-file', {
+        detail: {
+          type: 'codeEditor',
+          config: {
+            title: fileName,
+            content: { filePath: path }
+          }
+        },
+        bubbles: true
+      });
+      window.dispatchEvent(createPanelEvent);
+    }
     return;
   }
   

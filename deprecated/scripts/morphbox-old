@@ -1,0 +1,374 @@
+#!/bin/bash
+set -euo pipefail
+
+# MorphBox CLI
+# https://morphbox.iu.dev
+
+MORPHBOX_VERSION="1.0.0"
+MORPHBOX_HOME="${MORPHBOX_HOME:-$HOME/.morphbox}"
+VM_NAME="morphbox"
+SNAPSHOT_NAME="morphbox-clean"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+info() { echo -e "${GREEN}[INFO]${NC} $1"; }
+warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
+
+# Detect OS
+detect_os() {
+    case "$(uname -s)" in
+        Darwin*) echo "macos" ;;
+        Linux*) echo "linux" ;;
+        MINGW*|MSYS*|CYGWIN*) echo "windows" ;;
+        *) error "Unsupported operating system: $(uname -s)" ;;
+    esac
+}
+
+# Show help
+show_help() {
+    cat << EOF
+MorphBox v${MORPHBOX_VERSION} - Fast-loading safe AI sandbox
+
+Usage: morphbox [OPTIONS]
+
+Options:
+    --help      Show this help message
+    --version   Show version information
+    --reset     Reset VM to clean snapshot
+    --shell     Drop into interactive shell (default)
+    --stop      Stop the MorphBox VM
+    --status    Show VM status
+
+Examples:
+    morphbox              # Start sandbox and drop into shell
+    morphbox --reset      # Reset to clean snapshot
+    morphbox --stop       # Stop the VM
+
+First run may take up to 3 minutes. Subsequent runs start in under 10 seconds.
+
+More info: https://morphbox.iu.dev
+EOF
+}
+
+# Show version
+show_version() {
+    echo "MorphBox v${MORPHBOX_VERSION}"
+}
+
+# Check if VM exists
+vm_exists() {
+    local os=$1
+    
+    case "$os" in
+        macos|linux)
+            limactl list -q | grep -q "^${VM_NAME}$"
+            ;;
+        windows)
+            wsl -l -q | grep -q "^${VM_NAME}$"
+            ;;
+    esac
+}
+
+# Check if VM is running
+vm_running() {
+    local os=$1
+    
+    case "$os" in
+        macos|linux)
+            limactl list -f '{{.Name}}\t{{.Status}}' | grep "^${VM_NAME}" | grep -q "Running"
+            ;;
+        windows)
+            wsl -l -v | grep "${VM_NAME}" | grep -q "Running"
+            ;;
+    esac
+}
+
+# Check if KVM is available
+check_kvm() {
+    if [[ "$(uname -s)" == "Linux" ]]; then
+        if [[ -e /dev/kvm ]] && [[ -r /dev/kvm ]] && [[ -w /dev/kvm ]]; then
+            return 0  # KVM is available
+        else
+            return 1  # KVM is not available
+        fi
+    fi
+    return 0  # Assume KVM is available on non-Linux
+}
+
+# Start VM
+start_vm() {
+    local os=$1
+    
+    if ! vm_exists "$os"; then
+        info "First run detected. Creating MorphBox VM..."
+        info "This may take up to 3 minutes..."
+        
+        # Check for KVM and create appropriate config
+        local yaml_file="$MORPHBOX_HOME/claude-vm.yaml"
+        local yaml_override=""
+        
+        if ! check_kvm; then
+            warn "KVM not available, using software emulation (slower performance)"
+            # For systems without KVM, we need to use a different approach
+            # Lima doesn't respect accel settings properly, so we'll need to handle this differently
+            export LIMA_QEMU_ACCEL="tcg"
+            warn "Note: First boot will be VERY slow without KVM (may take 10-15 minutes)"
+        fi
+        
+        case "$os" in
+            macos|linux)
+                limactl start --name="$VM_NAME" --tty=false "$yaml_file"
+                ;;
+            windows)
+                error "WSL setup requires manual configuration. Please see README for instructions."
+                ;;
+        esac
+        
+        # Wait for VM to be ready
+        info "Waiting for VM to be ready..."
+        sleep 10
+        
+        # Apply firewall rules
+        info "Applying firewall rules..."
+        case "$os" in
+            macos|linux)
+                limactl shell "$VM_NAME" sudo bash < "$MORPHBOX_HOME/firewall.sh"
+                ;;
+        esac
+        
+        # Create snapshot
+        info "Creating clean snapshot..."
+        create_snapshot "$os"
+        
+        # Clean up override file if it exists
+        if [[ -n "$yaml_override" ]] && [[ -f "$yaml_override" ]]; then
+            rm -f "$yaml_override"
+        fi
+        
+    elif ! vm_running "$os"; then
+        info "Starting MorphBox VM..."
+        # Check if we need to warn about KVM
+        if ! check_kvm; then
+            warn "KVM not available, using software emulation (slower performance)"
+        fi
+        case "$os" in
+            macos|linux)
+                limactl start --tty=false "$VM_NAME"
+                ;;
+            windows)
+                wsl -d "$VM_NAME" --exec true
+                ;;
+        esac
+    fi
+}
+
+# Stop VM
+stop_vm() {
+    local os=$1
+    
+    info "Stopping MorphBox VM..."
+    case "$os" in
+        macos|linux)
+            limactl stop "$VM_NAME"
+            ;;
+        windows)
+            wsl -t "$VM_NAME"
+            ;;
+    esac
+}
+
+# Create snapshot
+create_snapshot() {
+    local os=$1
+    
+    case "$os" in
+        macos|linux)
+            # Lima doesn't have built-in snapshots, so we'll use a workaround
+            # Save the current state as a clean image
+            info "Snapshot functionality pending Lima snapshot support"
+            ;;
+        windows)
+            # WSL has export/import for snapshots
+            wsl --export "$VM_NAME" "$MORPHBOX_HOME/${SNAPSHOT_NAME}.tar"
+            ;;
+    esac
+}
+
+# Reset VM to snapshot
+reset_vm() {
+    local os=$1
+    
+    info "Resetting VM to clean snapshot..."
+    
+    case "$os" in
+        macos|linux)
+            # Stop and delete current VM
+            if vm_exists "$os"; then
+                limactl delete -f "$VM_NAME"
+            fi
+            # Recreate from yaml
+            limactl start --name="$VM_NAME" --tty=false "$MORPHBOX_HOME/claude-vm.yaml"
+            
+            # Reapply firewall
+            info "Reapplying firewall rules..."
+            limactl shell "$VM_NAME" sudo bash < "$MORPHBOX_HOME/firewall.sh"
+            ;;
+        windows)
+            if [[ -f "$MORPHBOX_HOME/${SNAPSHOT_NAME}.tar" ]]; then
+                wsl --unregister "$VM_NAME"
+                wsl --import "$VM_NAME" "$MORPHBOX_HOME/vm" "$MORPHBOX_HOME/${SNAPSHOT_NAME}.tar"
+            else
+                error "No snapshot found. Please run morphbox first to create initial snapshot."
+            fi
+            ;;
+    esac
+}
+
+# Show VM status
+show_status() {
+    local os=$1
+    
+    echo "MorphBox Status:"
+    echo "================"
+    
+    case "$os" in
+        macos|linux)
+            if vm_exists "$os"; then
+                limactl list "$VM_NAME"
+            else
+                echo "VM Status: Not created"
+            fi
+            ;;
+        windows)
+            if vm_exists "$os"; then
+                wsl -l -v | grep "$VM_NAME" || echo "VM Status: Not created"
+            else
+                echo "VM Status: Not created"
+            fi
+            ;;
+    esac
+}
+
+# Drop into shell
+enter_shell() {
+    local os=$1
+    local cwd=$(pwd)
+    local command="${2:-}"
+    
+    info "Mounting $cwd as /workspace in sandbox..."
+    
+    if [[ -z "$command" ]]; then
+        # Interactive shell
+        info "Dropping into MorphBox shell..."
+        echo ""
+        echo -e "${BLUE}Welcome to MorphBox!${NC}"
+        echo -e "${BLUE}Your current directory is mounted at /workspace${NC}"
+        echo -e "${BLUE}Type 'exit' to leave the sandbox${NC}"
+        echo ""
+        
+        case "$os" in
+            macos|linux)
+                # Mount current directory and drop into shell
+                limactl shell \
+                    --workdir=/workspace \
+                    "$VM_NAME" \
+                    bash -c "cd /workspace && exec bash"
+                ;;
+            windows)
+                # WSL mount is automatic at /mnt/c/...
+                # Convert Windows path to WSL path
+                local wsl_path=$(wslpath -u "$cwd")
+                wsl -d "$VM_NAME" --cd "/workspace" bash -c "ln -sf '$wsl_path' /workspace 2>/dev/null; cd /workspace && exec bash"
+                ;;
+        esac
+    else
+        # Execute command
+        case "$os" in
+            macos|linux)
+                limactl shell \
+                    --workdir=/workspace \
+                    "$VM_NAME" \
+                    bash -c "$command"
+                ;;
+            windows)
+                local wsl_path=$(wslpath -u "$cwd")
+                wsl -d "$VM_NAME" --cd "/workspace" bash -c "ln -sf '$wsl_path' /workspace 2>/dev/null; $command"
+                ;;
+        esac
+    fi
+}
+
+# Main
+main() {
+    local os=$(detect_os)
+    
+    # Parse arguments
+    case "${1:-}" in
+        --help)
+            show_help
+            exit 0
+            ;;
+        --version)
+            show_version
+            exit 0
+            ;;
+        --reset)
+            reset_vm "$os"
+            exit 0
+            ;;
+        --stop)
+            stop_vm "$os"
+            exit 0
+            ;;
+        --status)
+            show_status "$os"
+            exit 0
+            ;;
+        --shell)
+            # Check if -c follows for command execution
+            if [[ "${2:-}" == "-c" ]] && [[ -n "${3:-}" ]]; then
+                start_vm "$os"
+                enter_shell "$os" "$3"
+            else
+                # Interactive shell
+                start_vm "$os"
+                enter_shell "$os"
+            fi
+            ;;
+        "")
+            # Default action - interactive shell
+            start_vm "$os"
+            enter_shell "$os"
+            ;;
+        *)
+            error "Unknown option: $1. Use --help for usage information."
+            ;;
+    esac
+}
+
+# Check dependencies
+check_dependencies() {
+    local os=$(detect_os)
+    
+    case "$os" in
+        macos|linux)
+            if ! command -v limactl &> /dev/null; then
+                error "Lima is not installed. Please run: curl -sSf https://morphbox.iu.dev/install.sh | bash"
+            fi
+            ;;
+        windows)
+            if ! command -v wsl &> /dev/null; then
+                error "WSL2 is not installed. Please install WSL2 first."
+            fi
+            ;;
+    esac
+}
+
+check_dependencies
+main "$@"

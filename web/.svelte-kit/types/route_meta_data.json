@@ -54,6 +54,9 @@
 	"/api/files/rename": [
 		"src/routes/api/files/rename/+server.ts"
 	],
+	"/api/files/upload": [
+		"src/routes/api/files/upload/+server.ts"
+	],
 	"/api/files/write": [
 		"src/routes/api/files/write/+server.ts"
 	],

@@ -30,6 +30,7 @@ declare module '$env/static/private' {
 	export const MORPHBOX_VM_PORT: string;
 	export const MORPHBOX_VM_USER: string;
 	export const LESSOPEN: string;
+	export const TMUX: string;
 	export const USER: string;
 	export const SSH_CLIENT: string;
 	export const CLAUDE_CODE_ENTRYPOINT: string;
@@ -40,7 +41,7 @@ declare module '$env/static/private' {
 	export const SHLVL: string;
 	export const npm_config_noproxy: string;
 	export const HOME: string;
-	export const OLDPWD: string;
+	export const TERM_PROGRAM_VERSION: string;
 	export const SSH_TTY: string;
 	export const npm_package_json: string;
 	export const npm_package_engines_node: string;
@@ -66,8 +67,8 @@ declare module '$env/static/private' {
 	export const XDG_RUNTIME_DIR: string;
 	export const LANG: string;
 	export const LS_COLORS: string;
+	export const TERM_PROGRAM: string;
 	export const npm_lifecycle_script: string;
-	export const SSH_AUTH_SOCK: string;
 	export const SHELL: string;
 	export const npm_package_version: string;
 	export const npm_lifecycle_event: string;
@@ -83,6 +84,7 @@ declare module '$env/static/private' {
 	export const XDG_DATA_DIRS: string;
 	export const npm_config_global_prefix: string;
 	export const npm_command: string;
+	export const TMUX_PANE: string;
 	export const INIT_CWD: string;
 	export const EDITOR: string;
 	export const NODE_ENV: string;
@@ -121,6 +123,7 @@ declare module '$env/dynamic/private' {
 		MORPHBOX_VM_PORT: string;
 		MORPHBOX_VM_USER: string;
 		LESSOPEN: string;
+		TMUX: string;
 		USER: string;
 		SSH_CLIENT: string;
 		CLAUDE_CODE_ENTRYPOINT: string;
@@ -131,7 +134,7 @@ declare module '$env/dynamic/private' {
 		SHLVL: string;
 		npm_config_noproxy: string;
 		HOME: string;
-		OLDPWD: string;
+		TERM_PROGRAM_VERSION: string;
 		SSH_TTY: string;
 		npm_package_json: string;
 		npm_package_engines_node: string;
@@ -157,8 +160,8 @@ declare module '$env/dynamic/private' {
 		XDG_RUNTIME_DIR: string;
 		LANG: string;
 		LS_COLORS: string;
+		TERM_PROGRAM: string;
 		npm_lifecycle_script: string;
-		SSH_AUTH_SOCK: string;
 		SHELL: string;
 		npm_package_version: string;
 		npm_lifecycle_event: string;
@@ -174,6 +177,7 @@ declare module '$env/dynamic/private' {
 		XDG_DATA_DIRS: string;
 		npm_config_global_prefix: string;
 		npm_command: string;
+		TMUX_PANE: string;
 		INIT_CWD: string;
 		EDITOR: string;
 		NODE_ENV: string;

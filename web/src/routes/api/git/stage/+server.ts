@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { WORKSPACE_DIR } from '$lib/server/workspace';
 import type { RequestHandler } from './$types';
 
 const execAsync = promisify(exec);
@@ -13,7 +14,7 @@ export const POST: RequestHandler = async ({ request }) => {
       return json({ error: 'Path is required' }, { status: 400 });
     }
     
-    await execAsync(`git add "${path}"`);
+    await execAsync(`git add "${path}"`, { cwd: WORKSPACE_DIR });
     
     return json({ success: true });
   } catch (error) {

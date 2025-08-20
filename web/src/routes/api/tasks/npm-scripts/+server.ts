@@ -1,12 +1,13 @@
 import { json } from '@sveltejs/kit';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
+import { WORKSPACE_DIR } from '$lib/server/workspace';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async () => {
   try {
-    // Read package.json
-    const packageJsonPath = join(process.cwd(), 'package.json');
+    // Read package.json from workspace
+    const packageJsonPath = join(WORKSPACE_DIR, 'package.json');
     const packageJson = await readFile(packageJsonPath, 'utf-8');
     const pkg = JSON.parse(packageJson);
     

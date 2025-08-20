@@ -23,6 +23,11 @@
   let targetPanelId: string | null = null;
   let targetPanels: Panel[] = [];
   
+  // Drag and drop state
+  let isDraggingOver = false;
+  let uploadProgress: { [key: string]: number } = {};
+  let isUploading = false;
+  
   // Subscribe to available target panels
   $: targetPanels = $availableTargets;
   
@@ -42,6 +47,101 @@
   
   // Get the current target panel
   $: currentTarget = targetPanels.find(p => p.id === targetPanelId);
+  
+  // Handle drag over event
+  function handleDragOver(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    isDraggingOver = true;
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'copy';
+    }
+  }
+  
+  // Handle drag leave event
+  function handleDragLeave(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    // Only set to false if we're leaving the explorer entirely
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = event.clientX;
+    const y = event.clientY;
+    if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
+      isDraggingOver = false;
+    }
+  }
+  
+  // Handle drop event
+  async function handleDrop(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    isDraggingOver = false;
+    
+    if (!event.dataTransfer || !event.dataTransfer.files.length) {
+      return;
+    }
+    
+    const files = Array.from(event.dataTransfer.files);
+    await uploadFiles(files);
+  }
+  
+  // Upload files to the server
+  async function uploadFiles(files: File[]) {
+    isUploading = true;
+    uploadProgress = {};
+    
+    for (const file of files) {
+      uploadProgress[file.name] = 0;
+      
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('path', rootPath); // Upload to current directory
+        
+        // Create XMLHttpRequest to track upload progress
+        const xhr = new XMLHttpRequest();
+        
+        // Track upload progress
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            uploadProgress[file.name] = Math.round((e.loaded / e.total) * 100);
+            uploadProgress = { ...uploadProgress }; // Trigger reactivity
+          }
+        });
+        
+        // Handle completion
+        await new Promise((resolve, reject) => {
+          xhr.addEventListener('load', () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve(xhr.response);
+            } else {
+              reject(new Error(`Upload failed: ${xhr.statusText}`));
+            }
+          });
+          
+          xhr.addEventListener('error', () => {
+            reject(new Error('Upload failed'));
+          });
+          
+          // Send the request
+          xhr.open('POST', '/api/files/upload');
+          xhr.send(formData);
+        });
+        
+        uploadProgress[file.name] = 100;
+      } catch (err) {
+        console.error(`Failed to upload ${file.name}:`, err);
+        error = `Failed to upload ${file.name}: ${err instanceof Error ? err.message : 'Unknown error'}`;
+        delete uploadProgress[file.name];
+      }
+    }
+    
+    // Refresh the directory listing
+    await loadDirectory(rootPath);
+    
+    isUploading = false;
+    uploadProgress = {};
+  }
   
   onMount(async () => {
     await loadDirectory(rootPath);
@@ -222,7 +322,17 @@
 </script>
 
 <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
-<div class="file-explorer" role="region" aria-label="File Explorer" on:click={handleGlobalClick} on:keydown={handleGlobalKeydown}>
+<div 
+  class="file-explorer" 
+  class:dragging-over={isDraggingOver}
+  role="region" 
+  aria-label="File Explorer" 
+  on:click={handleGlobalClick} 
+  on:keydown={handleGlobalKeydown}
+  on:dragover={handleDragOver}
+  on:dragleave={handleDragLeave}
+  on:drop={handleDrop}
+>
   <div class="file-explorer-header">
     <h3>Explorer</h3>
     <div class="header-actions">
@@ -302,6 +412,21 @@
             on:contextmenu={handleContextMenu}
             on:rename={handleRename}
           />
+        {/each}
+      </div>
+    {/if}
+    
+    {#if isUploading && Object.keys(uploadProgress).length > 0}
+      <div class="upload-progress">
+        <h4>Uploading Files...</h4>
+        {#each Object.entries(uploadProgress) as [fileName, progress]}
+          <div class="upload-item">
+            <div class="upload-filename">{fileName}</div>
+            <div class="upload-progress-bar">
+              <div class="upload-progress-fill" style="width: {progress}%"></div>
+            </div>
+            <div class="upload-progress-text">{progress}%</div>
+          </div>
         {/each}
       </div>
     {/if}
@@ -514,5 +639,83 @@
     height: 1px;
     background-color: var(--border-color, #3e3e42);
     margin: 4px 8px;
+  }
+  
+  /* Drag and drop styles */
+  .file-explorer.dragging-over {
+    border: 2px dashed var(--accent-color, #0e639c);
+    background-color: rgba(14, 99, 156, 0.05);
+  }
+  
+  .file-explorer.dragging-over::after {
+    content: 'Drop files to upload';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--accent-color, #0e639c);
+    font-size: 16px;
+    font-weight: bold;
+    pointer-events: none;
+    z-index: 10;
+    background: rgba(37, 37, 38, 0.95);
+    padding: 12px 24px;
+    border-radius: 4px;
+    border: 1px solid var(--accent-color, #0e639c);
+  }
+  
+  /* Upload progress styles */
+  .upload-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--surface, #252526);
+    border-top: 1px solid var(--border-color, #3e3e42);
+    padding: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 100;
+  }
+  
+  .upload-progress h4 {
+    margin: 0 0 8px 0;
+    font-size: 12px;
+    color: var(--text-color, #cccccc);
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  
+  .upload-item {
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+  
+  .upload-filename {
+    color: var(--text-color, #cccccc);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .upload-progress-bar {
+    height: 4px;
+    background-color: var(--input-background, #3c3c3c);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 2px;
+  }
+  
+  .upload-progress-fill {
+    height: 100%;
+    background-color: var(--accent-color, #0e639c);
+    transition: width 0.3s ease;
+  }
+  
+  .upload-progress-text {
+    color: var(--text-color-secondary, #999);
+    font-size: 11px;
+    text-align: right;
   }
 </style>

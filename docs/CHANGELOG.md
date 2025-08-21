@@ -1,5 +1,32 @@
 # MorphBox Changelog
 
+## 2025-08-21 - v0.9.2
+
+### Fixed Single Ctrl+C Shutdown Issue
+
+**Problem**:
+- MorphBox required two Ctrl+C presses to shut down properly
+- First Ctrl+C would return to shell prompt while cleanup continued in background
+- Docker container wasn't being stopped properly
+
+**Root Cause**:
+- Node.js wrapper wasn't waiting for child process cleanup
+- Bash scripts used blocking `sleep` loops that prevented signal handling
+- Packaged version missing proper signal handling
+
+**Solution**:
+- Added proper signal handling to Node.js wrapper that waits for cleanup
+- Replaced `while true; sleep 5` loops with `wait` command for immediate signal handling
+- Fixed docker compose cleanup path in packaged version
+- Added lock file to prevent concurrent cleanup calls
+
+**Files Modified**:
+- `bin/morphbox.js` - Added signal handling to wait for child cleanup
+- `morphbox-start` - Replaced sleep loop with wait command
+- `web/bin/morphbox.js` - Added signal handling for packaged version
+- `web/scripts/morphbox-start` - Fixed signal handling and docker cleanup
+- `web/scripts/morphbox-start-packaged` - Fixed signal handling and docker cleanup
+
 ## 2025-08-13
 
 ### Fix File Explorer Folder Creation Error

@@ -378,10 +378,23 @@ info "Press Ctrl+C to stop all services"
 
 # Cleanup function
 cleanup() {
+    # Prevent multiple cleanup calls
+    if [[ -f /tmp/morphbox-cleanup.lock ]]; then
+        return
+    fi
+    touch /tmp/morphbox-cleanup.lock
+    
     echo ""
     info "Stopping MorphBox..."
+    
+    # Kill child processes first
     [[ -n "$WS_PID" ]] && kill $WS_PID 2>/dev/null || true
     [[ -n "$WEB_PID" ]] && kill $WEB_PID 2>/dev/null || true
+    
+    # Give processes a moment to exit gracefully
+    sleep 0.5
+    
+    # Force kill any remaining processes
     pkill -f "tsx.*websocket-server" 2>/dev/null || true
     pkill -f "vite dev" 2>/dev/null || true
     pkill -f "node server.js" 2>/dev/null || true
@@ -389,27 +402,24 @@ cleanup() {
     # Automatically stop Docker container
     if docker ps | grep -q morphbox-vm; then
         info "Stopping Docker container..."
-        cd "$SCRIPT_DIR"
-        docker compose down
+        # Use the correct docker-compose.yml path
+        docker compose -f "$SCRIPT_DIR/web/docker/docker-compose.yml" down 2>/dev/null || true
     fi
+    
+    # Clean up lock file
+    rm -f /tmp/morphbox-cleanup.lock
     
     info "MorphBox stopped"
     exit 0
 }
 
 # Set up signal handler
-trap 'cleanup; exit 0' SIGINT SIGTERM
+trap 'cleanup' SIGINT SIGTERM
 
-# Keep script running
-while true; do
-    # Check if processes are still running
-    if [[ -n "$WEB_PID" ]] && ! kill -0 $WEB_PID 2>/dev/null; then
-        warn "Web server stopped unexpectedly"
-        cleanup
-    fi
-    if [[ -n "$WS_PID" ]] && ! kill -0 $WS_PID 2>/dev/null; then
-        warn "WebSocket server stopped unexpectedly"
-        cleanup
-    fi
-    sleep 5
-done
+# Wait for child processes instead of looping with sleep
+# This allows signals to be handled immediately
+wait $WEB_PID $WS_PID 2>/dev/null
+
+# If we get here, a process exited unexpectedly
+warn "Server process stopped unexpectedly"
+cleanup

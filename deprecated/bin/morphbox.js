@@ -102,19 +102,47 @@ const morphboxProcess = spawn('bash', [morphboxStartPath, ...args], {
   env: { ...process.env }
 });
 
+// Track if we're already shutting down
+let shuttingDown = false;
+let cleanupTimeout = null;
+
 morphboxProcess.on('error', (err) => {
   error(`Failed to start MorphBox: ${err.message}`);
 });
 
 morphboxProcess.on('exit', (code) => {
+  if (cleanupTimeout) {
+    clearTimeout(cleanupTimeout);
+  }
   process.exit(code || 0);
 });
 
-// Forward signals to the child process
+// Handle SIGINT properly - prevent default behavior and wait for child
 process.on('SIGINT', () => {
+  if (shuttingDown) {
+    // Force exit if pressed twice
+    console.log('\n[INFO] Force stopping...');
+    process.exit(1);
+  }
+  shuttingDown = true;
+  
+  // Send SIGINT to the child process
   morphboxProcess.kill('SIGINT');
+  
+  // Set a timeout to force exit if cleanup takes too long
+  cleanupTimeout = setTimeout(() => {
+    console.log('\n[WARN] Cleanup taking too long, force stopping...');
+    process.exit(1);
+  }, 10000);
 });
 
 process.on('SIGTERM', () => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  
   morphboxProcess.kill('SIGTERM');
+  
+  cleanupTimeout = setTimeout(() => {
+    process.exit(1);
+  }, 10000);
 });

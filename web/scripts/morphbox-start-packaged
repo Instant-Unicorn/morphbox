@@ -443,7 +443,7 @@ cleanup() {
     [[ -n "$WS_PID" ]] && kill $WS_PID 2>/dev/null || true
     
     # Give them a moment to stop gracefully
-    sleep 1
+    sleep 0.5
     
     # Force kill any remaining processes
     pkill -f "node server-packaged" 2>/dev/null || true
@@ -452,7 +452,8 @@ cleanup() {
     # Automatically stop Docker container
     if docker ps | grep -q morphbox-vm; then
         info "Stopping Docker container..."
-        docker stop morphbox-vm >/dev/null 2>&1
+        # Use docker compose with the correct path
+        docker compose -f "$WEB_DIR/docker/docker-compose.yml" down || docker stop morphbox-vm
     fi
     
     info "MorphBox stopped"
@@ -465,12 +466,10 @@ cleanup() {
 # Set up signal handler
 trap cleanup SIGINT SIGTERM
 
-# Keep script running
-while true; do
-    # Check if web server is still running
-    if [[ -n "$WEB_PID" ]] && ! kill -0 $WEB_PID 2>/dev/null; then
-        warn "Web server stopped unexpectedly"
-        cleanup
-    fi
-    sleep 5
-done
+# Wait for child processes instead of looping with sleep
+# This allows signals to be handled immediately
+wait $WEB_PID $WS_PID 2>/dev/null
+
+# If we get here, a process exited unexpectedly
+warn "Server process stopped unexpectedly"
+cleanup

@@ -112,6 +112,9 @@ async function main() {
     env: process.env  // Pass environment variables including MORPHBOX_USER_DIR
   });
   
+  // Track if we're shutting down
+  let shuttingDown = false;
+  
   child.on('error', (err) => {
     log.error(`Failed to start MorphBox: ${err.message}`);
     process.exit(1);
@@ -122,6 +125,26 @@ async function main() {
       process.exit(1);
     }
     process.exit(code || 0);
+  });
+  
+  // Handle SIGINT and SIGTERM properly
+  process.on('SIGINT', () => {
+    if (shuttingDown) {
+      // Force exit on second Ctrl+C
+      console.log('\n[INFO] Force stopping...');
+      process.exit(1);
+    }
+    shuttingDown = true;
+    
+    // Forward signal to child and wait for it to exit
+    child.kill('SIGINT');
+    // Don't exit immediately - let the child cleanup
+  });
+  
+  process.on('SIGTERM', () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    child.kill('SIGTERM');
   });
 }
 

@@ -13,9 +13,35 @@ sudo -v
 # Keep sudo alive during the script execution
 while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
-# Skip Docker recreation during packaging
-echo "📦 Packaging mode - skipping Docker container recreation"
-export SKIP_DOCKER_RECREATE=true
+# Force Docker rebuild during packaging to include latest changes
+echo "🐳 Rebuilding Docker container with latest changes..."
+cd docker
+
+# Stop and remove existing container if it exists
+echo "Stopping existing container if running..."
+docker stop morphbox-vm 2>/dev/null || true
+docker rm morphbox-vm 2>/dev/null || true
+
+# Build the new image with no cache to ensure all changes are included
+echo "Building fresh Docker image..."
+docker compose build --no-cache morphbox-vm
+
+# Recreate the container with the new image
+echo "Creating new container with updated image..."
+docker compose up -d morphbox-vm
+
+# Wait for container to be ready
+echo "Waiting for container to be ready..."
+sleep 3
+
+# Verify the container is running
+if docker ps | grep -q morphbox-vm; then
+    echo "✅ Container rebuilt and running successfully"
+else
+    echo "⚠️  Container may not be running. Check with: docker ps"
+fi
+
+cd ..
 
 # Create directories
 mkdir -p scripts

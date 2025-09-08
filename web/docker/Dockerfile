@@ -10,13 +10,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ipset \
     iproute2 \
     dnsutils \
+    tmux \
     && rm -rf /var/lib/apt/lists/*
 
-# Create morphbox user with proper permissions first
+# Create morphbox user with proper permissions
+# No password required - security through network isolation
 RUN useradd -m -s /bin/bash morphbox && \
-    echo 'morphbox:morphbox' | chpasswd && \
     usermod -aG sudo morphbox && \
-    echo "morphbox ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/morphbox
+    # Allow sudo without password for convenience in isolated container
+    echo "morphbox ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/morphbox && \
+    # Set empty password for morphbox user (for SSH)
+    passwd -d morphbox
 
 # Give morphbox user ownership of npm directories for Claude updates
 RUN chown -R morphbox:morphbox /usr/local/lib/node_modules /usr/local/bin /usr/local/share
@@ -26,11 +30,19 @@ USER morphbox
 RUN npm install -g @anthropic-ai/claude-code
 USER root
 
-# Setup SSH for container access
+# Setup SSH for container access - passwordless for local container
 RUN mkdir /var/run/sshd && \
+    # Disable root login
     sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
+    # Enable empty passwords for local container access
+    sed -i 's/#PermitEmptyPasswords no/PermitEmptyPasswords yes/' /etc/ssh/sshd_config && \
+    # Ensure PermitEmptyPasswords is set even if pattern doesn't match
+    grep -q "^PermitEmptyPasswords yes" /etc/ssh/sshd_config || echo "PermitEmptyPasswords yes" >> /etc/ssh/sshd_config && \
     sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
-    echo "AcceptEnv TERM COLORTERM" >> /etc/ssh/sshd_config
+    echo "MaxSessions 10" >> /etc/ssh/sshd_config && \
+    echo "AcceptEnv TERM COLORTERM" >> /etc/ssh/sshd_config && \
+    # Ensure morphbox user has no password (fix for Docker image layer caching)
+    passwd -d morphbox || true
 
 # Create workspace directory
 RUN mkdir -p /workspace && chown morphbox:morphbox /workspace

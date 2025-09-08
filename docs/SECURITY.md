@@ -4,6 +4,35 @@
 
 MorphBox is a powerful development environment that provides terminal access, file system access, and code execution capabilities. This document outlines critical security considerations.
 
+## 🔒 Security Model (v0.9.4+)
+
+The following security improvements have been implemented:
+
+### Network Isolation Security (v0.9.4+)
+- ✅ **Passwordless authentication**: Container uses empty passwords within isolated network
+- ✅ **Network-based security**: Security enforced through localhost/VPN isolation
+- ✅ **Origin validation**: WebSocket connections validate origin headers
+- ✅ **Optional web auth**: Authentication available with --auth flag for VPN/external modes
+
+### Container Security
+- ✅ **Isolated environment**: Container accessible only via localhost or VPN
+- ✅ **Passwordless sudo**: NOPASSWD sudo for convenience in isolated container
+- ✅ **SSH configuration**: PermitEmptyPasswords enabled for simplified access
+
+### Input Validation & Sanitization
+- ✅ **Command sanitization**: Input validation and dangerous pattern detection
+- ✅ **Size limits**: Maximum input length to prevent DoS attacks
+- ✅ **Path validation**: Prevents directory traversal attacks
+
+### Error Handling & Logging
+- ✅ **Secure error messages**: Generic errors in production, no stack traces
+- ✅ **Audit logging**: Security events logged with unique IDs
+- ✅ **Security monitoring**: Webhook support for security alerts
+
+### Network Security
+- ✅ **Security headers**: X-Frame-Options, CSP, and other protective headers
+- ✅ **CORS protection**: Validates allowed origins for cross-origin requests
+
 ## Threat Model
 
 MorphBox is designed for **LOCAL DEVELOPMENT USE ONLY**. When exposed to networks, it becomes a high-value target because it provides:
@@ -45,11 +74,44 @@ MorphBox is designed for **LOCAL DEVELOPMENT USE ONLY**. When exposed to network
 4. **Lateral Movement**: Your machine becomes an attack vector
 5. **Resource Hijacking**: CPU/GPU can be used for cryptomining
 
-### General Risks:
-1. **No Sandboxing**: Commands run with user privileges
-2. **No Rate Limiting**: Brute force attacks possible
-3. **No Audit Logging**: Limited forensic capabilities
-4. **WebSocket Security**: Less mature than HTTPS
+### Remaining Security Considerations:
+1. **Container Privileges**: Commands still run with user privileges inside container
+2. **No TLS/HTTPS**: WebSocket and HTTP traffic not encrypted (planned for future)
+3. **Token Expiration**: Sessions don't expire automatically (7-day default too long)
+4. **2FA Not Available**: No two-factor authentication support yet
+
+## Security Configuration Setup
+
+### Required Environment Variables
+
+Before running MorphBox, you MUST configure the following security settings:
+
+```bash
+# Copy the example security configuration
+cp .env.security.example .env
+
+# Edit .env and set strong passwords:
+# - MORPHBOX_VM_PASSWORD (for SSH access)
+# - MORPHBOX_AUTH_PASSWORD (for web authentication)
+```
+
+### Generate Strong Passwords
+
+```bash
+# Generate a secure SSH password
+openssl rand -base64 16
+
+# Generate a secure authentication token
+openssl rand -hex 32
+```
+
+### Docker Build with Security
+
+When building the Docker container, pass the password as a build argument:
+
+```bash
+docker-compose build --build-arg MORPHBOX_PASSWORD="your-secure-password"
+```
 
 ## Security Best Practices
 
@@ -148,14 +210,25 @@ When authentication is enabled:
 
 ## Future Security Enhancements
 
-Planned improvements:
-1. Audit logging
-2. Rate limiting
-3. IP allowlisting
-4. 2FA support
-5. Encrypted storage
-6. Sandboxed execution
-7. Read-only mode
+Planned improvements for upcoming releases:
+
+### v1.0 (High Priority)
+1. **TLS/HTTPS Support**: Encrypted WebSocket and HTTP communications
+2. **JWT Token Management**: Proper session expiration and refresh tokens
+3. **2FA Support**: Time-based one-time passwords (TOTP)
+4. **IP Allowlisting**: Restrict access to specific IP addresses
+
+### v1.1 (Medium Priority)
+5. **Encrypted Storage**: Encrypt sensitive data at rest
+6. **Sandboxed Execution**: Additional isolation for command execution
+7. **Read-only Mode**: Safe viewing mode without write access
+8. **Advanced Audit Trail**: Detailed command history and file change tracking
+
+### Completed (v0.9.3)
+- ✅ Rate limiting (implemented)
+- ✅ Basic audit logging (implemented)
+- ✅ Security headers (implemented)
+- ✅ Input sanitization (implemented)
 
 Remember: **Security is your responsibility**. MorphBox provides tools, but proper configuration and usage are critical for maintaining security.
 

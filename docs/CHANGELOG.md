@@ -1,5 +1,42 @@
 # MorphBox Changelog
 
+## 2025-09-08 - v0.9.4
+
+### Removed Password Authentication - Simplified Security Model
+
+**Problem**:
+- Persistent WebSocket connection failures with "All configured authentication methods failed" error
+- Password-based authentication was security theater - hardcoded password provided no real security
+- Cyclic failures between WebSocket proxy startup and browser connections
+
+**Solution**:
+- Completely removed password authentication from the system
+- Security now relies entirely on network isolation (localhost/VPN access only)
+- Simplified SSH configuration to allow empty passwords for the isolated container
+
+**Changes**:
+- **Docker Configuration**:
+  - Modified Dockerfile to remove password setup and enable PermitEmptyPasswords
+  - Removed MORPHBOX_PASSWORD build argument from docker-compose.yml
+- **WebSocket Proxy**:
+  - Removed all password handling logic
+  - Simplified SSH connection to use empty password
+- **Launcher Scripts**:
+  - Removed MORPHBOX_VM_PASSWORD environment variables
+  - Cleaned up password-related configuration
+
+**Security Note**:
+- Container remains secure through network isolation
+- VPN mode restricts access to VPN-connected clients only
+- External mode requires explicit user confirmation and shows security warnings
+
+**Files Modified**:
+- `web/docker/Dockerfile` - Removed password setup, enabled passwordless SSH
+- `web/docker/docker-compose.yml` - Removed password build argument
+- `web/websocket-proxy.js` - Simplified to remove password handling
+- `web/scripts/morphbox-start-packaged` - Removed password environment variables
+- npm package launcher scripts updated accordingly
+
 ## 2025-08-21 - v0.9.2
 
 ### Fixed Single Ctrl+C Shutdown Issue
@@ -298,4 +335,4 @@
 
 ## Previous Updates
 
-(See git history for earlier changes)
+(See git history for earlier changes)2025-09-09 - Fixed prompt queue detection for Claude readiness and websocket connection issues

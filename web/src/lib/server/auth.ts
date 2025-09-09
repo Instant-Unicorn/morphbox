@@ -1,5 +1,7 @@
 import crypto from 'crypto';
 import type { RequestEvent } from '@sveltejs/kit';
+import { authRateLimiter } from './rate-limiter';
+import { allowlistManager } from './allowlist-manager';
 
 // Dynamic import for SvelteKit environment
 let env: any = process.env;
@@ -135,32 +137,61 @@ export function isAuthenticated(event: RequestEvent): boolean {
     return true; // Auth disabled
   }
   
+  // SECURITY: Get client IP and check both IP allowlist and rate limiting
+  const clientIp = event.getClientAddress();
+  
+  // Check IP allowlist first
+  if (!allowlistManager.isIPAllowed(clientIp)) {
+    console.warn(`[Auth] Blocked connection from non-allowlisted IP: ${clientIp}`);
+    return false;
+  }
+  
+  // Then check rate limiting
+  if (authRateLimiter.isBlocked(clientIp)) {
+    console.warn(`[Auth] Blocked authentication attempt from ${clientIp} due to rate limiting`);
+    return false;
+  }
+  
   const { token, username, password } = extractAuthCredentials(event);
   
   // Check token auth
   if (config.token && validateToken(token || null)) {
+    authRateLimiter.recordSuccessfulAttempt(clientIp);
     return true;
   }
   
   // Check basic auth
   if (config.username && config.password && validateBasicAuth(username || '', password || '')) {
+    authRateLimiter.recordSuccessfulAttempt(clientIp);
     return true;
   }
+  
+  // Record failed attempt
+  authRateLimiter.recordFailedAttempt(clientIp);
+  const remainingAttempts = authRateLimiter.getRemainingAttempts(clientIp);
+  console.warn(`[Auth] Failed authentication from ${clientIp}. ${remainingAttempts} attempts remaining`);
   
   return false;
 }
 
 // WebSocket authentication
-export function validateWebSocketAuth(url: URL, headers: Record<string, string>): boolean {
+export function validateWebSocketAuth(url: URL, headers: Record<string, string>, clientIp?: string): boolean {
   const config = getAuthConfig();
   
   if (!config.enabled) {
     return true; // Auth disabled
   }
   
+  // SECURITY: Check rate limiting if IP is provided
+  if (clientIp && authRateLimiter.isBlocked(clientIp)) {
+    console.warn(`[Auth] Blocked WebSocket authentication from ${clientIp} due to rate limiting`);
+    return false;
+  }
+  
   // Check token from query params or headers
   const token = url.searchParams.get('token') || headers['x-auth-token'];
   if (config.token && validateToken(token)) {
+    if (clientIp) authRateLimiter.recordSuccessfulAttempt(clientIp);
     return true;
   }
   
@@ -172,8 +203,16 @@ export function validateWebSocketAuth(url: URL, headers: Record<string, string>)
     const [username, password] = credentials.split(':');
     
     if (validateBasicAuth(username, password)) {
+      if (clientIp) authRateLimiter.recordSuccessfulAttempt(clientIp);
       return true;
     }
+  }
+  
+  // Record failed attempt
+  if (clientIp) {
+    authRateLimiter.recordFailedAttempt(clientIp);
+    const remainingAttempts = authRateLimiter.getRemainingAttempts(clientIp);
+    console.warn(`[Auth] Failed WebSocket authentication from ${clientIp}. ${remainingAttempts} attempts remaining`);
   }
   
   return false;

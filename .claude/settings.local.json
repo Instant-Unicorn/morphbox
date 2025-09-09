@@ -10,7 +10,9 @@
       "Bash(mkdir:*)",
       "Bash(ls:*)",
       "Bash(git ls-tree:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Read(//tmp/**)",
+      "Read(//home/kruger/.nvm/versions/node/v22.19.0/lib/node_modules/morphbox/**)"
     ],
     "deny": []
   }

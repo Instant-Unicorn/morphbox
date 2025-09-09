@@ -86,102 +86,45 @@
     }
     console.log('[PromptQueue] Found Claude panel:', claudePanel.id);
     
-    // Check if Claude needs to be woken up first
+    // Check if Claude terminal exists
     const terminal = findClaudeTerminal();
     if (!terminal) return false;
     
-    // Find all terminals and check for Claude
-    const allTerminalRows = document.querySelectorAll('.xterm-rows');
-    console.log('[PromptQueue] Checking', allTerminalRows.length, 'terminals');
+    // Find the Claude panel element and use innerText for most reliable text extraction
+    const claudePanelElement = document.querySelector(`[data-panel-id="${claudePanel.id}"]`) ||
+                              document.querySelector('[data-panel-id="claude"]');
     
-    for (const terminalRows of allTerminalRows) {
-      const rows = terminalRows.querySelectorAll('div');
-      const textLines = [];
-      let fullText = '';
+    if (claudePanelElement) {
+      // Use innerText which properly preserves the displayed text
+      const fullText = (claudePanelElement.innerText || claudePanelElement.textContent || '').toLowerCase();
       
-      for (const row of rows) {
-        const rowText = row.textContent || '';
-        textLines.push(rowText);
-        fullText += rowText + '\n';
+      // Simple reliable checks on the full panel text
+      // Claude is ready if we see both "try" and "bypass" which indicate the prompt box is shown
+      if (fullText.includes('try') && fullText.includes('bypass')) {
+        console.log('[PromptQueue] Claude is ready (detected Try and bypass in panel)!');
+        return true;
       }
       
-      // Check if this looks like Claude terminal or MorphBox terminal that needs Claude to start
-      const hasMorphBoxWelcome = fullText.includes('Welcome to MorphBox Terminal') || fullText.includes('Launching Claude...');
-      const hasClaudeWelcome = fullText.includes('│ > Try') || fullText.includes('for shortcuts') || fullText.includes('Claude Code');
+      // Also ready if we see the Human: prompt
+      if (fullText.includes('human:')) {
+        console.log('[PromptQueue] Claude is ready with Human: prompt');
+        return true;
+      }
       
-      // Check if Claude is actually running (even without welcome screen)
-      const hasClaudeRunning = fullText.includes('Human:') || 
-                               fullText.includes('Assistant:') || 
-                               fullText.includes('Working directory:') ||
-                               fullText.includes('anthropic') ||
-                               fullText.includes('Claude');
-      
-      // More flexible prompt detection - look for any > at end of line or with cursor
-      const hasPrompt = textLines.some(line => {
-        const trimmed = line.trim();
-        // Look for various prompt patterns:
-        // - Claude's "Human:" prompt
-        // - Standalone >
-        // - > with space
-        // - > with cursor characters
-        // - > at end of line (common pattern)
-        return trimmed === 'Human:' ||
-               trimmed.startsWith('Human:') ||
-               trimmed === '>' || 
-               trimmed === '> ' ||
-               trimmed.endsWith('>') ||
-               (trimmed.startsWith('> ') && !trimmed.includes('│')) ||
-               trimmed.includes('> ▋') ||
-               trimmed.includes('>▋') ||
-               // Also check for common shell prompts that might indicate readiness
-               (trimmed.includes('>') && trimmed.length < 10) || // Short lines with > are likely prompts
-               // Check if last few characters suggest a prompt
-               /[>$#]\s*[▋_|]*$/.test(trimmed) ||
-               // Check for Human: prompt with or without cursor
-               /Human:\s*[▋_|]*$/.test(trimmed);
-      });
-      
-      // Also check if Claude has started responding (indicating readiness)
-      const hasRecentActivity = fullText.includes('Human:') || fullText.includes('Assistant:') || hasPrompt;
-      
-      if (hasMorphBoxWelcome || hasClaudeWelcome || hasClaudeRunning) {
-        console.log('[PromptQueue] Found terminal - MorphBox:', hasMorphBoxWelcome, 'Claude:', hasClaudeWelcome, 'Running:', hasClaudeRunning, 'hasPrompt:', hasPrompt, 'hasActivity:', hasRecentActivity);
-        
-        // Debug: Log last 5 lines to see what's actually shown
-        const lastLines = textLines.slice(-5).filter(line => line.trim());
-        console.log('[PromptQueue] Last terminal lines:', lastLines);
-        
-        // If we see MorphBox welcome screen without Claude, just wait - Claude should start automatically
-        if (hasMorphBoxWelcome && !hasClaudeWelcome && !hasClaudeRunning && !hasPrompt && !hasRecentActivity) {
-          console.log('[PromptQueue] Waiting for Claude to start automatically...');
-          return false; // Not ready yet, just wait
+      // If we see welcome screen without the prompt box, wake it up
+      if (fullText.includes('welcome to claude') && !fullText.includes('try')) {
+        const now = Date.now();
+        // Only send wakeup every 3 seconds to avoid spam
+        if (now - lastWakeupTime > 3000) {
+          console.log('[PromptQueue] Claude showing welcome screen without prompt, sending Enter to wake up');
+          terminal.sendInput('\r');
+          lastWakeupTime = now;
         }
-        
-        // If Claude is running and we have "Human:" prompt, it's ready
-        if (hasClaudeRunning && fullText.includes('Human:')) {
-          console.log('[PromptQueue] Claude is ready with Human: prompt');
-          return true;
-        }
-        
-        // If we see Claude welcome screen but no prompt, send Enter to wake Claude
-        if ((hasClaudeWelcome || hasClaudeRunning) && !hasPrompt && !hasRecentActivity) {
-          const now = Date.now();
-          // Only send wakeup every 3 seconds max (reduced from 5)
-          if (now - lastWakeupTime > 3000) {
-            console.log('[PromptQueue] Claude showing welcome screen, sending Enter to wake up');
-            terminal.sendInput('\r');
-            lastWakeupTime = now;
-            claudeWakeupSent = true;
-          }
-          return false; // Not ready yet
-        }
-        
-        // Consider ready if we have a prompt OR recent activity (more permissive)
-        return hasPrompt || hasRecentActivity;
+        return false;
       }
     }
     
-    console.log('[PromptQueue] No Claude terminal found with content');
+    console.log('[PromptQueue] Claude is not ready yet');
     return false;
   }
   
@@ -233,6 +176,7 @@
     let lastCheckTime = Date.now();
     let lastTerminalContent = '';
     let contentStableCount = 0;
+    let lastPromptBoxSeen = false;
     
     const checkInterval = setInterval(() => {
       // If not running anymore, stop checking
@@ -246,18 +190,57 @@
       // Get current terminal content to detect when Claude stops responding
       const terminal = findClaudeTerminal();
       if (terminal) {
-        const allTerminalRows = document.querySelectorAll('.xterm-rows');
+        // Find Claude panel specifically
+        const panels = get(allPanels);
+        const claudePanel = panels.find(panel => panel.type === 'claude');
         let currentContent = '';
+        let hasPromptBox = false;
         
-        for (const terminalRows of allTerminalRows) {
-          const rows = terminalRows.querySelectorAll('div');
-          for (const row of rows) {
-            currentContent += (row.textContent || '') + '\n';
-          }
+        if (claudePanel) {
+          const claudePanelElement = document.querySelector(`[data-panel-id="${claudePanel.id}"]`);
+          const terminalRows = claudePanelElement ? 
+            claudePanelElement.querySelector('.xterm-rows') : 
+            document.querySelector('.xterm-rows'); // Fallback
           
-          // If this terminal contains Claude-related content, use it
-          if (currentContent.includes('Claude') || currentContent.includes('Anthropic') || currentContent.includes('Human:') || currentContent.includes('Assistant:')) {
-            break;
+          if (terminalRows) {
+            const rows = terminalRows.querySelectorAll('div');
+            for (const row of rows) {
+              const rowText = row.textContent || '';
+              currentContent += rowText + '\n';
+              
+              // Check if prompt box is visible again
+              if (rowText.includes('│ > Try') || 
+                  rowText.includes('│>') ||
+                  (rowText.includes('│') && rowText.includes('>'))) {
+                hasPromptBox = true;
+              }
+            }
+          }
+        } else {
+          // Fallback to finding any Claude terminal
+          const allTerminalRows = document.querySelectorAll('.xterm-rows');
+          for (const terminalRows of allTerminalRows) {
+            const rows = terminalRows.querySelectorAll('div');
+            let tempContent = '';
+            for (const row of rows) {
+              const rowText = row.textContent || '';
+              tempContent += rowText + '\n';
+              
+              if (rowText.includes('│ > Try') || 
+                  rowText.includes('│>') ||
+                  (rowText.includes('│') && rowText.includes('>'))) {
+                hasPromptBox = true;
+              }
+            }
+            
+            // If this terminal contains Claude-related content, use it
+            if (tempContent.includes('Claude Code') || 
+                tempContent.includes('bypass permissions') || 
+                tempContent.includes('Human:') || 
+                tempContent.includes('Assistant:')) {
+              currentContent = tempContent;
+              break;
+            }
           }
         }
         
@@ -269,15 +252,22 @@
           lastTerminalContent = currentContent;
         }
         
-        // Consider completed if:
-        // 1. Claude is ready (has prompt) AND content stable for 2+ checks, OR
-        // 2. Content has been stable for 5+ checks (Claude finished responding)
-        const isReady = isClaudeReady();
-        const isStable = contentStableCount >= 2;
-        const isVeryStable = contentStableCount >= 5;
+        // Check if prompt box has reappeared after being hidden
+        const promptBoxReappeared = hasPromptBox && !lastPromptBoxSeen && contentStableCount > 0;
+        lastPromptBoxSeen = hasPromptBox;
         
-        if ((isReady && isStable) || isVeryStable) {
-          console.log('[PromptQueue] Prompt completion detected:', promptId, 'ready:', isReady, 'stable:', contentStableCount);
+        // Consider completed if:
+        // 1. Prompt box reappeared (Claude is ready for next input)
+        // 2. Claude shows Human: prompt
+        // 3. Content has been stable for 3+ checks with Claude UI visible
+        const hasHumanPrompt = currentContent.includes('Human:');
+        const isStable = contentStableCount >= 3;
+        
+        if (promptBoxReappeared || hasHumanPrompt || (hasPromptBox && isStable)) {
+          console.log('[PromptQueue] Prompt completion detected:', promptId, 
+            'promptBoxReappeared:', promptBoxReappeared, 
+            'hasHumanPrompt:', hasHumanPrompt, 
+            'stable:', contentStableCount);
           clearInterval(checkInterval);
           
           // Find the prompt and mark it completed
@@ -289,7 +279,10 @@
             setTimeout(() => {
               console.log('[PromptQueue] Auto-removing completed prompt:', promptId);
               promptQueueStore.removePrompt(promptId);
-              // The main checkAndProcessQueue will handle processing the next prompt
+              // Process next prompt after a small delay
+              setTimeout(() => {
+                checkAndProcessQueue();
+              }, 500);
             }, 1000);
           }
           return;
@@ -297,9 +290,9 @@
       }
       
       lastCheckTime = currentTime;
-    }, 1500); // Check every 1.5 seconds (slightly slower for stability)
+    }, 1000); // Check every second for better responsiveness
     
-    // Timeout after 3 minutes (reduced from 5)
+    // Timeout after 3 minutes
     setTimeout(() => {
       console.log('[PromptQueue] Prompt completion check timeout for:', promptId);
       clearInterval(checkInterval);

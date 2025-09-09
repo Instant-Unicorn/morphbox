@@ -133,9 +133,9 @@ To contribute documentation:
 
 ## 📊 Version Information
 
-- **Current Version**: 0.7.1
+- **Current Version**: 0.9.4
 - **License**: Apache 2.0
-- **Requirements**: Node.js 18+, Docker/Lima/WSL2
+- **Requirements**: Node.js 18+, Docker
 
 ---
 

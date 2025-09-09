@@ -92,16 +92,32 @@
     
     // Find the Claude panel element and use innerText for most reliable text extraction
     const claudePanelElement = document.querySelector(`[data-panel-id="${claudePanel.id}"]`) ||
-                              document.querySelector('[data-panel-id="claude"]');
+                              document.querySelector('[data-panel-id="claude"]') ||
+                              document.querySelector('.row-panel:has(.terminal-container)');
     
     if (claudePanelElement) {
       // Use innerText which properly preserves the displayed text
       const fullText = (claudePanelElement.innerText || claudePanelElement.textContent || '').toLowerCase();
       
+      // Log first 500 chars of text for debugging
+      console.log('[PromptQueue] Claude panel text (first 500 chars):', fullText.substring(0, 500));
+      
       // Simple reliable checks on the full panel text
-      // Claude is ready if we see both "try" and "bypass" which indicate the prompt box is shown
-      if (fullText.includes('try') && fullText.includes('bypass')) {
-        console.log('[PromptQueue] Claude is ready (detected Try and bypass in panel)!');
+      // Claude is ready if we see the "try" text with quotes around the suggestion
+      if (fullText.includes('try "') || fullText.includes('try \'')) {
+        console.log('[PromptQueue] Claude is ready (detected Try with quote)!');
+        return true;
+      }
+      
+      // Also check for "bypass permissions" indicator
+      if (fullText.includes('bypass permissions')) {
+        console.log('[PromptQueue] Claude is ready (detected bypass permissions)!');
+        return true;
+      }
+      
+      // Check for the arrow indicators that appear with the prompt
+      if (fullText.includes('⏵⏵')) {
+        console.log('[PromptQueue] Claude is ready (detected arrow indicators)!');
         return true;
       }
       
@@ -111,12 +127,12 @@
         return true;
       }
       
-      // If we see welcome screen without the prompt box, wake it up
-      if (fullText.includes('welcome to claude') && !fullText.includes('try')) {
+      // If we see welcome screen but not the try prompt, wake it up
+      if ((fullText.includes('welcome to') && fullText.includes('claude')) && !fullText.includes('try')) {
         const now = Date.now();
         // Only send wakeup every 3 seconds to avoid spam
         if (now - lastWakeupTime > 3000) {
-          console.log('[PromptQueue] Claude showing welcome screen without prompt, sending Enter to wake up');
+          console.log('[PromptQueue] Claude showing welcome screen, sending Enter to wake up');
           terminal.sendInput('\r');
           lastWakeupTime = now;
         }

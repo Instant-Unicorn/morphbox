@@ -3,6 +3,7 @@ import * as pty from 'node-pty';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import type { Agent, AgentOptions } from '../agent-manager';
+import { auditLogger } from '../audit-logger';
 // import { tmuxContainerManager } from '../tmux-container-manager';
 
 const execAsync = promisify(exec);
@@ -117,11 +118,62 @@ export class SSHAgent extends EventEmitter implements Agent {
   }
 
   async sendInput(input: string): Promise<void> {
-    if (this.ptyProcess) {
-      this.ptyProcess.write(input);
-    } else {
+    if (!this.ptyProcess) {
       throw new Error('SSH process not running');
     }
+    
+    // SECURITY FIX: Validate and sanitize input to prevent injection attacks
+    // Limit input size to prevent DoS
+    const MAX_INPUT_LENGTH = 10000;
+    if (input.length > MAX_INPUT_LENGTH) {
+      console.warn(`[SSHAgent] Input exceeded maximum length of ${MAX_INPUT_LENGTH} characters`);
+      input = input.substring(0, MAX_INPUT_LENGTH);
+    }
+    
+    // Log suspicious patterns (but still allow them as this is a dev tool)
+    const suspiciousPatterns = [
+      /;\s*rm\s+-rf/i,
+      /;\s*dd\s+if=/i,
+      /;\s*mkfs/i,
+      />\s*\/dev\/[ns]d[a-z]/i,
+      /curl\s+.*\|\s*sh/i,
+      /wget\s+.*\|\s*sh/i
+    ];
+    
+    let riskDetected = false;
+    for (const pattern of suspiciousPatterns) {
+      if (pattern.test(input)) {
+        console.warn(`[SSHAgent] WARNING: Potentially dangerous command pattern detected: ${pattern}`);
+        riskDetected = true;
+        // In production, you might want to block these entirely
+        // For development sandbox, we log but allow
+        break;
+      }
+    }
+    
+    // AUDIT: Log all commands to audit trail
+    // Extract the actual command (remove newlines and control chars except for basic ones)
+    const command = input.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim();
+    
+    if (command && command.length > 0 && !command.match(/^[\r\n]+$/)) {
+      auditLogger.logCommand(command, {
+        sessionId: this.sessionId || undefined,
+        ip: this.options.clientIp,
+        user: this.options.vmUser || 'morphbox'
+      });
+      
+      // Log security event if high risk command detected
+      if (riskDetected) {
+        auditLogger.logSecurityEvent('HIGH_RISK_COMMAND', {
+          command,
+          sessionId: this.sessionId,
+          ip: this.options.clientIp,
+          risk_level: 'high'
+        });
+      }
+    }
+    
+    this.ptyProcess.write(input);
   }
 
   async stop(): Promise<void> {

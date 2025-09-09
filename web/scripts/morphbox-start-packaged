@@ -10,6 +10,20 @@ export MORPHBOX_PACKAGED="true"
 # This ensures we get the user's actual working directory
 INITIAL_PWD="$(pwd)"
 
+# Lock file to prevent multiple instances
+LOCK_FILE="/tmp/morphbox-startup.lock"
+LOCK_FD=200
+
+# Acquire exclusive lock with timeout
+exec 200>"$LOCK_FILE"
+if ! flock -w 5 -x 200; then
+    echo "[ERROR] Another MorphBox instance is starting up. Please wait and try again."
+    exit 1
+fi
+
+# Ensure lock is released on exit
+trap 'rm -f "$LOCK_FILE"' EXIT
+
 # Colors
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -188,8 +202,87 @@ elif [[ "$ACCESS_MODE" == "vpn" ]]; then
     fi
 fi
 
-# Kill any existing processes
-pkill -f "node server-packaged" 2>/dev/null || true
+# Function to check if port is in use and by what
+check_port_usage() {
+    local port=$1
+    local bind_ip=$2
+    # Check if port is in use on specific IP
+    if netstat -tulpn 2>/dev/null | grep -q "${bind_ip}:${port}" || ss -tulpn 2>/dev/null | grep -q "${bind_ip}:${port}"; then
+        # Get the process using this port
+        local pid=$(ss -tulpn 2>/dev/null | grep "${bind_ip}:${port}" | grep -oP 'pid=\K[0-9]+' | head -1)
+        if [[ -n "$pid" ]]; then
+            local pname=$(ps -p "$pid" -o comm= 2>/dev/null || echo "unknown")
+            # Check if it's a morphbox process
+            if ps -p "$pid" -o args= 2>/dev/null | grep -qE "morphbox|server-packaged|websocket-proxy"; then
+                return 0  # It's morphbox
+            else
+                return 1  # It's another process
+            fi
+        fi
+    fi
+    return 2  # Port is free
+}
+
+# Enhanced cleanup function
+cleanup_morphbox_processes() {
+    info "Cleaning up any existing MorphBox processes..."
+    
+    # Temporarily disable exit on error for cleanup
+    set +e
+    
+    # Kill all morphbox-related processes (except ourselves)
+    pkill -f "node.*server-packaged" 2>/dev/null || true
+    pkill -f "node.*websocket-proxy" 2>/dev/null || true
+    
+    # Clean up PID files (use find to avoid glob issues)
+    find /tmp -maxdepth 1 -name "morphbox-*.pid" -type f -delete 2>/dev/null || true
+    
+    # Re-enable exit on error
+    set -e
+    
+    # Wait a moment for ports to be released
+    sleep 1
+}
+
+# Check for existing instances on our target ports
+check_existing_instance() {
+    local need_cleanup=false
+    
+    # Check port 8008
+    set +e  # Temporarily disable error checking
+    check_port_usage 8008 "$BIND_HOST"
+    local status=$?
+    set -e  # Re-enable error checking
+    if [[ $status -eq 0 ]]; then
+        warn "MorphBox is already running on ${BIND_HOST}:8008"
+        need_cleanup=true
+    elif [[ $status -eq 1 ]]; then
+        error "Port ${BIND_HOST}:8008 is in use by another process. Please free the port and try again."
+    fi
+    
+    # Check port 8009
+    set +e  # Temporarily disable error checking
+    check_port_usage 8009 "$BIND_HOST"
+    status=$?
+    set -e  # Re-enable error checking
+    if [[ $status -eq 0 ]]; then
+        warn "MorphBox WebSocket proxy is already running on ${BIND_HOST}:8009"
+        need_cleanup=true
+    elif [[ $status -eq 1 ]]; then
+        error "Port ${BIND_HOST}:8009 is in use by another process. Please free the port and try again."
+    fi
+    
+    if [[ "$need_cleanup" == "true" ]]; then
+        info "Stopping existing MorphBox instance..."
+        cleanup_morphbox_processes
+    fi
+}
+
+# Clean up any existing processes first
+cleanup_morphbox_processes
+
+# Check for port conflicts
+check_existing_instance
 
 # Start Docker container if not running
 info "Checking Docker container..."
@@ -368,7 +461,13 @@ fi
 
 # Start WebSocket proxy
 info "Starting WebSocket proxy..."
-node "$WEB_DIR/websocket-proxy.js" "$BIND_HOST" > /tmp/morphbox-websocket-proxy.log 2>&1 &
+# Set environment variables for WebSocket proxy (no password needed anymore)
+HOST="$BIND_HOST" \
+PORT=8009 \
+MORPHBOX_VM_HOST="localhost" \
+MORPHBOX_VM_PORT=2222 \
+MORPHBOX_VM_USER="morphbox" \
+node "$WEB_DIR/websocket-proxy.js" > /tmp/morphbox-websocket-proxy.log 2>&1 &
 WS_PID=$!
 
 # Start the packaged server
@@ -401,6 +500,13 @@ if kill -0 $WS_PID 2>/dev/null; then
 else
     error "WebSocket proxy failed to start or died immediately"
 fi
+
+# Store PIDs for tracking
+PID_FILE="/tmp/morphbox-${BIND_HOST//\./-}.pid"
+echo "WEB_PID=$WEB_PID" > "$PID_FILE"
+echo "WS_PID=$WS_PID" >> "$PID_FILE"
+echo "BIND_HOST=$BIND_HOST" >> "$PID_FILE"
+info "Instance tracking saved to $PID_FILE"
 
 info "MorphBox is running!"
 echo ""
@@ -438,6 +544,14 @@ cleanup() {
     echo ""
     info "Stopping MorphBox..."
     
+    # Try to load PIDs from file if not set
+    if [[ -z "$WEB_PID" ]] || [[ -z "$WS_PID" ]]; then
+        PID_FILE="/tmp/morphbox-${BIND_HOST//\./-}.pid"
+        if [[ -f "$PID_FILE" ]]; then
+            source "$PID_FILE"
+        fi
+    fi
+    
     # Kill child processes first
     [[ -n "$WEB_PID" ]] && kill $WEB_PID 2>/dev/null || true
     [[ -n "$WS_PID" ]] && kill $WS_PID 2>/dev/null || true
@@ -446,8 +560,11 @@ cleanup() {
     sleep 0.5
     
     # Force kill any remaining processes
-    pkill -f "node server-packaged" 2>/dev/null || true
+    pkill -f "node.*server-packaged" 2>/dev/null || true
     pkill -f "node.*websocket-proxy" 2>/dev/null || true
+    
+    # Clean up PID file
+    rm -f "/tmp/morphbox-${BIND_HOST//\./-}.pid" 2>/dev/null || true
     
     # Automatically stop Docker container
     if docker ps | grep -q morphbox-vm; then

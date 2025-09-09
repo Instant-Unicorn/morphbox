@@ -1,5 +1,18 @@
 # MorphBox Changelog
 
+## 2025-01-14 - v0.9.5
+
+### Comprehensive Documentation Update
+- **Added**: Professional README with badges, quick start, and clear value proposition
+- **Added**: Complete Getting Started guide with prerequisites checker and walkthrough
+- **Added**: Seven hands-on tutorials covering various development scenarios
+- **Added**: Extensive troubleshooting guide with categorized solutions
+- **Improved**: Overall documentation structure for better discoverability
+- **Fixed**: Workspace directory mounting issue (third occurrence - now properly fixed)
+
+### Why This Release
+This release focuses on making MorphBox more accessible to new users with comprehensive documentation, tutorials, and a polished presentation. The project is now ready for broader community sharing.
+
 ## 2025-01-14 - v0.9.4 (Update #2)
 
 ### Workspace Directory Mounting Fix (Third Occurrence)

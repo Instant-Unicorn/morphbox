@@ -1,5 +1,13 @@
 # MorphBox Changelog
 
+## 2025-01-14 - v0.9.4 (Update)
+
+### WebSocket Connection Stability Fix
+- **Fixed**: Resolved infinite WebSocket disconnect loop (error code 1005)  
+- **Fixed**: SSH authentication failures in Docker container by enabling PermitEmptyPasswords
+- **Improved**: Updated prompt queue detection logic to use simpler innerText approach
+- **Note**: Prompt queue auto-detection still requires additional refinement
+
 ## 2025-09-08 - v0.9.4
 
 ### Removed Password Authentication - Simplified Security Model

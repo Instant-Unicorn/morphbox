@@ -11,7 +11,7 @@ const WS_PORT = process.env.PORT || 8009;
 const SSH_HOST = process.env.MORPHBOX_VM_HOST || 'localhost';
 const SSH_PORT = process.env.MORPHBOX_VM_PORT || 2222;
 const SSH_USER = process.env.MORPHBOX_VM_USER || 'morphbox';
-const SSH_PASS = 'morphbox';
+// No password needed - authentication disabled for localhost/VPN security model
 const BIND_HOST = process.env.HOST || '0.0.0.0';
 
 console.log(`[WebSocket Proxy] Starting on ${BIND_HOST}:${WS_PORT}`);
@@ -28,6 +28,31 @@ wss.on('listening', () => {
 
 wss.on('connection', (ws, req) => {
   console.log('[WebSocket Proxy] New connection from:', req.socket.remoteAddress);
+  
+  // SECURITY FIX: Validate origin to prevent CSRF attacks
+  const origin = req.headers.origin;
+  
+  // Build allowed origins list
+  let allowedOrigins = ['http://localhost:8008', 'http://localhost:8009'];
+  
+  // Add custom allowed origins from environment
+  if (process.env.MORPHBOX_ALLOWED_ORIGINS) {
+    allowedOrigins = allowedOrigins.concat(process.env.MORPHBOX_ALLOWED_ORIGINS.split(','));
+  }
+  
+  // Dynamically add the current bind host origins
+  if (BIND_HOST && BIND_HOST !== '0.0.0.0') {
+    allowedOrigins.push(`http://${BIND_HOST}:8008`);
+    allowedOrigins.push(`http://${BIND_HOST}:8009`);
+    allowedOrigins.push(`ws://${BIND_HOST}:8009`);
+  }
+  
+  if (origin && !allowedOrigins.includes(origin)) {
+    console.error(`[WebSocket Proxy] Rejected connection from unauthorized origin: ${origin}`);
+    console.error(`[WebSocket Proxy] Allowed origins: ${allowedOrigins.join(', ')}`);
+    ws.close(1008, 'Unauthorized origin');
+    return;
+  }
   
   const url = new URL(req.url, `http://${req.headers.host}`);
   const autoLaunchClaude = url.searchParams.get('autoLaunchClaude') === 'true';
@@ -134,12 +159,12 @@ wss.on('connection', (ws, req) => {
     console.error('[WebSocket Proxy] WebSocket error:', err);
   });
   
-  // Connect to SSH
+  // Connect to SSH (no password - relies on localhost/VPN isolation)
   ssh.connect({
     host: SSH_HOST,
     port: SSH_PORT,
     username: SSH_USER,
-    password: SSH_PASS
+    password: ''  // Empty password for passwordless auth
   });
 });
 

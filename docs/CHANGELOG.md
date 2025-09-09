@@ -1,5 +1,14 @@
 # MorphBox Changelog
 
+## 2025-01-14 - v0.9.4 (Update #2)
+
+### Workspace Directory Mounting Fix (Third Occurrence)
+- **Fixed**: Morphbox was mounting its installation directory instead of user's current directory
+- **Root Cause**: Previous fix was in place but not properly propagated to npm package
+- **Solution**: Verified MORPHBOX_USER_DIR environment variable is correctly set in bin/morphbox.js
+- **Verified**: Container now correctly mounts the directory where `morphbox` command is run as `/workspace`
+- **Testing**: Confirmed working from multiple directories (e.g., `/tmp` correctly mounts as workspace)
+
 ## 2025-01-14 - v0.9.4 (Update)
 
 ### WebSocket Connection Stability Fix

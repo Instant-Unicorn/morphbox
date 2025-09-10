@@ -1,5 +1,30 @@
 # MorphBox Changelog
 
+## 2025-09-09 - v0.9.6
+
+### Container Configuration System
+- **Added**: YAML-based configuration system (`morphbox.yml`) for customizing containers
+- **Added**: `morphbox --config` command to generate example configuration file
+- **Added**: Support for installing custom packages in containers
+- **Added**: Environment variable configuration
+- **Added**: Network allowlist/blocklist for domain restrictions
+- **Added**: Resource limits (memory, CPU) configuration
+- **Added**: Pre-install language runtimes (Node.js, Python, Go) with specific versions
+- **Added**: Custom startup scripts (post-create, pre-start)
+- **Added**: Docker cleanup documentation guide
+
+### Improvements
+- **Updated**: Default ports documented correctly as 8008/8009 (not 3000-3010)
+- **Fixed**: Removed tmux from default package list (was causing issues)
+- **Improved**: Configuration system integrates with existing allowlist manager
+- **Added**: Automatic Docker image generation based on configuration hash
+
+### Documentation Updates
+- **Added**: Docker Cleanup Guide (docs/DOCKER_CLEANUP.md)
+- **Updated**: README with configuration feature documentation
+- **Updated**: Corrected all port references to 8008/8009
+- **Added**: Container reset instructions in troubleshooting section
+
 ## 2025-01-14 - v0.9.5
 
 ### Comprehensive Documentation Update

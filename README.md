@@ -35,7 +35,7 @@ npx morphbox
 That's it! MorphBox will:
 1. ✅ Check Docker is installed
 2. ✅ Build the secure container
-3. ✅ Launch the web interface at `http://localhost:3000`
+3. ✅ Launch the web interface at `http://localhost:8008`
 4. ✅ Mount your current directory as `/workspace`
 
 ## 🎮 Usage Examples
@@ -45,6 +45,7 @@ That's it! MorphBox will:
 ```bash
 morphbox              # Start with web interface (default)
 morphbox --terminal   # Start Claude in your terminal
+morphbox --config     # Generate morphbox.yml configuration file
 morphbox --vpn        # Bind to VPN interface for team access
 morphbox --help       # Show all options
 ```
@@ -89,9 +90,9 @@ morphbox
 
 ### Access Modes
 
-- **Local (default)** - Accessible only from your machine
-- **VPN Mode** - Auto-binds to VPN interface for team access
-- **External** - Expose to network (requires `--auth` flag)
+- **Local (default)** - Accessible only from your machine (`localhost`)
+- **VPN Mode** - Auto-binds to VPN interface for secure team access
+- **External** ⚠️ - Expose to entire network (requires `--auth` flag and confirmation)
 
 ### Pre-installed Tools
 
@@ -135,6 +136,42 @@ npx morphbox
 
 ## 🔧 Configuration
 
+### Container Configuration (New in v0.9.6)
+
+Generate a configuration file to customize your container:
+
+```bash
+morphbox --config  # Creates morphbox.yml in current directory
+```
+
+Edit `morphbox.yml` to customize:
+- Install additional packages (vim, htop, etc.)
+- Set environment variables
+- Configure network allowlist/blocklist
+- Set resource limits (memory, CPU)
+- Pre-install language runtimes (Node.js, Python, Go)
+- Add custom startup scripts
+
+Example `morphbox.yml`:
+```yaml
+container:
+  packages:
+    - postgresql-client
+    - redis-tools
+  environment:
+    EDITOR: vim
+network:
+  allowlist:
+    - github.com
+    - "*.googleapis.com"
+security:
+  memory_limit: "2g"
+development:
+  runtimes:
+    node: "20"
+    python: "3.11"
+```
+
 ### Environment Variables
 
 Create a `.morphbox.env` file in your project:
@@ -142,7 +179,7 @@ Create a `.morphbox.env` file in your project:
 ```env
 # Network binding
 MORPHBOX_HOST=localhost
-MORPHBOX_PORT=3000
+MORPHBOX_PORT=8008
 
 # Security
 MORPHBOX_AUTH_ENABLED=false
@@ -150,21 +187,6 @@ MORPHBOX_AUTH_USERNAME=admin
 
 # Claude API (optional - for API access)
 ANTHROPIC_API_KEY=your-key-here
-```
-
-### Custom Docker Image
-
-Extend the base image for your needs:
-
-```dockerfile
-# .morphbox/Dockerfile
-FROM morphbox/base:latest
-
-# Add your tools
-RUN apt-get update && apt-get install -y postgresql-client redis-tools
-
-# Add your npm packages globally
-RUN npm install -g @angular/cli nx
 ```
 
 ## 🚀 Advanced Usage
@@ -179,15 +201,37 @@ morphbox --terminal
 
 This launches Claude directly in your terminal with full access to the mounted workspace.
 
-### Team Collaboration
+### External Access Mode
 
-Share MorphBox with your team over VPN:
+⚠️ **WARNING: Security Risk** - Only use on trusted networks!
+
+External mode exposes MorphBox to your network (not just localhost):
+
+```bash
+# Requires --auth flag for security
+morphbox --external --auth
+
+# You'll see a security warning and must confirm:
+# "WARNING: External mode exposes MorphBox to your network!"
+# "This could allow others on your network to access your development environment."
+```
+
+**Security Considerations**:
+- **ALWAYS** use `--auth` flag with external mode
+- Only use on trusted, private networks
+- Consider using VPN mode instead for team access
+- External mode binds to `0.0.0.0` (all network interfaces)
+- Without `--auth`, external mode will be rejected
+
+### Team Collaboration (VPN Mode)
+
+Safer alternative for team access using VPN:
 
 ```bash
 morphbox --vpn --auth
 ```
 
-Team members can connect to `http://your-vpn-ip:3000` with authentication.
+This automatically detects and binds to your VPN interface only, limiting access to VPN-connected clients. Team members can connect to `http://your-vpn-ip:8008` with authentication.
 
 ### API Integration
 
@@ -195,10 +239,10 @@ MorphBox exposes a REST API for automation:
 
 ```bash
 # Start a session
-curl -X POST http://localhost:3000/api/sessions
+curl -X POST http://localhost:8008/api/sessions
 
 # Send a command to Claude
-curl -X POST http://localhost:3000/api/claude/message \
+curl -X POST http://localhost:8008/api/claude/message \
   -H "Content-Type: application/json" \
   -d '{"message": "Write a Python script to process CSV files"}'
 ```
@@ -223,8 +267,16 @@ sudo usermod -aG docker $USER
 
 **Port already in use:**
 ```bash
-# Use a different port
+# MorphBox automatically finds next available port
+# Or specify manually:
 MORPHBOX_PORT=8080 morphbox
+```
+
+**Need to reset/rebuild container:**
+```bash
+# See Docker Cleanup Guide for detailed instructions
+docker stop morphbox-vm && docker rm morphbox-vm
+docker rmi $(docker images -q morphbox)
 ```
 
 See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for more solutions.
@@ -232,8 +284,9 @@ See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for more solutions.
 ## 📖 Documentation
 
 - [Getting Started Guide](docs/GETTING_STARTED.md)
+- [Configuration Guide](docs/CONFIGURATION.md)
+- [Docker Cleanup Guide](docs/DOCKER_CLEANUP.md)
 - [Tutorials](docs/TUTORIALS.md)
-- [Configuration Reference](docs/CONFIGURATION.md)
 - [API Documentation](docs/API.md)
 - [Architecture Overview](docs/ARCHITECTURE.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)

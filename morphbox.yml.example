@@ -1,0 +1,99 @@
+# Morphbox Configuration
+# Place this file as 'morphbox.yml' in your project directory
+
+# Container configuration
+container:
+  # Additional packages to install in the container
+  packages:
+    - vim
+    - curl
+    - git
+    - htop
+    
+  # Environment variables to set in the container
+  environment:
+    EDITOR: vim
+    TERM: xterm-256color
+    
+  # Additional ports to expose (besides the default 8008-8009)
+  # Default ports: 8008 (web interface), 8009 (WebSocket)
+  # If default ports are taken, morphbox automatically increments by 1
+  ports: []
+    # - 8080  # Uncomment to expose additional port 8080
+    # - 8443  # Uncomment to expose additional port 8443
+    
+  # Custom shell (default: /bin/bash)
+  shell: /bin/bash
+
+# Network configuration
+network:
+  # Website allowlist - only these domains will be accessible
+  # If empty or not specified, all websites are allowed
+  allowlist:
+    - github.com
+    - *.githubusercontent.com
+    - npmjs.org
+    - registry.npmjs.org
+    - pypi.org
+    - files.pythonhosted.org
+    - golang.org
+    - proxy.golang.org
+    - localhost
+    - 127.0.0.1
+    
+  # Block list - these domains will be blocked
+  # Applied after allowlist (if both are specified)
+  blocklist:
+    - facebook.com
+    - *.facebook.com
+    - twitter.com
+    - x.com
+
+# Security configuration
+security:
+  # Disable network access entirely (default: false)
+  no_network: false
+  
+  # Read-only filesystem (except for specific directories)
+  readonly_root: false
+  
+  # Memory limit (e.g., "512m", "2g")
+  memory_limit: "2g"
+  
+  # CPU limit (number of CPUs)
+  cpu_limit: 2
+
+# Development tools
+development:
+  # Pre-install language runtimes
+  runtimes:
+    node: "20"  # Node.js version
+    python: "3.11"  # Python version
+    go: "1.21"  # Go version
+    
+  # Global npm packages to install
+  npm_packages:
+    - typescript
+    - prettier
+    - eslint
+    
+  # Python packages to install globally
+  pip_packages:
+    - black
+    - pylint
+    - requests
+    
+  # Go packages to install
+  go_packages:
+    - golang.org/x/tools/gopls@latest
+
+# Custom scripts
+scripts:
+  # Run after container creation
+  post_create: |
+    echo "Container created successfully!"
+    echo "Custom setup can go here"
+    
+  # Run before starting the main process
+  pre_start: |
+    echo "Preparing environment..."

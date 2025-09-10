@@ -45,6 +45,7 @@ Options:
   --vpn         Auto-detect and bind to VPN interface
   --auth        Enable authentication
   --dev         Skip security warnings (development mode)
+  --config      Generate example morphbox.yml configuration file
   --help        Show this help message
 
 Examples:
@@ -52,6 +53,7 @@ Examples:
   morphbox --terminal         # Start Claude in terminal mode
   morphbox --external --auth  # Expose to network with authentication
   morphbox --vpn              # Bind to VPN interface only
+  morphbox --config           # Generate morphbox.yml in current directory
 
 For more information, visit: https://github.com/MicahBly/morphbox
 `);
@@ -63,6 +65,136 @@ function getInstallationDir() {
   // They're in the parent directory of bin/
   const npmPackageRoot = path.resolve(__dirname, '..');
   return npmPackageRoot;
+}
+
+// Generate example configuration file
+function generateConfigFile() {
+  const configContent = `# Morphbox Configuration
+# Place this file as 'morphbox.yml' in your project directory
+
+# Container configuration
+container:
+  # Additional packages to install in the container
+  packages:
+    - vim
+    - curl
+    - git
+    - htop
+    
+  # Environment variables to set in the container
+  environment:
+    EDITOR: vim
+    TERM: xterm-256color
+    
+  # Additional ports to expose (besides the default 8008-8009)
+  # Default ports: 8008 (web interface), 8009 (WebSocket)
+  # If default ports are taken, morphbox automatically increments by 1
+  ports: []
+    # - 8080  # Uncomment to expose additional port 8080
+    # - 8443  # Uncomment to expose additional port 8443
+    
+  # Custom shell (default: /bin/bash)
+  shell: /bin/bash
+
+# Network configuration
+network:
+  # Website allowlist - only these domains will be accessible
+  # If empty or not specified, all websites are allowed
+  allowlist:
+    - github.com
+    - "*.githubusercontent.com"
+    - npmjs.org
+    - registry.npmjs.org
+    - pypi.org
+    - files.pythonhosted.org
+    - golang.org
+    - proxy.golang.org
+    - localhost
+    - 127.0.0.1
+    
+  # Block list - these domains will be blocked
+  # Applied after allowlist (if both are specified)
+  blocklist:
+    # - facebook.com
+    # - "*.facebook.com"
+
+# Security configuration
+security:
+  # Disable network access entirely (default: false)
+  no_network: false
+  
+  # Read-only filesystem (except for specific directories)
+  readonly_root: false
+  
+  # Memory limit (e.g., "512m", "2g")
+  memory_limit: "2g"
+  
+  # CPU limit (number of CPUs)
+  cpu_limit: 2
+
+# Development tools
+development:
+  # Pre-install language runtimes
+  runtimes:
+    node: "20"  # Node.js version
+    python: "3.11"  # Python version
+    # go: "1.21"  # Go version (uncomment to enable)
+    
+  # Global npm packages to install
+  npm_packages:
+    - typescript
+    - prettier
+    - eslint
+    
+  # Python packages to install globally
+  pip_packages:
+    - black
+    - pylint
+    - requests
+    
+  # Go packages to install (uncomment to enable)
+  # go_packages:
+  #   - golang.org/x/tools/gopls@latest
+
+# Custom scripts
+scripts:
+  # Run after container creation
+  post_create: |
+    echo "Container created successfully!"
+    echo "Custom setup can go here"
+    
+  # Run before starting the main process
+  pre_start: |
+    echo "Preparing environment..."
+`;
+  
+  const configPath = path.join(process.cwd(), 'morphbox.yml');
+  
+  // Check if file already exists
+  if (fs.existsSync(configPath)) {
+    log.warn('morphbox.yml already exists in this directory');
+    console.log('');
+    console.log('Would you like to overwrite it? (y/N): ');
+    
+    // Read user input
+    process.stdin.once('data', (data) => {
+      const answer = data.toString().trim().toLowerCase();
+      if (answer === 'y' || answer === 'yes') {
+        fs.writeFileSync(configPath, configContent);
+        log.success('morphbox.yml has been overwritten');
+        log.info('Edit this file to customize your container configuration');
+      } else {
+        log.info('Keeping existing morphbox.yml');
+      }
+      process.exit(0);
+    });
+  } else {
+    fs.writeFileSync(configPath, configContent);
+    log.success('Created morphbox.yml in current directory');
+    log.info('Edit this file to customize your container configuration');
+    log.info('Run "morphbox" to start with your custom configuration');
+    process.exit(0);
+  }
 }
 
 // Check Docker is available
@@ -85,6 +217,12 @@ async function main() {
   if (args.includes('--help') || args.includes('-h')) {
     showHelp();
     process.exit(0);
+  }
+  
+  // Check for config flag
+  if (args.includes('--config')) {
+    generateConfigFile();
+    return; // generateConfigFile handles exit
   }
   
   // Check Docker is available

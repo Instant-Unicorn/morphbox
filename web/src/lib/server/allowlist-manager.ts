@@ -7,6 +7,7 @@ import { readFileSync, watchFile, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import net from 'net';
+import { ConfigManager } from '../config';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -27,9 +28,25 @@ class AllowlistManager {
   private configPath: string;
   private fileWatcher: any = null;
   private ipNets: Array<{network: string, mask: number}> = [];
+  private yamlConfigManager: ConfigManager | null = null;
 
   constructor() {
-    // Look for config file in multiple locations
+    // Try to load YAML config first
+    try {
+      this.yamlConfigManager = new ConfigManager();
+      const yamlAllowlist = this.yamlConfigManager.getAllowedDomains();
+      const yamlBlocklist = this.yamlConfigManager.getBlockedDomains();
+      
+      if (yamlAllowlist && yamlAllowlist.length > 0) {
+        // Use YAML config for website allowlist
+        this.config.websiteAllowlist = yamlAllowlist;
+        console.log('[AllowlistManager] Using website allowlist from morphbox.yml');
+      }
+    } catch (error) {
+      console.log('[AllowlistManager] No YAML config found, checking for legacy config');
+    }
+
+    // Look for legacy config file in multiple locations
     const possiblePaths = [
       join(process.cwd(), 'morphbox-allowlist.conf'),
       join(dirname(process.cwd()), 'morphbox-allowlist.conf'),
@@ -38,7 +55,12 @@ class AllowlistManager {
     ];
 
     this.configPath = possiblePaths.find(p => existsSync(p)) || possiblePaths[0];
-    this.loadConfig();
+    
+    // Only load legacy config if no YAML config was found
+    if (!this.yamlConfigManager || !this.yamlConfigManager.getAllowedDomains()) {
+      this.loadConfig();
+    }
+    
     this.watchConfig();
   }
 
@@ -172,6 +194,11 @@ class AllowlistManager {
         domain = urlObj.hostname;
       }
     } catch {}
+
+    // If using YAML config, use its domain checking logic
+    if (this.yamlConfigManager) {
+      return this.yamlConfigManager.shouldAllowDomain(domain);
+    }
 
     // Remove www. prefix for comparison
     domain = domain.replace(/^www\./, '');

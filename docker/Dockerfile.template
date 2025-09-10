@@ -1,0 +1,47 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
+
+RUN apt-get update && apt-get install -y \
+    sudo \
+    curl \
+    wget \
+    git \
+    build-essential \
+    software-properties-common \
+    ca-certificates \
+    gnupg \
+    lsb-release \
+    openssh-server \
+    {{PACKAGES}} && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create user
+RUN useradd -m -s {{SHELL}} -u 1000 morphbox && \
+    echo "morphbox ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Configure SSH
+RUN mkdir /var/run/sshd && \
+    echo 'morphbox:morphbox' | chpasswd && \
+    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
+    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+{{RUNTIMES}}
+
+{{ENVIRONMENT}}
+
+{{POST_CREATE}}
+
+# Set up working directory
+WORKDIR /workspace
+RUN chown -R morphbox:morphbox /workspace
+
+USER morphbox
+
+{{PRE_START}}
+
+EXPOSE 22 {{PORTS}}
+
+CMD ["/usr/sbin/sshd", "-D"]

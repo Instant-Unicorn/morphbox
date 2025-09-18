@@ -7,11 +7,8 @@
   let loading = false;
   let zoomLevel = 1; // 1 = 100%, 0.5 = 50%, 0.25 = 25%
   let showZoomMenu = false;
-  let hasDetectedServer = false;
-  let detectedPort: number | null = null;
-  let homeUrl = '';
-  let showHomeUrlInput = false;
-  let homeUrlInput = '';
+  let portInput = '3000';
+  let showWarning = false;
   
   const zoomOptions = [
     { label: '25%', value: 0.25 },
@@ -20,61 +17,40 @@
   ];
   
   onMount(async () => {
-    // Load saved home URL from localStorage
-    const savedHomeUrl = localStorage.getItem('morphbox-web-browser-home');
-    if (savedHomeUrl) {
-      homeUrl = savedHomeUrl;
-      homeUrlInput = savedHomeUrl;
-    }
-    
-    // Try to detect if a local server is running
-    await detectLocalServer();
+    // Show warning about limitations
+    showWarning = true;
+    setTimeout(() => {
+      showWarning = false;
+    }, 5000);
   });
-  
-  async function detectLocalServer() {
-    // Common development server ports to check (5173 is Vite default)
-    const commonPorts = [5173, 3000, 5000, 8000, 8080, 4200, 3001, 5001, 8081];
-    
-    for (const port of commonPorts) {
-      try {
-        // Try to fetch from localhost with a short timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1000);
-        
-        const response = await fetch(`http://localhost:${port}`, {
-          method: 'HEAD',
-          mode: 'no-cors',
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        // If we get here without error, the port is likely active
-        hasDetectedServer = true;
-        detectedPort = port;
-        url = `http://localhost:${port}`;
-        console.log(`[WebBrowser] Detected local server on port ${port}`);
-        break;
-      } catch (e) {
-        // Port not available or request failed, continue checking
-      }
-    }
-    
-    if (!hasDetectedServer) {
-      console.log('[WebBrowser] No local development server detected');
-    }
-  }
   
   function navigate(targetUrl?: string) {
     if (targetUrl) {
       url = targetUrl;
     }
     
+    if (!url && portInput) {
+      // If no URL but port is provided, use localhost with that port
+      url = `http://localhost:${portInput}`;
+    }
+    
     if (!url) return;
     
-    // Ensure URL has protocol
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'http://' + url;
+    // Only allow localhost URLs
+    try {
+      const urlObj = new URL(url);
+      if (urlObj.hostname !== 'localhost' && urlObj.hostname !== '127.0.0.1') {
+        alert('Only localhost URLs are supported. External URLs cannot be loaded due to security restrictions.');
+        return;
+      }
+    } catch (e) {
+      // If URL parsing fails, assume it's a port number
+      if (/^\d+$/.test(url)) {
+        url = `http://localhost:${url}`;
+      } else {
+        alert('Please enter a valid localhost URL or port number');
+        return;
+      }
     }
     
     loading = true;
@@ -112,24 +88,16 @@
   }
   
   function goHome() {
-    if (homeUrl) {
-      navigate(homeUrl);
-    } else if (hasDetectedServer && detectedPort) {
-      navigate(`http://localhost:${detectedPort}`);
-    } else {
-      navigate('about:blank');
+    url = '';
+    if (iframeElement) {
+      iframeElement.src = 'about:blank';
     }
   }
   
-  function saveHomeUrl() {
-    homeUrl = homeUrlInput;
-    localStorage.setItem('morphbox-web-browser-home', homeUrl);
-    showHomeUrlInput = false;
-  }
-  
-  function cancelHomeUrl() {
-    homeUrlInput = homeUrl;
-    showHomeUrlInput = false;
+  function navigateToPort() {
+    if (portInput) {
+      navigate(`http://localhost:${portInput}`);
+    }
   }
   
   function openExternal() {
@@ -140,7 +108,7 @@
   
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter') {
-      navigate();
+      navigateToPort();
     }
   }
   
@@ -173,10 +141,6 @@
     }
   }
   
-  // Auto-navigate if we detected a server
-  $: if (hasDetectedServer && detectedPort && iframeElement) {
-    navigate();
-  }
 </script>
 
 <svelte:window on:click={handleClickOutside} />
@@ -209,27 +173,24 @@
       <button 
         class="nav-button"
         on:click={goHome}
-        on:contextmenu|preventDefault={() => showHomeUrlInput = true}
-        title="Go home (right-click to set)"
+        title="Clear"
       >
         <Home size={16} />
-      </button>
-      <button 
-        class="nav-button"
-        on:click={() => showHomeUrlInput = true}
-        title="Set home page"
-      >
-        <Settings2 size={16} />
       </button>
     </div>
     
     <div class="url-bar">
+      <span class="url-prefix">http://localhost:</span>
       <input
         type="text"
-        bind:value={url}
-        placeholder={hasDetectedServer ? `Local server detected on port ${detectedPort}` : "Enter URL..."}
+        bind:value={portInput}
+        placeholder="3000"
         on:keydown={handleKeydown}
+        class="port-input"
       />
+      <button class="go-button" on:click={() => navigate()}>
+        Go
+      </button>
     </div>
     
     <div class="browser-controls">
@@ -283,15 +244,16 @@
       </div>
     {:else}
       <div class="empty-state">
-        {#if hasDetectedServer}
-          <p>Local development server detected on port {detectedPort}</p>
-          <button class="primary-button" on:click={() => navigate()}>
-            Open Local Server
-          </button>
-        {:else}
-          <p>Enter a URL in the address bar to get started</p>
-          <p class="hint">Tip: Start your local development server and it will be detected automatically</p>
-        {/if}
+        <p>🌐 Local Browser (Container Services Only)</p>
+        <p class="hint">This panel can only access services running inside the container on localhost.</p>
+        <p class="hint">Enter a port number above (e.g., 3000, 8080) to connect to a local service.</p>
+        <div class="common-ports">
+          <p>Common ports:</p>
+          <button class="port-button" on:click={() => { portInput = '3000'; navigateToPort(); }}>3000</button>
+          <button class="port-button" on:click={() => { portInput = '5173'; navigateToPort(); }}>5173</button>
+          <button class="port-button" on:click={() => { portInput = '8000'; navigateToPort(); }}>8000</button>
+          <button class="port-button" on:click={() => { portInput = '8080'; navigateToPort(); }}>8080</button>
+        </div>
       </div>
     {/if}
     
@@ -302,28 +264,9 @@
     {/if}
   </div>
   
-  {#if showHomeUrlInput}
-    <div class="home-url-dialog">
-      <div class="dialog-content">
-        <h3>Set Home Page</h3>
-        <input
-          type="text"
-          bind:value={homeUrlInput}
-          placeholder="Enter home page URL (leave empty for default)"
-          on:keydown={(e) => {
-            if (e.key === 'Enter') saveHomeUrl();
-            if (e.key === 'Escape') cancelHomeUrl();
-          }}
-        />
-        <div class="dialog-actions">
-          <button class="button button-secondary" on:click={cancelHomeUrl}>
-            Cancel
-          </button>
-          <button class="button button-primary" on:click={saveHomeUrl}>
-            Save
-          </button>
-        </div>
-      </div>
+  {#if showWarning}
+    <div class="warning-banner">
+      ⚠️ Note: This browser can only access services running inside the container on localhost. External URLs are not supported.
     </div>
   {/if}
 </div>
@@ -384,10 +327,18 @@
   .url-bar {
     flex: 1;
     display: flex;
+    align-items: center;
+    gap: 4px;
   }
   
-  .url-bar input {
-    width: 100%;
+  .url-prefix {
+    color: var(--text-secondary, #858585);
+    font-size: 14px;
+    padding: 0 8px;
+  }
+  
+  .port-input {
+    width: 100px;
     background-color: var(--input-bg, #3c3c3c);
     color: var(--text-color, #cccccc);
     border: 1px solid var(--border-color, #3e3e42);
@@ -397,9 +348,24 @@
     font-size: 14px;
   }
   
-  .url-bar input:focus {
+  .port-input:focus {
     outline: none;
     border-color: var(--accent-color, #007acc);
+  }
+  
+  .go-button {
+    background-color: var(--accent-color, #007acc);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .go-button:hover {
+    background-color: #0086e6;
   }
   
   .browser-controls {
@@ -634,5 +600,59 @@
   
   .button-primary:hover {
     background-color: #0086e6;
+  }
+  
+  .warning-banner {
+    position: absolute;
+    top: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(255, 193, 7, 0.9);
+    color: #333;
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-size: 13px;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    animation: slideDown 0.3s ease-out;
+  }
+  
+  @keyframes slideDown {
+    from {
+      transform: translateX(-50%) translateY(-20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  }
+  
+  .common-ports {
+    margin-top: 24px;
+  }
+  
+  .common-ports p {
+    margin-bottom: 12px;
+    font-size: 14px;
+    color: var(--text-color, #cccccc);
+  }
+  
+  .port-button {
+    background-color: var(--button-bg, #3c3c3c);
+    color: var(--text-color, #cccccc);
+    border: 1px solid var(--border-color, #3e3e42);
+    border-radius: 4px;
+    padding: 8px 16px;
+    margin: 0 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 14px;
+  }
+  
+  .port-button:hover {
+    background-color: var(--accent-color, #007acc);
+    color: white;
+    border-color: var(--accent-color, #007acc);
   }
 </style>

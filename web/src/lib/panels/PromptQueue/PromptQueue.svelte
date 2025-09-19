@@ -290,6 +290,7 @@
   // Process next prompt without ready check (for initial start)
   function processNextPromptDirect() {
     console.log('[PromptQueue] Direct processing (no ready check)...');
+    console.error('[BUILD TEST V5] processNextPromptDirect CALLED - should start monitoring');
     const nextPrompt = promptQueueStore.getNextPending();
     if (!nextPrompt) {
       console.log('[PromptQueue] No pending prompts');
@@ -329,6 +330,7 @@
   
   function checkPromptCompletion(promptId: string) {
     console.log('[PromptQueue] checkPromptCompletion called for:', promptId);
+    console.error('[BUILD TEST V5] COMPLETION MONITORING STARTED!');
     let lastTerminalContent = '';
     let contentStableCount = 0;
     let lastPromptBoxSeen = false;
@@ -344,26 +346,55 @@
         return;
       }
 
-      // Get current terminal content to detect when Claude stops responding
-      const panels = get(allPanels);
-      const claudePanel = panels.find(panel => panel.type === 'claude');
-
-      if (!claudePanel) {
-        console.log('[PromptQueue] No Claude panel found during completion check');
+      // Find the terminal directly from the DOM (this method worked before)
+      const terminalContainer = document.querySelector('.terminal-wrapper');
+      if (!terminalContainer) {
+        console.log('[PromptQueue] Terminal container not found');
         return;
       }
 
-      // Get the terminal instance from global registry
-      const terminal = window.morphboxTerminals && window.morphboxTerminals[claudePanel.id];
-      if (!terminal || !terminal.getBufferContent) {
-        console.log('[PromptQueue] Terminal not found or missing getBufferContent');
+      const terminal = terminalContainer._terminal;
+      if (!terminal) {
+        console.log('[PromptQueue] Terminal instance not found on container');
         return;
       }
 
-      // Get the terminal buffer content
-      let currentContent = terminal.getBufferContent();
+      // Get the terminal buffer content using xterm.js API
+      let currentContent = '';
+      if (terminal.getBufferContent) {
+        currentContent = terminal.getBufferContent();
+      } else if (terminal.buffer && terminal.buffer.active) {
+        // Use xterm.js buffer API directly - get ALL lines including scrollback
+        const buffer = terminal.buffer.active;
+        const lines = [];
+        // Get the entire buffer including scrollback
+        const totalLines = buffer.baseY + buffer.cursorY + 1; // Total lines including scrollback
+        console.log('[PromptQueue] Reading buffer - total lines:', totalLines, 'baseY:', buffer.baseY, 'cursorY:', buffer.cursorY);
+
+        for (let i = 0; i < totalLines && i < buffer.length; i++) {
+          const line = buffer.getLine(i);
+          if (line) {
+            lines.push(line.translateToString(true));
+          }
+        }
+        currentContent = lines.join('\n');
+      } else {
+        console.log('[PromptQueue] Cannot access terminal buffer');
+        return;
+      }
+
       console.log('[PromptQueue] Completion check - Buffer length:', currentContent.length);
-      console.log('[PromptQueue] Completion check - Last 100 chars:', JSON.stringify(currentContent.slice(-100)));
+      console.log('[PromptQueue] Completion check - Last 300 chars:', JSON.stringify(currentContent.slice(-300)));
+
+      // Log specific patterns we're looking for
+      const hasHumanText = currentContent.includes('Human:');
+      const hasAssistantText = currentContent.includes('Assistant:');
+      const hasCursor = currentContent.includes('▋') || currentContent.includes('█');
+
+      console.log('[PromptQueue] Pattern check - Has Human:', hasHumanText,
+                  '| Has Assistant:', hasAssistantText,
+                  '| Has cursor:', hasCursor);
+
       const lowerContent = currentContent.toLowerCase();
 
       // Track initial content length to detect if response started
@@ -406,7 +437,10 @@
       // Check if content has stopped changing (indicating completion)
       if (currentContent === lastTerminalContent) {
         contentStableCount++;
+        console.log('[PromptQueue] Content unchanged, stable count:', contentStableCount);
       } else {
+        console.log('[PromptQueue] Content changed, resetting stable count. Length diff:',
+                    currentContent.length - lastTerminalContent.length);
         contentStableCount = 0;
         lastTerminalContent = currentContent;
       }
@@ -415,22 +449,16 @@
       const promptBoxReappeared = hasPromptBox && !lastPromptBoxSeen && contentStableCount > 0;
       lastPromptBoxSeen = hasPromptBox;
 
-      // Enhanced completion detection:
-      // 1. Prompt box reappeared (Claude is ready for next input)
-      // 2. Claude shows Human: prompt
-      // 3. Content has been stable for 2+ checks with prompt visible
-      // 4. Active cursor detected at the end
-      // 5. Content grew significantly then stabilized (response completed)
-      const hasHumanPrompt = lowerContent.includes('human:');
-      const isStable = contentStableCount >= 2; // Reduced for faster response
-      const contentGrew = currentContent.length > initialContentLength + 100;
+      // SIMPLIFIED completion detection:
+      // Just check if content grew and then stabilized (no changes for 2 checks = 8 seconds)
+      const contentGrew = currentContent.length > initialContentLength + 50;
+      const isStable = contentStableCount >= 2;
 
-      if (promptBoxReappeared || hasHumanPrompt || hasActiveCursor ||
-          (hasPromptBox && isStable) || (contentGrew && isStable && hasPromptBox)) {
+      // If content grew and is now stable, Claude has finished responding
+      if (contentGrew && isStable) {
         console.log('[PromptQueue] Prompt completion detected:', promptId,
-          'promptBoxReappeared:', promptBoxReappeared,
-          'hasHumanPrompt:', hasHumanPrompt,
-          'hasActiveCursor:', hasActiveCursor,
+          'contentGrew:', contentGrew,
+          'isStable:', isStable,
           'stable:', contentStableCount,
           'contentGrew:', contentGrew);
         clearInterval(checkInterval);
@@ -583,7 +611,8 @@
       promptQueueStore.stop();
       stopClaudeMonitoring();
     } else {
-      console.log('[PromptQueue] Starting queue processing');
+      console.log('[PromptQueue] Starting queue processing - BUILD VERSION 5');
+      console.error('[BUILD TEST V5] If you see this RED message, new code is running');
       promptQueueStore.start();
       startClaudeMonitoring(); // Start monitoring when play is pressed
 
@@ -592,6 +621,7 @@
       const nextPrompt = promptQueueStore.getNextPending();
       if (nextPrompt) {
         console.log('[PromptQueue] Starting with prompt:', nextPrompt.text);
+        console.error('[BUILD TEST V5] About to call processNextPromptDirect');
         // Process immediately without ready check
         processNextPromptDirect();
       } else {

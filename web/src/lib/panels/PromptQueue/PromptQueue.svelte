@@ -167,18 +167,26 @@
 
     // Check if the last line contains prompt indicators
     const lastLines = fullText.slice(-300);
+    const trimmedEnd = fullText.trimEnd();
 
     // Claude Code specific patterns
-    // Look for "Human:" prompt (most reliable for Claude Code)
-    if (lastLines.includes('human:') || lastLines.includes('h:')) {
-      console.log('[PromptQueue] Claude is ready (detected Human: prompt)!');
+    // Most reliable: ends with Human: prompt
+    if (trimmedEnd.endsWith('human:') || trimmedEnd.endsWith('h:')) {
+      console.log('[PromptQueue] Claude is ready (ends with Human: prompt)!');
       return true;
     }
 
-    // Check for assistant response end patterns
-    if (lastLines.includes('assistant:') &&
-        (fullText.endsWith('>') || fullText.endsWith(':') || hasActiveCursor)) {
-      console.log('[PromptQueue] Claude is ready (detected Assistant: with prompt end)!');
+    // Check for Human: near the end AND we're at the end of output
+    const lastFifty = fullText.slice(-50);
+    if (lastFifty.includes('human:') &&
+        (fullText.endsWith(' ') || fullText.endsWith(':') || fullText.endsWith('\n'))) {
+      console.log('[PromptQueue] Claude is ready (Human: near end)!');
+      return true;
+    }
+
+    // Check for assistant response end patterns - but make sure it's not just "Assistant:" alone
+    if (lastLines.includes('assistant:') && lastLines.includes('human:')) {
+      console.log('[PromptQueue] Claude is ready (detected complete Assistant-Human cycle)!');
       return true;
     }
 
@@ -210,12 +218,10 @@
       return true;
     }
 
-    // Check if terminal ends with common prompt patterns (more flexible)
-    const trimmedEnd = fullText.trimEnd();
-    if (trimmedEnd.endsWith('>') || trimmedEnd.endsWith(':') ||
-        trimmedEnd.endsWith('?') || trimmedEnd.endsWith('$')) {
-      // Double-check it's not mid-output by ensuring no recent activity
-      console.log('[PromptQueue] Possible prompt detected, will verify with stability check');
+    // Check if terminal ends with common prompt patterns (but avoid ellipsis)
+    if (!trimmedEnd.endsWith('...') &&
+        (trimmedEnd.endsWith('>') || trimmedEnd.endsWith('?') || trimmedEnd.endsWith('$'))) {
+      console.log('[PromptQueue] Possible prompt detected (ends with prompt char)');
       return true; // Let the stability check confirm
     }
 

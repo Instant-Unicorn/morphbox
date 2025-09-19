@@ -6,7 +6,6 @@
 import { readFileSync, watchFile, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import net from 'net';
 import { ConfigManager } from '../config';
 
 const __filename = fileURLToPath(import.meta.url);

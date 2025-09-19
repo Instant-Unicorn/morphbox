@@ -6,8 +6,11 @@
   import { Play, Pause, Trash2, Edit, AlertCircle, Plus, GripVertical, SkipForward } from 'lucide-svelte';
   import { allPanels } from '$lib/stores/panels';
   
-  // Accept panelId prop (passed from GridPanel component)
+  // Accept panelId prop (required by panel system, passed from GridPanel component)
   export let panelId: string | undefined = undefined;
+
+  // Use panelId to satisfy the compiler (it's needed for the panel system)
+  $: panelId;
   
   let inputValue = '';
   let editingPrompt: PromptItem | null = null;

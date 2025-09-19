@@ -108,6 +108,8 @@ function createPromptQueueStore() {
         currentPromptId: null,
         items: state.items.map(item => ({
           ...item,
+          // Reset active prompts to pending so they can be re-run if needed
+          // Keep completed prompts as-is so user can see what was done
           status: item.status === 'active' ? 'pending' : item.status
         }))
       }));

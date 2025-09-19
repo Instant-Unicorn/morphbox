@@ -20,6 +20,24 @@
   
   $: queueItems = $promptQueueStore.items;
   $: isRunning = $promptQueueStore.isRunning;
+
+  let queueCompletedMessage = '';
+  let lastCompletedCount = 0;
+
+  // Track when queue completes all prompts
+  $: {
+    const pendingCount = queueItems.filter(item => item.status === 'pending').length;
+    const completedCount = queueItems.filter(item => item.status === 'completed').length;
+    if (!isRunning && completedCount > 0 && pendingCount === 0 &&
+        completedCount !== lastCompletedCount) {
+      queueCompletedMessage = `✓ Queue completed! ${completedCount} prompt${completedCount > 1 ? 's' : ''} processed.`;
+      lastCompletedCount = completedCount;
+      // Clear message after 5 seconds
+      setTimeout(() => {
+        queueCompletedMessage = '';
+      }, 5000);
+    }
+  }
   
   onMount(() => {
     // Start checking Claude status when component mounts
@@ -47,19 +65,29 @@
   
   function checkAndProcessQueue() {
     console.log('[PromptQueue] Checking queue...');
+
+    // First check if we have any prompts at all
+    const hasPendingPrompts = queueItems.some(item => item.status === 'pending');
+    if (!hasPendingPrompts) {
+      console.log('[PromptQueue] No pending prompts, stopping queue');
+      promptQueueStore.stop();
+      stopClaudeMonitoring();
+      return;
+    }
+
     const claudeTerminal = findClaudeTerminal();
     if (!claudeTerminal) {
       console.log('[PromptQueue] No Claude terminal found');
       return;
     }
-    
+
     // Check if we have any active prompts
     const activePrompt = queueItems.find(item => item.status === 'active');
     if (activePrompt) {
       console.log('[PromptQueue] Active prompt in progress:', activePrompt.text);
       return; // Wait for it to complete
     }
-    
+
     console.log('[PromptQueue] Claude terminal found, checking if ready...');
     // Check if Claude is ready (looking for prompt indicator)
     if (isClaudeReady()) {
@@ -150,22 +178,25 @@
     const nextPrompt = promptQueueStore.getNextPending();
     if (!nextPrompt) {
       console.log('[PromptQueue] No pending prompts in queue');
-      // No more prompts, check for completed ones to remove
+      // No more prompts, stop the queue
+      promptQueueStore.stop();
+      stopClaudeMonitoring();
+      // Clean up any completed prompts
       removeCompletedPrompts();
       return;
     }
-    
+
     console.log('[PromptQueue] Found pending prompt:', nextPrompt.text);
     const claudeTerminal = findClaudeTerminal();
     if (!claudeTerminal) {
       console.log('[PromptQueue] No Claude terminal found for sending');
       return;
     }
-    
+
     // Mark as active
     console.log('[PromptQueue] Marking prompt as active');
     promptQueueStore.setPromptStatus(nextPrompt.id, 'active');
-    
+
     // Send the prompt
     console.log('[PromptQueue] Sending prompt to Claude:', nextPrompt.text);
     // First send the text
@@ -175,7 +206,7 @@
       console.log('[PromptQueue] Sending Enter key');
       claudeTerminal.sendInput('\r');
     }, 100);
-    
+
     // Schedule completion check
     setTimeout(() => {
       checkPromptCompletion(nextPrompt.id);
@@ -290,16 +321,29 @@
           const prompt = queueItems.find(item => item.id === promptId);
           if (prompt && prompt.status === 'active') {
             promptQueueStore.setPromptStatus(promptId, 'completed');
-            
+
+            // Check if there are more pending prompts
+            const hasPendingPrompts = queueItems.some(item =>
+              item.id !== promptId && item.status === 'pending'
+            );
+
             // Automatically remove completed prompt after short delay
             setTimeout(() => {
               console.log('[PromptQueue] Auto-removing completed prompt:', promptId);
               promptQueueStore.removePrompt(promptId);
-              // Process next prompt after a small delay
-              setTimeout(() => {
-                checkAndProcessQueue();
-              }, 500);
-            }, 1000);
+
+              if (hasPendingPrompts) {
+                // Wait a bit longer to ensure Claude is ready for next prompt
+                setTimeout(() => {
+                  checkAndProcessQueue();
+                }, 1500); // Increased delay to give Claude time to be ready
+              } else {
+                // No more prompts, stop the queue
+                console.log('[PromptQueue] No more prompts, stopping queue');
+                promptQueueStore.stop();
+                stopClaudeMonitoring();
+              }
+            }, 500); // Reduced initial delay for faster response
           }
           return;
         }
@@ -316,10 +360,28 @@
       const prompt = queueItems.find(item => item.id === promptId);
       if (prompt && prompt.status === 'active') {
         promptQueueStore.setPromptStatus(promptId, 'completed');
+
+        // Check if there are more pending prompts
+        const hasPendingPrompts = queueItems.some(item =>
+          item.id !== promptId && item.status === 'pending'
+        );
+
         // Auto-remove timed out prompts too
         setTimeout(() => {
           promptQueueStore.removePrompt(promptId);
-        }, 1000);
+
+          if (hasPendingPrompts) {
+            // Try to process next prompt with longer delay
+            setTimeout(() => {
+              checkAndProcessQueue();
+            }, 1500); // Match the same delay as normal completion
+          } else {
+            // No more prompts, stop the queue
+            console.log('[PromptQueue] No more prompts after timeout, stopping queue');
+            promptQueueStore.stop();
+            stopClaudeMonitoring();
+          }
+        }, 500); // Match the same initial delay
       }
     }, 180000);
   }
@@ -520,6 +582,12 @@
     </button>
   </div>
   
+  {#if queueCompletedMessage}
+    <div class="completion-message">
+      {queueCompletedMessage}
+    </div>
+  {/if}
+
   <div class="queue-list">
     {#if queueItems.length === 0}
       <div class="empty-state">
@@ -700,6 +768,27 @@
     text-align: center;
     color: var(--text-secondary, #858585);
     padding: 40px 20px;
+  }
+
+  .completion-message {
+    background: #2d5a2d;
+    color: #4ade80;
+    padding: 12px 16px;
+    margin: 8px;
+    border-radius: 4px;
+    font-size: 14px;
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
   
   .queue-item {

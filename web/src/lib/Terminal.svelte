@@ -939,7 +939,20 @@
         write,
         writeln,
         clear,
-        clearSession
+        clearSession,
+        getBufferContent: () => {
+          if (!terminal) return '';
+          const lines = [];
+          for (let i = 0; i < terminal.rows; i++) {
+            const line = terminal.buffer.active.getLine(i);
+            if (line) {
+              lines.push(line.translateToString());
+            } else {
+              lines.push('');
+            }
+          }
+          return lines.join('\n');
+        }
       };
       console.log('[Terminal] Registered instance globally:', panelId);
     }
@@ -1321,7 +1334,20 @@
         write,
         writeln,
         clear,
-        clearSession
+        clearSession,
+        getBufferContent: () => {
+          if (!terminal) return '';
+          const lines = [];
+          for (let i = 0; i < terminal.rows; i++) {
+            const line = terminal.buffer.active.getLine(i);
+            if (line) {
+              lines.push(line.translateToString());
+            } else {
+              lines.push('');
+            }
+          }
+          return lines.join('\n');
+        }
       };
       console.log('[Terminal] Registered terminal globally for panel:', panelId);
     }

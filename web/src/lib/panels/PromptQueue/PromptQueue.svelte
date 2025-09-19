@@ -52,13 +52,20 @@
   });
   
   function startClaudeMonitoring() {
+    console.log('[PromptQueue] Starting Claude monitoring...');
     if (claudeCheckInterval) {
       clearInterval(claudeCheckInterval);
     }
-    
+
+    // Check immediately on start
+    setTimeout(() => checkAndProcessQueue(), 100);
+
     claudeCheckInterval = window.setInterval(() => {
-      if (!isRunning) return;
-      
+      if (!isRunning) {
+        console.log('[PromptQueue] Queue not running, skipping check');
+        return;
+      }
+
       checkAndProcessQueue();
     }, 1000); // Check every second
   }
@@ -105,7 +112,7 @@
     // Get all panels from the store
     const panels = get(allPanels);
     console.log('[PromptQueue] Total panels:', panels.length);
-    
+
     // Find the Claude panel
     const claudePanel = panels.find(panel => panel.type === 'claude');
     if (!claudePanel) {
@@ -113,61 +120,68 @@
       return false;
     }
     console.log('[PromptQueue] Found Claude panel:', claudePanel.id);
-    
-    // Check if Claude terminal exists
-    const terminal = findClaudeTerminal();
-    if (!terminal) return false;
-    
-    // Find the Claude panel element and use innerText for most reliable text extraction
-    const claudePanelElement = document.querySelector(`[data-panel-id="${claudePanel.id}"]`) ||
-                              document.querySelector('[data-panel-id="claude"]') ||
-                              document.querySelector('.row-panel:has(.terminal-container)');
-    
-    if (claudePanelElement) {
-      // Use innerText which properly preserves the displayed text
-      const fullText = (claudePanelElement.innerText || claudePanelElement.textContent || '').toLowerCase();
-      
-      // Log first 500 chars of text for debugging
-      console.log('[PromptQueue] Claude panel text (first 500 chars):', fullText.substring(0, 500));
-      
-      // Simple reliable checks on the full panel text
-      // Claude is ready if we see the "try" text with quotes around the suggestion
-      if (fullText.includes('try "') || fullText.includes('try \'')) {
-        console.log('[PromptQueue] Claude is ready (detected Try with quote)!');
-        return true;
-      }
-      
-      // Also check for "bypass permissions" indicator
-      if (fullText.includes('bypass permissions')) {
-        console.log('[PromptQueue] Claude is ready (detected bypass permissions)!');
-        return true;
-      }
-      
-      // Check for the arrow indicators that appear with the prompt
-      if (fullText.includes('⏵⏵')) {
-        console.log('[PromptQueue] Claude is ready (detected arrow indicators)!');
-        return true;
-      }
-      
-      // Also ready if we see the Human: prompt
-      if (fullText.includes('human:')) {
-        console.log('[PromptQueue] Claude is ready with Human: prompt');
-        return true;
-      }
-      
-      // If we see welcome screen but not the try prompt, wake it up
-      if ((fullText.includes('welcome to') && fullText.includes('claude')) && !fullText.includes('try')) {
-        const now = Date.now();
-        // Only send wakeup every 3 seconds to avoid spam
-        if (now - lastWakeupTime > 3000) {
-          console.log('[PromptQueue] Claude showing welcome screen, sending Enter to wake up');
-          terminal.sendInput('\r');
-          lastWakeupTime = now;
-        }
-        return false;
-      }
+
+    // Get the terminal instance from global registry
+    const terminal = window.morphboxTerminals && window.morphboxTerminals[claudePanel.id];
+    if (!terminal) {
+      console.log('[PromptQueue] No terminal found for Claude panel:', claudePanel.id);
+      return false;
     }
-    
+
+    // Get the terminal buffer content
+    let fullText = '';
+    if (terminal.getBufferContent) {
+      fullText = terminal.getBufferContent().toLowerCase();
+      // Log first 500 chars of text for debugging
+      console.log('[PromptQueue] Claude terminal buffer (first 500 chars):', fullText.substring(0, 500));
+    } else {
+      console.log('[PromptQueue] Terminal does not have getBufferContent method');
+      return false;
+    }
+
+    // Simple reliable checks on the terminal buffer text
+    // Claude is ready if we see the "try" text with quotes around the suggestion
+    if (fullText.includes('try "') || fullText.includes('try \'')) {
+      console.log('[PromptQueue] Claude is ready (detected Try with quote)!');
+      return true;
+    }
+
+    // Also check for "bypass permissions" indicator
+    if (fullText.includes('bypass permissions')) {
+      console.log('[PromptQueue] Claude is ready (detected bypass permissions)!');
+      return true;
+    }
+
+    // Check for the arrow indicators that appear with the prompt
+    if (fullText.includes('⏵⏵')) {
+      console.log('[PromptQueue] Claude is ready (detected arrow indicators)!');
+      return true;
+    }
+
+    // Also ready if we see the Human: prompt
+    if (fullText.includes('human:')) {
+      console.log('[PromptQueue] Claude is ready with Human: prompt');
+      return true;
+    }
+
+    // Check for common Claude prompt patterns
+    if (fullText.includes('│') && fullText.includes('>')) {
+      console.log('[PromptQueue] Claude is ready (detected prompt box)!');
+      return true;
+    }
+
+    // If we see welcome screen but not the try prompt, wake it up
+    if ((fullText.includes('welcome to') && fullText.includes('claude')) && !fullText.includes('try')) {
+      const now = Date.now();
+      // Only send wakeup every 3 seconds to avoid spam
+      if (now - lastWakeupTime > 3000) {
+        console.log('[PromptQueue] Claude showing welcome screen, sending Enter to wake up');
+        terminal.sendInput('\r');
+        lastWakeupTime = now;
+      }
+      return false;
+    }
+
     console.log('[PromptQueue] Claude is not ready yet');
     return false;
   }
@@ -194,21 +208,23 @@
     }
 
     // Mark as active
-    console.log('[PromptQueue] Marking prompt as active');
+    console.log('[PromptQueue] Marking prompt as active:', nextPrompt.id);
     promptQueueStore.setPromptStatus(nextPrompt.id, 'active');
 
     // Send the prompt
-    console.log('[PromptQueue] Sending prompt to Claude:', nextPrompt.text);
+    console.log('[PromptQueue] Sending prompt to Claude:', nextPrompt.text.substring(0, 50) + '...');
     // First send the text
     claudeTerminal.sendInput(nextPrompt.text);
     // Then send Enter key separately after a small delay to ensure text is processed
     setTimeout(() => {
-      console.log('[PromptQueue] Sending Enter key');
+      console.log('[PromptQueue] Sending Enter key to submit prompt');
       claudeTerminal.sendInput('\r');
     }, 100);
 
     // Schedule completion check
+    console.log('[PromptQueue] Starting completion check in 2 seconds for prompt:', nextPrompt.id);
     setTimeout(() => {
+      console.log('[PromptQueue] Beginning completion monitoring for prompt:', nextPrompt.id);
       checkPromptCompletion(nextPrompt.id);
     }, 2000); // Reduced initial delay before checking
   }
@@ -224,98 +240,78 @@
     let lastTerminalContent = '';
     let contentStableCount = 0;
     let lastPromptBoxSeen = false;
-    
+
     const checkInterval = setInterval(() => {
       // If not running anymore, stop checking
       if (!$promptQueueStore.isRunning) {
         clearInterval(checkInterval);
         return;
       }
-      
+
       const currentTime = Date.now();
-      
+
       // Get current terminal content to detect when Claude stops responding
-      const terminal = findClaudeTerminal();
-      if (terminal) {
-        // Find Claude panel specifically
-        const panels = get(allPanels);
-        const claudePanel = panels.find(panel => panel.type === 'claude');
-        let currentContent = '';
-        let hasPromptBox = false;
-        
-        if (claudePanel) {
-          const claudePanelElement = document.querySelector(`[data-panel-id="${claudePanel.id}"]`);
-          const terminalRows = claudePanelElement ? 
-            claudePanelElement.querySelector('.xterm-rows') : 
-            document.querySelector('.xterm-rows'); // Fallback
-          
-          if (terminalRows) {
-            const rows = terminalRows.querySelectorAll('div');
-            for (const row of rows) {
-              const rowText = row.textContent || '';
-              currentContent += rowText + '\n';
-              
-              // Check if prompt box is visible again
-              if (rowText.includes('│ > Try') || 
-                  rowText.includes('│>') ||
-                  (rowText.includes('│') && rowText.includes('>'))) {
-                hasPromptBox = true;
-              }
-            }
-          }
-        } else {
-          // Fallback to finding any Claude terminal
-          const allTerminalRows = document.querySelectorAll('.xterm-rows');
-          for (const terminalRows of allTerminalRows) {
-            const rows = terminalRows.querySelectorAll('div');
-            let tempContent = '';
-            for (const row of rows) {
-              const rowText = row.textContent || '';
-              tempContent += rowText + '\n';
-              
-              if (rowText.includes('│ > Try') || 
-                  rowText.includes('│>') ||
-                  (rowText.includes('│') && rowText.includes('>'))) {
-                hasPromptBox = true;
-              }
-            }
-            
-            // If this terminal contains Claude-related content, use it
-            if (tempContent.includes('Claude Code') || 
-                tempContent.includes('bypass permissions') || 
-                tempContent.includes('Human:') || 
-                tempContent.includes('Assistant:')) {
-              currentContent = tempContent;
-              break;
-            }
-          }
-        }
-        
-        // Check if content has stopped changing (indicating completion)
-        if (currentContent === lastTerminalContent) {
-          contentStableCount++;
-        } else {
-          contentStableCount = 0;
-          lastTerminalContent = currentContent;
-        }
-        
-        // Check if prompt box has reappeared after being hidden
-        const promptBoxReappeared = hasPromptBox && !lastPromptBoxSeen && contentStableCount > 0;
-        lastPromptBoxSeen = hasPromptBox;
-        
-        // Consider completed if:
-        // 1. Prompt box reappeared (Claude is ready for next input)
-        // 2. Claude shows Human: prompt
-        // 3. Content has been stable for 3+ checks with Claude UI visible
-        const hasHumanPrompt = currentContent.includes('Human:');
-        const isStable = contentStableCount >= 3;
-        
-        if (promptBoxReappeared || hasHumanPrompt || (hasPromptBox && isStable)) {
-          console.log('[PromptQueue] Prompt completion detected:', promptId, 
-            'promptBoxReappeared:', promptBoxReappeared, 
-            'hasHumanPrompt:', hasHumanPrompt, 
-            'stable:', contentStableCount);
-          clearInterval(checkInterval);
+      const panels = get(allPanels);
+      const claudePanel = panels.find(panel => panel.type === 'claude');
+
+      if (!claudePanel) {
+        console.log('[PromptQueue] No Claude panel found during completion check');
+        return;
+      }
+
+      // Get the terminal instance from global registry
+      const terminal = window.morphboxTerminals && window.morphboxTerminals[claudePanel.id];
+      if (!terminal || !terminal.getBufferContent) {
+        console.log('[PromptQueue] Terminal not found or missing getBufferContent');
+        return;
+      }
+
+      // Get the terminal buffer content
+      let currentContent = terminal.getBufferContent();
+      let hasPromptBox = false;
+
+      // Log content periodically for debugging
+      if (contentStableCount % 3 === 0) {
+        console.log('[PromptQueue] Checking completion, content length:', currentContent.length);
+        console.log('[PromptQueue] Last 200 chars:', currentContent.slice(-200));
+      }
+
+      // Check if prompt box is visible again in the content
+      const lowerContent = currentContent.toLowerCase();
+      if (lowerContent.includes('│ > try') ||
+          lowerContent.includes('│>') ||
+          (lowerContent.includes('│') && lowerContent.includes('>')) ||
+          lowerContent.includes('try "') ||
+          lowerContent.includes('try \'') ||
+          lowerContent.includes('⏵⏵')) {
+        hasPromptBox = true;
+      }
+
+      // Check if content has stopped changing (indicating completion)
+      if (currentContent === lastTerminalContent) {
+        contentStableCount++;
+      } else {
+        contentStableCount = 0;
+        lastTerminalContent = currentContent;
+      }
+
+      // Check if prompt box has reappeared after being hidden
+      const promptBoxReappeared = hasPromptBox && !lastPromptBoxSeen && contentStableCount > 0;
+      lastPromptBoxSeen = hasPromptBox;
+
+      // Consider completed if:
+      // 1. Prompt box reappeared (Claude is ready for next input)
+      // 2. Claude shows Human: prompt
+      // 3. Content has been stable for 3+ checks with Claude UI visible
+      const hasHumanPrompt = lowerContent.includes('human:');
+      const isStable = contentStableCount >= 3;
+
+      if (promptBoxReappeared || hasHumanPrompt || (hasPromptBox && isStable)) {
+        console.log('[PromptQueue] Prompt completion detected:', promptId,
+          'promptBoxReappeared:', promptBoxReappeared,
+          'hasHumanPrompt:', hasHumanPrompt,
+          'stable:', contentStableCount);
+        clearInterval(checkInterval);
           
           // Find the prompt and mark it completed
           const prompt = queueItems.find(item => item.id === promptId);
@@ -347,8 +343,7 @@
           }
           return;
         }
-      }
-      
+
       lastCheckTime = currentTime;
     }, 1000); // Check every second for better responsiveness
     

@@ -316,10 +316,12 @@
       claudeTerminal.sendInput('\r');
     }, 100);
 
-    // Start completion monitoring
+    // Start completion monitoring after a longer delay (give Claude time to start responding)
+    console.log('[PromptQueue] Scheduling completion check for prompt:', nextPrompt.id);
     setTimeout(() => {
+      console.log('[PromptQueue] Starting completion check for prompt:', nextPrompt.id);
       checkPromptCompletion(nextPrompt.id);
-    }, 2000);
+    }, 4000); // Increased to 4 seconds
   }
   
   // Manual trigger for when automatic detection fails
@@ -329,6 +331,7 @@
   }
   
   function checkPromptCompletion(promptId: string) {
+    console.log('[PromptQueue] checkPromptCompletion called for:', promptId);
     let lastCheckTime = Date.now();
     let lastTerminalContent = '';
     let contentStableCount = 0;

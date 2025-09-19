@@ -166,36 +166,47 @@
     }
 
     // Check if the last line contains prompt indicators
-    const lastLines = fullText.slice(-200);
+    const lastLines = fullText.slice(-300);
 
-    // Claude is ready if we see the "try" text with quotes around the suggestion
-    if (lastLines.includes('try "') || lastLines.includes('try \'')) {
-      console.log('[PromptQueue] Claude is ready (detected Try with quote)!');
-      return true;
-    }
-
-    // Also check for "bypass permissions" indicator
-    if (lastLines.includes('bypass permissions')) {
-      console.log('[PromptQueue] Claude is ready (detected bypass permissions)!');
-      return true;
-    }
-
-    // Check for the arrow indicators that appear with the prompt
-    if (lastLines.includes('⏵⏵') || lastLines.includes('>>')) {
-      console.log('[PromptQueue] Claude is ready (detected arrow indicators)!');
-      return true;
-    }
-
-    // Also ready if we see the Human: prompt
+    // Claude Code specific patterns
+    // Look for "Human:" prompt (most reliable for Claude Code)
     if (lastLines.includes('human:') || lastLines.includes('h:')) {
-      console.log('[PromptQueue] Claude is ready with Human: prompt');
+      console.log('[PromptQueue] Claude is ready (detected Human: prompt)!');
       return true;
     }
 
-    // Check for common Claude prompt patterns
+    // Check for assistant response end patterns
+    if (lastLines.includes('assistant:') &&
+        (fullText.endsWith('>') || fullText.endsWith(':') || hasActiveCursor)) {
+      console.log('[PromptQueue] Claude is ready (detected Assistant: with prompt end)!');
+      return true;
+    }
+
+    // Claude Code shows "Try" suggestions
+    if (lastLines.includes('try "') || lastLines.includes('try \'') ||
+        lastLines.includes('try:')) {
+      console.log('[PromptQueue] Claude is ready (detected Try suggestion)!');
+      return true;
+    }
+
+    // Check for bypass permissions or other command prompts
+    if (lastLines.includes('bypass permissions') ||
+        lastLines.includes('would you like to')) {
+      console.log('[PromptQueue] Claude is ready (detected command prompt)!');
+      return true;
+    }
+
+    // Check for prompt box patterns (fallback)
     if ((lastLines.includes('│') && lastLines.includes('>')) ||
         (lastLines.includes('┃') && lastLines.includes('>'))) {
       console.log('[PromptQueue] Claude is ready (detected prompt box)!');
+      return true;
+    }
+
+    // Check for arrow indicators or other prompt symbols
+    if (lastLines.includes('⏵⏵') || lastLines.includes('>>') ||
+        lastLines.includes('❯')) {
+      console.log('[PromptQueue] Claude is ready (detected prompt arrows)!');
       return true;
     }
 
@@ -326,17 +337,20 @@
       const lastLines = lowerContent.slice(-500);
       let hasPromptBox = false;
 
-      // Check for various prompt indicators
-      if (lastLines.includes('│ > try') ||
-          lastLines.includes('│>') ||
-          (lastLines.includes('│') && lastLines.includes('>')) ||
-          lastLines.includes('try "') ||
-          lastLines.includes('try \'') ||
-          lastLines.includes('⏵⏵') ||
-          lastLines.includes('>>') ||
-          lastLines.includes('human:') ||
-          lastLines.includes('h:') ||
-          lastLines.includes('bypass permissions')) {
+      // Check for various prompt indicators - Claude Code specific
+      if (lastLines.includes('human:') || lastLines.includes('h:') ||
+          (lastLines.includes('assistant:') && contentStableCount > 0) ||
+          lastLines.includes('try "') || lastLines.includes('try \'') ||
+          lastLines.includes('would you like to') ||
+          lastLines.includes('bypass permissions') ||
+          lastLines.includes('│ > ') || lastLines.includes('❯') ||
+          lastLines.includes('⏵⏵') || lastLines.includes('>>')) {
+        hasPromptBox = true;
+      }
+
+      // Special case: if we see "Human:" it's definitely ready
+      if (lastLines.includes('human:')) {
+        console.log('[PromptQueue] Detected Human: prompt - definitely complete');
         hasPromptBox = true;
       }
 

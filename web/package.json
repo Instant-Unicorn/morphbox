@@ -43,6 +43,7 @@
   },
   "dependencies": {
     "@types/js-yaml": "^4.0.9",
+    "better-sqlite3": "^12.2.0",
     "js-yaml": "^4.1.0",
     "node-pty": "^1.0.0",
     "polka": "^0.5.2",

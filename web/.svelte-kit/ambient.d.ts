@@ -40,6 +40,7 @@ declare module '$env/static/private' {
 	export const npm_node_execpath: string;
 	export const SHLVL: string;
 	export const npm_config_noproxy: string;
+	export const PORT: string;
 	export const HOME: string;
 	export const OLDPWD: string;
 	export const TERM_PROGRAM_VERSION: string;
@@ -74,6 +75,7 @@ declare module '$env/static/private' {
 	export const LS_COLORS: string;
 	export const TERM_PROGRAM: string;
 	export const npm_lifecycle_script: string;
+	export const HOST: string;
 	export const SHELL: string;
 	export const npm_package_version: string;
 	export const npm_lifecycle_event: string;
@@ -138,6 +140,7 @@ declare module '$env/dynamic/private' {
 		npm_node_execpath: string;
 		SHLVL: string;
 		npm_config_noproxy: string;
+		PORT: string;
 		HOME: string;
 		OLDPWD: string;
 		TERM_PROGRAM_VERSION: string;
@@ -172,6 +175,7 @@ declare module '$env/dynamic/private' {
 		LS_COLORS: string;
 		TERM_PROGRAM: string;
 		npm_lifecycle_script: string;
+		HOST: string;
 		SHELL: string;
 		npm_package_version: string;
 		npm_lifecycle_event: string;

@@ -943,11 +943,18 @@
         getBufferContent: () => {
           if (!terminal) return '';
           const lines = [];
-          for (let i = 0; i < terminal.rows; i++) {
-            const line = terminal.buffer.active.getLine(i);
+          // Read entire scrollback buffer, not just visible rows
+          const buffer = terminal.buffer.active;
+          const scrollbackLength = buffer.baseY + buffer.cursorY;
+          const totalLines = Math.max(terminal.rows, scrollbackLength + terminal.rows);
+
+          for (let i = 0; i < totalLines; i++) {
+            const line = buffer.getLine(i);
             if (line) {
               lines.push(line.translateToString());
             } else {
+              // Check if we've reached the end of actual content
+              if (i > scrollbackLength) break;
               lines.push('');
             }
           }
@@ -1338,11 +1345,18 @@
         getBufferContent: () => {
           if (!terminal) return '';
           const lines = [];
-          for (let i = 0; i < terminal.rows; i++) {
-            const line = terminal.buffer.active.getLine(i);
+          // Read entire scrollback buffer, not just visible rows
+          const buffer = terminal.buffer.active;
+          const scrollbackLength = buffer.baseY + buffer.cursorY;
+          const totalLines = Math.max(terminal.rows, scrollbackLength + terminal.rows);
+
+          for (let i = 0; i < totalLines; i++) {
+            const line = buffer.getLine(i);
             if (line) {
               lines.push(line.translateToString());
             } else {
+              // Check if we've reached the end of actual content
+              if (i > scrollbackLength) break;
               lines.push('');
             }
           }

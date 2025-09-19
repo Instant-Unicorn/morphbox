@@ -13,6 +13,21 @@ sudo -v
 # Keep sudo alive during the script execution
 while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
+# Complete rebuild of the project first
+echo "🔨 Performing complete rebuild of the project..."
+echo "  Cleaning old build artifacts..."
+rm -rf .svelte-kit build node_modules/.vite 2>/dev/null || true
+
+# Clean up old package files
+echo "  Removing old package files..."
+rm -f morphbox-*.tgz 2>/dev/null || true
+
+echo "  Installing dependencies..."
+npm install
+
+echo "  Building the project..."
+npm run build
+
 # Force Docker rebuild during packaging to include latest changes
 echo "🐳 Rebuilding Docker container with latest changes..."
 cd docker
@@ -21,6 +36,12 @@ cd docker
 echo "Stopping existing container if running..."
 docker stop morphbox-vm 2>/dev/null || true
 docker rm morphbox-vm 2>/dev/null || true
+
+# Remove old Docker images to ensure complete rebuild
+echo "Removing old Docker images..."
+docker rmi morphbox-vm 2>/dev/null || true
+docker rmi tmp-morphbox-vm 2>/dev/null || true
+docker rmi docker-morphbox-vm 2>/dev/null || true
 
 # Build the new image with no cache to ensure all changes are included
 echo "Building fresh Docker image..."

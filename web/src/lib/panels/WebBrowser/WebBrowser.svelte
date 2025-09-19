@@ -485,6 +485,7 @@
     margin-top: 16px;
   }
   
+  /* Unused - keeping for potential future use
   .primary-button {
     margin-top: 16px;
     background-color: var(--accent-color, #007acc);
@@ -500,6 +501,7 @@
   .primary-button:hover {
     background-color: #0086e6;
   }
+  */
   
   .loading-overlay {
     position: absolute;
@@ -523,6 +525,7 @@
     animation: spin 0.8s linear infinite;
   }
   
+  /* Unused dialog styles - keeping for potential future use
   .home-url-dialog {
     position: absolute;
     top: 0;
@@ -601,6 +604,7 @@
   .button-primary:hover {
     background-color: #0086e6;
   }
+  */
   
   .warning-banner {
     position: absolute;

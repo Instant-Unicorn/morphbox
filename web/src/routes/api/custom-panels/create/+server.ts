@@ -4,7 +4,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { homedir, tmpdir } from 'os';
 import { spawn } from 'child_process';
-import { writeFileSync, unlinkSync, mkdirSync, rmSync } from 'fs';
+import { mkdirSync, rmSync } from 'fs';
 import type { MorphFileFormat } from '$lib/types/morph';
 import { createMorphFile } from '$lib/types/morph';
 

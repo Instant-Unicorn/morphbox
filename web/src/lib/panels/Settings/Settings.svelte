@@ -153,22 +153,27 @@
   }
 
   function resetEverything() {
-    if (!confirm('⚠️ WARNING: This will reset ALL MorphBox settings and data to defaults!\n\nThis includes:\n- All panel layouts\n- All settings\n- Prompt queue\n- Custom panels\n- Terminal sessions\n\nAre you sure you want to continue?')) {
+    if (!confirm('⚠️ WARNING: This will reset MorphBox settings and data to defaults!\n\nThis will reset:\n- All panel layouts\n- All settings\n- Prompt queue\n- Terminal sessions\n- Command history\n\nThis will KEEP:\n- Your custom panels (code-based)\n\nAre you sure you want to continue?')) {
       return;
     }
 
-    // Clear all localStorage
+    // Clear all localStorage except custom panels
     const allKeys = Object.keys(localStorage);
     const morphboxKeys = allKeys.filter(key =>
-      key.startsWith('morphbox-') ||
-      key.startsWith('panel-') ||
-      key.includes('workspace') ||
-      key === 'command-palette-recent' ||
-      key === 'generated-panels'
+      (key.startsWith('morphbox-') ||
+       key.startsWith('panel-') ||
+       key.includes('workspace') ||
+       key === 'command-palette-recent') &&
+      // Keep these panel-related keys
+      key !== 'panel-registry' &&  // Keep custom panel registry
+      !key.startsWith('panel-config-custom-')  // Keep custom panel configs
     );
 
+    console.log('Resetting MorphBox to defaults...');
+    console.log('Keeping custom panels:', allKeys.filter(k => k === 'panel-registry' || k.startsWith('panel-config-custom-')));
+    console.log('Removing keys:', morphboxKeys);
+
     morphboxKeys.forEach(key => {
-      console.log(`Removing: ${key}`);
       localStorage.removeItem(key);
     });
 
@@ -176,7 +181,7 @@
     sessionStorage.clear();
 
     // Show success message then reload
-    alert('✅ All settings have been reset to defaults. The page will now reload.');
+    alert('✅ Settings have been reset to defaults (custom panels preserved). The page will now reload.');
     location.reload();
   }
   

@@ -283,6 +283,41 @@
       checkPromptCompletion(nextPrompt.id);
     }, 2000); // Reduced initial delay before checking
   }
+
+  // Process next prompt without ready check (for initial start)
+  function processNextPromptDirect() {
+    console.log('[PromptQueue] Direct processing (no ready check)...');
+    const nextPrompt = promptQueueStore.getNextPending();
+    if (!nextPrompt) {
+      console.log('[PromptQueue] No pending prompts');
+      promptQueueStore.stop();
+      stopClaudeMonitoring();
+      return;
+    }
+
+    const claudeTerminal = findClaudeTerminal();
+    if (!claudeTerminal) {
+      console.log('[PromptQueue] No Claude terminal found');
+      // Retry in a moment
+      setTimeout(() => checkAndProcessQueue(), 1000);
+      return;
+    }
+
+    // Mark as active and send immediately
+    console.log('[PromptQueue] Sending first prompt immediately:', nextPrompt.text);
+    promptQueueStore.setPromptStatus(nextPrompt.id, 'active');
+
+    // Send the prompt right away
+    claudeTerminal.sendInput(nextPrompt.text);
+    setTimeout(() => {
+      claudeTerminal.sendInput('\r');
+    }, 100);
+
+    // Start completion monitoring
+    setTimeout(() => {
+      checkPromptCompletion(nextPrompt.id);
+    }, 2000);
+  }
   
   // Manual trigger for when automatic detection fails
   function forceProcessNext() {
@@ -549,11 +584,18 @@
       console.log('[PromptQueue] Starting queue processing');
       promptQueueStore.start();
       startClaudeMonitoring(); // Start monitoring when play is pressed
-      // Immediately check if we can process
-      setTimeout(() => {
-        console.log('[PromptQueue] Checking queue after start');
-        checkAndProcessQueue();
-      }, 100);
+
+      // When starting, immediately try to send the first prompt
+      // Don't wait for "ready" check on initial start
+      const nextPrompt = promptQueueStore.getNextPending();
+      if (nextPrompt) {
+        console.log('[PromptQueue] Starting with prompt:', nextPrompt.text);
+        // Process immediately without ready check
+        processNextPromptDirect();
+      } else {
+        console.log('[PromptQueue] No prompts to process');
+        promptQueueStore.stop();
+      }
     }
   }
   

@@ -316,12 +316,9 @@
       claudeTerminal.sendInput('\r');
     }, 100);
 
-    // Start completion monitoring after a longer delay (give Claude time to start responding)
-    console.log('[PromptQueue] Scheduling completion check for prompt:', nextPrompt.id);
-    setTimeout(() => {
-      console.log('[PromptQueue] Starting completion check for prompt:', nextPrompt.id);
-      checkPromptCompletion(nextPrompt.id);
-    }, 4000); // Increased to 4 seconds
+    // Start completion monitoring immediately (will poll every 4 seconds)
+    console.log('[PromptQueue] Starting completion monitoring for prompt:', nextPrompt.id);
+    checkPromptCompletion(nextPrompt.id);
   }
   
   // Manual trigger for when automatic detection fails
@@ -332,21 +329,20 @@
   
   function checkPromptCompletion(promptId: string) {
     console.log('[PromptQueue] checkPromptCompletion called for:', promptId);
-    let lastCheckTime = Date.now();
     let lastTerminalContent = '';
     let contentStableCount = 0;
     let lastPromptBoxSeen = false;
     let initialContentLength = 0;
 
+    // Poll every 4 seconds for completion
     const checkInterval = setInterval(() => {
+      console.log('[PromptQueue] Polling for completion (every 4 seconds)...');
       // If not running anymore, stop checking
       const state = get(promptQueueStore);
       if (!state.isRunning) {
         clearInterval(checkInterval);
         return;
       }
-
-      const currentTime = Date.now();
 
       // Get current terminal content to detect when Claude stops responding
       const panels = get(allPanels);
@@ -366,6 +362,8 @@
 
       // Get the terminal buffer content
       let currentContent = terminal.getBufferContent();
+      console.log('[PromptQueue] Completion check - Buffer length:', currentContent.length);
+      console.log('[PromptQueue] Completion check - Last 100 chars:', JSON.stringify(currentContent.slice(-100)));
       const lowerContent = currentContent.toLowerCase();
 
       // Track initial content length to detect if response started
@@ -485,9 +483,7 @@
           }
           return;
         }
-
-      lastCheckTime = currentTime;
-    }, 800); // Check slightly faster for better responsiveness
+    }, 4000); // Poll every 4 seconds
 
     // Timeout after 2 minutes (reduced from 3)
     setTimeout(() => {

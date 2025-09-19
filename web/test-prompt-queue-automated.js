@@ -63,7 +63,7 @@ class MockClaudeTerminal {
             this.state = 'ready';
             console.log(`  [Terminal] Ready for next prompt (response ${promptNum} complete)`);
             this.notifyOutput();
-          }, 800);
+          }, 4000); // Poll every 4 seconds
         }, 1200);
       }, 600);
     }, 400);
@@ -194,12 +194,9 @@ class PromptQueueSimulator {
       this.terminal.sendInput('\r');
     }, 100);
 
-    // Start completion monitoring after delay
-    console.log('[PromptQueue] Scheduling completion check for prompt:', nextPrompt.id);
-    setTimeout(() => {
-      console.log('[PromptQueue] Starting completion check for prompt:', nextPrompt.id);
-      this.checkPromptCompletion(nextPrompt.id);
-    }, 4000);
+    // Start completion monitoring immediately (will poll every 4 seconds)
+    console.log('[PromptQueue] Starting completion monitoring for prompt:', nextPrompt.id);
+    this.checkPromptCompletion(nextPrompt.id);
   }
 
   // Simulate checkPromptCompletion
@@ -209,7 +206,9 @@ class PromptQueueSimulator {
     let lastTerminalContent = '';
     let contentStableCount = 0;
 
+    // Poll every 4 seconds like the real code
     const checkInterval = setInterval(() => {
+      console.log('[PromptQueue] Polling for completion (every 4 seconds)...');
       // Check if still running
       if (!this.store.isRunning) {
         console.log('[PromptQueue] Queue stopped, ending completion check');
@@ -258,7 +257,7 @@ class PromptQueueSimulator {
           }, 300);
         }
       }
-    }, 800);
+    }, 4000); // Poll every 4 seconds
 
     // Timeout after 30 seconds
     setTimeout(() => {

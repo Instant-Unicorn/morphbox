@@ -143,13 +143,41 @@
   function exportSettings() {
     const dataStr = JSON.stringify(settings, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    
+
     const exportFileDefaultName = `morphbox-settings-${new Date().toISOString().split('T')[0]}.json`;
-    
+
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
     linkElement.click();
+  }
+
+  function resetEverything() {
+    if (!confirm('⚠️ WARNING: This will reset ALL MorphBox settings and data to defaults!\n\nThis includes:\n- All panel layouts\n- All settings\n- Prompt queue\n- Custom panels\n- Terminal sessions\n\nAre you sure you want to continue?')) {
+      return;
+    }
+
+    // Clear all localStorage
+    const allKeys = Object.keys(localStorage);
+    const morphboxKeys = allKeys.filter(key =>
+      key.startsWith('morphbox-') ||
+      key.startsWith('panel-') ||
+      key.includes('workspace') ||
+      key === 'command-palette-recent' ||
+      key === 'generated-panels'
+    );
+
+    morphboxKeys.forEach(key => {
+      console.log(`Removing: ${key}`);
+      localStorage.removeItem(key);
+    });
+
+    // Clear session storage
+    sessionStorage.clear();
+
+    // Show success message then reload
+    alert('✅ All settings have been reset to defaults. The page will now reload.');
+    location.reload();
   }
   
   // Import settings
@@ -720,6 +748,7 @@
     <div class="footer-right">
       <button class="btn btn-secondary" on:click={importSettings}>Import</button>
       <button class="btn btn-secondary" on:click={exportSettings}>Export</button>
+      <button class="btn btn-danger" on:click={resetEverything}>Reset All</button>
       <button class="btn btn-primary" on:click={saveSettings}>Save Settings</button>
     </div>
   </footer>
@@ -978,11 +1007,22 @@
     color: white;
     border-color: var(--accent-color, #007acc);
   }
-  
+
   .btn-primary:hover {
     background-color: #005a9e;
   }
-  
+
+  .btn-danger {
+    background-color: #dc3545;
+    color: white;
+    border-color: #dc3545;
+  }
+
+  .btn-danger:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+  }
+
   .btn-secondary {
     background-color: var(--input-bg, #3c3c3c);
     color: var(--text-color, #cccccc);

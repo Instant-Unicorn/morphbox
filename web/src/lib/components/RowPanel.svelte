@@ -811,7 +811,7 @@
           autoLaunchClaude={panel.type === 'claude'}
           on:ready={handleTerminalReady}
           on:claude-idle={() => {
-            console.log('[RowPanel] Claude idle event received from panel:', panel.id);
+            console.log('🔄🔄🔄 [RowPanel] Claude idle event received from panel:', panel.id, '🔄🔄🔄');
             // Dispatch a global event that PromptQueue can listen to
             window.dispatchEvent(new CustomEvent('claude-idle', {
               detail: { panelId: panel.id }

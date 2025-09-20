@@ -42,15 +42,56 @@
     }
   }
   
+  // Event-driven approach: listen for claude-idle events
+  let claudeIdleHandler: ((event: CustomEvent) => void) | null = null;
+
   onMount(() => {
     // Don't auto-start monitoring - wait for user to hit play
     console.log('[PromptQueue] Component mounted');
+
+    // Listen for claude-idle events
+    claudeIdleHandler = (event: CustomEvent) => {
+      console.log('[PromptQueue] Received claude-idle event:', event.detail);
+
+      // Only process if queue is running
+      if (!isRunning) return;
+
+      // Check if we have any active prompts (wait for completion)
+      const currentItems = get(promptQueueStore).items;
+      const activePrompt = currentItems.find(item => item.status === 'active');
+
+      if (activePrompt) {
+        // Mark the active prompt as complete since Claude is idle
+        console.log('[PromptQueue] Claude idle, marking active prompt as completed:', activePrompt.id);
+        promptQueueStore.setPromptStatus(activePrompt.id, 'completed');
+
+        // Remove and continue
+        setTimeout(() => {
+          promptQueueStore.removePrompt(activePrompt.id);
+          processNextPrompt();
+        }, 500);
+      } else {
+        // No active prompt, check if we have pending ones
+        const hasPendingPrompts = currentItems.some(item => item.status === 'pending');
+        if (hasPendingPrompts) {
+          console.log('[PromptQueue] Claude idle, processing next prompt');
+          processNextPrompt();
+        }
+      }
+    };
+
+    window.addEventListener('claude-idle', claudeIdleHandler as EventListener);
   });
-  
+
   onDestroy(() => {
     // Clean up interval on destroy
     if (claudeCheckInterval) {
       clearInterval(claudeCheckInterval);
+    }
+
+    // Clean up event listener
+    if (claudeIdleHandler) {
+      window.removeEventListener('claude-idle', claudeIdleHandler as EventListener);
     }
   });
   
@@ -84,7 +125,7 @@
   }
   
   function checkAndProcessQueue() {
-    console.log('[PromptQueue] Checking queue...');
+    // Checking queue silently
 
     // Get fresh items from store
     const currentItems = get(promptQueueStore).items;
@@ -107,7 +148,7 @@
     // Check if we have any active prompts
     const activePrompt = currentItems.find(item => item.status === 'active');
     if (activePrompt) {
-      console.log('[PromptQueue] Active prompt in progress:', activePrompt.text);
+      // Active prompt in progress, waiting for completion
       return; // Wait for it to complete
     }
 
@@ -144,17 +185,35 @@
       return false;
     }
 
-    // Get the terminal buffer content - read entire scrollback
+    // Get the terminal content - try getBufferContent first since we have the specific terminal
     let fullText = '';
+
+    // Method 1: Use getBufferContent from the specific Claude terminal
     if (terminal.getBufferContent) {
       fullText = terminal.getBufferContent().toLowerCase();
-      // Log last 500 chars for better debugging (more relevant than first 500)
-      console.log('[PromptQueue] Claude terminal buffer (last 500 chars):', fullText.slice(-500));
-      console.log('[PromptQueue] Buffer length:', fullText.length);
-    } else {
-      console.log('[PromptQueue] Terminal does not have getBufferContent method');
+      console.log('[PromptQueue] isClaudeReady using getBufferContent, length:', fullText.length);
+    }
+    // Method 2: Fallback - try to find the specific Claude panel's xterm screen
+    else {
+      // Find the Claude panel's specific terminal container
+      const claudePanelElement = document.querySelector(`[data-panel-id="${claudePanel.id}"]`);
+      if (claudePanelElement) {
+        const screen = claudePanelElement.querySelector('.xterm-screen');
+        if (screen) {
+          fullText = (screen.textContent || '').toLowerCase();
+          console.log('[PromptQueue] isClaudeReady using panel-specific DOM content, length:', fullText.length);
+        }
+      }
+    }
+
+    if (!fullText) {
+      console.log('[PromptQueue] No method to read terminal content');
       return false;
     }
+
+    // Log last 500 chars for debugging
+    console.log('[PromptQueue] Claude terminal buffer (last 500 chars):', fullText.slice(-500));
+    console.log('[PromptQueue] Buffer length:', fullText.length);
 
     // Check for input cursor/active prompt (most reliable indicator)
     // Look for the blinking cursor at the end
@@ -228,6 +287,13 @@
       return true; // Let the stability check confirm
     }
 
+    // IMPORTANT: If we have substantial content from previous interactions, Claude is likely ready
+    // This helps when continuing after timeout completion
+    if (fullText.length > 5000 && (fullText.includes('assistant:') || fullText.includes('human:'))) {
+      console.log('[PromptQueue] Claude appears ready (has substantial content from previous interactions)');
+      return true;
+    }
+
     // If we see welcome screen but not the try prompt, wake it up
     if ((fullText.includes('welcome to') && fullText.includes('claude')) && !fullText.includes('try')) {
       const now = Date.now();
@@ -252,7 +318,6 @@
       console.log('[PromptQueue] No pending prompts in queue');
       // No more prompts, stop the queue
       promptQueueStore.stop();
-      stopClaudeMonitoring();
       // Clean up any completed prompts
       removeCompletedPrompts();
       return;
@@ -279,12 +344,8 @@
       claudeTerminal.sendInput('\r');
     }, 100);
 
-    // Schedule completion check
-    console.log('[PromptQueue] Starting completion check in 2 seconds for prompt:', nextPrompt.id);
-    setTimeout(() => {
-      console.log('[PromptQueue] Beginning completion monitoring for prompt:', nextPrompt.id);
-      checkPromptCompletion(nextPrompt.id);
-    }, 2000); // Reduced initial delay before checking
+    // With event-driven approach, we just wait for the claude-idle event
+    console.log('[PromptQueue] Prompt sent, waiting for claude-idle event...');
   }
 
   // Process next prompt without ready check (for initial start)
@@ -336,64 +397,89 @@
     let lastPromptBoxSeen = false;
     let initialContentLength = 0;
 
+    // Simple fallback: mark complete after 20 seconds regardless
+    const timeoutFallback = setTimeout(() => {
+      console.log('[PromptQueue] TIMEOUT FALLBACK - marking complete after 20s');
+      clearInterval(checkInterval);
+
+      // Mark as complete
+      const currentItems = get(promptQueueStore).items;
+      const prompt = currentItems.find(item => item.id === promptId);
+      if (prompt && prompt.status === 'active') {
+        promptQueueStore.setPromptStatus(promptId, 'completed');
+
+        // Remove and continue
+        setTimeout(() => {
+          promptQueueStore.removePrompt(promptId);
+          checkAndProcessQueue();
+        }, 500);
+      }
+    }, 20000);
+
     // Poll every 4 seconds for completion
     const checkInterval = setInterval(() => {
-      console.log('[PromptQueue] Polling for completion (every 4 seconds)...');
+      // Polling silently every 4 seconds
       // If not running anymore, stop checking
       const state = get(promptQueueStore);
       if (!state.isRunning) {
         clearInterval(checkInterval);
+        clearTimeout(timeoutFallback);
         return;
       }
 
-      // Find the terminal directly from the DOM (this method worked before)
-      const terminalContainer = document.querySelector('.terminal-wrapper');
-      if (!terminalContainer) {
-        console.log('[PromptQueue] Terminal container not found');
+      // Get the Claude panel to find its terminal
+      const panels = get(allPanels);
+      const claudePanel = panels.find(panel => panel.type === 'claude');
+      if (!claudePanel) {
+        console.log('[PromptQueue] Claude panel not found');
         return;
       }
 
-      const terminal = terminalContainer._terminal;
+      // Get terminal from global registry
+      const terminal = window.morphboxTerminals && window.morphboxTerminals[claudePanel.id];
       if (!terminal) {
-        console.log('[PromptQueue] Terminal instance not found on container');
+        console.log('[PromptQueue] Terminal not found in global registry');
         return;
       }
 
-      // Get the terminal buffer content using xterm.js API
+      // Get the terminal content from the specific Claude terminal
       let currentContent = '';
+
+      // Method 1: Use getBufferContent from the specific Claude terminal
       if (terminal.getBufferContent) {
         currentContent = terminal.getBufferContent();
-      } else if (terminal.buffer && terminal.buffer.active) {
-        // Use xterm.js buffer API directly - get ALL lines including scrollback
-        const buffer = terminal.buffer.active;
-        const lines = [];
-        // Get the entire buffer including scrollback
-        const totalLines = buffer.baseY + buffer.cursorY + 1; // Total lines including scrollback
-        console.log('[PromptQueue] Reading buffer - total lines:', totalLines, 'baseY:', buffer.baseY, 'cursorY:', buffer.cursorY);
+      }
+      // Method 3: Read directly from xterm buffer
+      else if (terminal.terminal && terminal.terminal.buffer && terminal.terminal.buffer.active) {
+        const buffer = terminal.terminal.buffer.active;
+        const scrollback = terminal.terminal.buffer.baseY || 0;
+        const viewport = terminal.terminal.rows || 24;
+        const totalLines = scrollback + viewport;
 
-        for (let i = 0; i < totalLines && i < buffer.length; i++) {
+        for (let i = 0; i <= totalLines; i++) {
           const line = buffer.getLine(i);
           if (line) {
-            lines.push(line.translateToString(true));
+            currentContent += line.translateToString(true) + '\n';
           }
         }
-        currentContent = lines.join('\n');
-      } else {
-        console.log('[PromptQueue] Cannot access terminal buffer');
+      }
+
+      if (!currentContent) {
+        console.log('[PromptQueue] Could not read terminal content');
         return;
       }
 
-      console.log('[PromptQueue] Completion check - Buffer length:', currentContent.length);
-      console.log('[PromptQueue] Completion check - Last 300 chars:', JSON.stringify(currentContent.slice(-300)));
+      // Enhanced debugging
+      console.log('[PromptQueue] Buffer check:', {
+        length: currentContent.length,
+        lastChar: currentContent[currentContent.length - 1],
+        last50: currentContent.slice(-50)
+      });
 
-      // Log specific patterns we're looking for
-      const hasHumanText = currentContent.includes('Human:');
-      const hasAssistantText = currentContent.includes('Assistant:');
-      const hasCursor = currentContent.includes('▋') || currentContent.includes('█');
-
-      console.log('[PromptQueue] Pattern check - Has Human:', hasHumanText,
-                  '| Has Assistant:', hasAssistantText,
-                  '| Has cursor:', hasCursor);
+      // Log first check details
+      if (contentStableCount === 0 && lastTerminalContent === '') {
+        console.log('[PromptQueue] First check - Full content:', currentContent);
+      }
 
       const lowerContent = currentContent.toLowerCase();
 
@@ -430,39 +516,56 @@
         hasPromptBox = true;
       }
 
-      // Check for cursor at the end (strong indicator of ready state)
-      const hasActiveCursor = currentContent.endsWith('█') || currentContent.endsWith('▊') ||
-                             currentContent.endsWith('▋') || currentContent.endsWith('▌');
-
-      // Check if content has stopped changing (indicating completion)
+      // Check if content has stopped changing
       if (currentContent === lastTerminalContent) {
         contentStableCount++;
         console.log('[PromptQueue] Content unchanged, stable count:', contentStableCount);
       } else {
-        console.log('[PromptQueue] Content changed, resetting stable count. Length diff:',
-                    currentContent.length - lastTerminalContent.length);
-        contentStableCount = 0;
+        // Content changed - check if significant change
+        const diff = currentContent.length - lastTerminalContent.length;
+        if (diff > 0) {
+          console.log('[PromptQueue] Content grew by', diff, 'chars');
+          contentStableCount = 0;
+        } else if (diff < 0) {
+          // Content shrunk? Might be clearing
+          console.log('[PromptQueue] Content shrunk by', Math.abs(diff), 'chars');
+          contentStableCount = 0;
+        }
         lastTerminalContent = currentContent;
       }
 
-      // Check if prompt box has reappeared after being hidden
-      const promptBoxReappeared = hasPromptBox && !lastPromptBoxSeen && contentStableCount > 0;
-      lastPromptBoxSeen = hasPromptBox;
+      // Simple completion detection:
+      // 1. Content must have grown since we started (response received)
+      // 2. Content must be stable for at least 2 checks (8 seconds)
+      // 3. We see a prompt pattern OR it's been stable for 3+ checks
 
-      // SIMPLIFIED completion detection:
-      // Just check if content grew and then stabilized (no changes for 2 checks = 8 seconds)
-      const contentGrew = currentContent.length > initialContentLength + 50;
+      const hasGrown = currentContent.length > initialContentLength + 100;
       const isStable = contentStableCount >= 2;
+      const veryStable = contentStableCount >= 3;
+      const hasHumanPrompt = lowerContent.includes('human:');
 
-      // If content grew and is now stable, Claude has finished responding
-      if (contentGrew && isStable) {
+      // Log the state
+      if (contentStableCount === 1 || contentStableCount % 2 === 0) {
+        console.log('[PromptQueue] State:', {
+          grown: hasGrown ? `+${currentContent.length - initialContentLength}` : 'no',
+          stable: contentStableCount,
+          hasPrompt: hasPromptBox || hasHumanPrompt
+        });
+      }
+
+      // Consider completed if:
+      // 1. We see "Human:" (definitive)
+      // 2. Content grew and is stable with prompt indicators
+      // 3. Content grew and is very stable (fallback)
+      if (hasHumanPrompt || (hasGrown && isStable && hasPromptBox) || (hasGrown && veryStable)) {
         console.log('[PromptQueue] Prompt completion detected:', promptId,
-          'contentGrew:', contentGrew,
-          'isStable:', isStable,
-          'stable:', contentStableCount,
-          'contentGrew:', contentGrew);
+          'hasGrown:', hasGrown,
+          'hasHumanPrompt:', hasHumanPrompt,
+          'hasPromptBox:', hasPromptBox,
+          'stable:', contentStableCount);
         clearInterval(checkInterval);
-          
+        clearTimeout(timeoutFallback);
+
           // Find the prompt and mark it completed
           const currentItems = get(promptQueueStore).items;
           const prompt = currentItems.find(item => item.id === promptId);
@@ -609,19 +712,15 @@
     if (isRunning) {
       console.log('[PromptQueue] Stopping queue processing');
       promptQueueStore.stop();
-      stopClaudeMonitoring();
+      // No need to stop monitoring - we're event-driven now
     } else {
-      console.log('[PromptQueue] Starting queue processing - BUILD VERSION 5');
-      console.error('[BUILD TEST V5] If you see this RED message, new code is running');
+      console.log('[PromptQueue] Starting queue processing - EVENT-DRIVEN VERSION');
       promptQueueStore.start();
-      startClaudeMonitoring(); // Start monitoring when play is pressed
 
-      // When starting, immediately try to send the first prompt
-      // Don't wait for "ready" check on initial start
+      // Send the first prompt immediately
       const nextPrompt = promptQueueStore.getNextPending();
       if (nextPrompt) {
         console.log('[PromptQueue] Starting with prompt:', nextPrompt.text);
-        console.error('[BUILD TEST V5] About to call processNextPromptDirect');
         // Process immediately without ready check
         processNextPromptDirect();
       } else {

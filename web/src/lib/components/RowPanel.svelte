@@ -803,13 +803,20 @@
   <div class="panel-content">
     {#if component}
       {#if panel.type === 'terminal' || panel.type === 'claude'}
-        <svelte:component 
-          this={component} 
+        <svelte:component
+          this={component}
           bind:this={componentInstance}
           {websocketUrl}
           panelId={panel.id}
           autoLaunchClaude={panel.type === 'claude'}
           on:ready={handleTerminalReady}
+          on:claude-idle={() => {
+            console.log('[RowPanel] Claude idle event received from panel:', panel.id);
+            // Dispatch a global event that PromptQueue can listen to
+            window.dispatchEvent(new CustomEvent('claude-idle', {
+              detail: { panelId: panel.id }
+            }));
+          }}
         />
       {:else if panel.type === 'fileExplorer' || panel.type === 'file-explorer'}
         <svelte:component 

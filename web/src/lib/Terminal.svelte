@@ -55,6 +55,12 @@
   let orientationChangeHandler: (() => void) | null = null;
   
   const dispatch = createEventDispatcher();
+
+  // Claude idle detection state
+  let claudeIdleTimeout: number | null = null;
+  let lastDataReceived: number = 0;
+  let claudeState: 'idle' | 'responding' = 'idle';
+  let accumulatedOutput: string = ''; // Track recent output for pattern detection
   
   // Check if running on remote server (not localhost)
   function isRemoteServer(): boolean {
@@ -435,6 +441,58 @@
                 }
               }
               write(message.payload.data);
+
+              // Claude idle detection (only for Claude terminals)
+              if (autoLaunchClaude) {
+                const data = message.payload.data;
+                lastDataReceived = Date.now();
+                claudeState = 'responding';
+
+                // Accumulate recent output (keep last 500 chars)
+                accumulatedOutput += data;
+                if (accumulatedOutput.length > 500) {
+                  accumulatedOutput = accumulatedOutput.slice(-500);
+                }
+
+                // Clear any existing timeout
+                if (claudeIdleTimeout) {
+                  clearTimeout(claudeIdleTimeout);
+                }
+
+                // Set timeout to check for idle state
+                claudeIdleTimeout = setTimeout(() => {
+                  // Check if we have Claude's prompt indicator at the end
+                  const lowerOutput = accumulatedOutput.toLowerCase();
+                  const trimmedOutput = accumulatedOutput.trim();
+
+                  // Claude Code uses ">" as the prompt with a separator line before it
+                  // Check for the pattern of separator line followed by ">"
+                  const hasClaudeCodePrompt = trimmedOutput.endsWith('>') ||
+                                             accumulatedOutput.includes('───') && trimmedOutput.endsWith('>');
+
+                  // Also check for regular Claude's "Human:" prompt
+                  const hasRegularClaudePrompt = trimmedOutput.endsWith('human:') ||
+                                                trimmedOutput.endsWith('h:') ||
+                                                (lowerOutput.includes('human:') && Date.now() - lastDataReceived > 2000);
+
+                  if (hasClaudeCodePrompt || hasRegularClaudePrompt) {
+                    // Claude is idle and ready for input
+                    if (claudeState !== 'idle') {
+                      claudeState = 'idle';
+                      console.log('[Terminal] Claude is idle, dispatching claude-idle event');
+                      console.log('[Terminal] Last 100 chars of output:', accumulatedOutput.slice(-100));
+                      dispatch('claude-idle');
+                    }
+                  } else if (Date.now() - lastDataReceived > 3000) {
+                    // No data for 3 seconds, assume idle
+                    if (claudeState !== 'idle') {
+                      claudeState = 'idle';
+                      console.log('[Terminal] Claude is idle (timeout), dispatching claude-idle event');
+                      dispatch('claude-idle');
+                    }
+                  }
+                }, 2000); // Check 2 seconds after last data
+              }
             }
             break;
           case 'ERROR':

@@ -17,7 +17,7 @@
     "cleanup:claude": "./scripts/cleanup-claude.sh",
     "cleanup:claude:force": "./scripts/cleanup-claude.sh --force",
     "prepublishOnly": "cp README.npm.md README.md",
-    "postpublish": "git checkout README.md",
+    "postpublish": "rm -f README.md",
     "postinstall": "node scripts/postinstall-simple.js || exit 0"
   },
   "devDependencies": {

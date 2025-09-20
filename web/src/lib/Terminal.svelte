@@ -4,7 +4,11 @@
   import { settings } from '$lib/panels/Settings/settings-store';
   import { fade } from 'svelte/transition';
   import logger from '$lib/utils/browser-logger';
-  
+
+  // TEMPORARILY REMOVED ALL CONSOLE FILTERING FOR DEBUGGING
+  // We need to see the actual output to debug the claude-idle detection
+  console.log('✅✅✅ Terminal.svelte loaded - console logging is ENABLED ✅✅✅');
+
   // Global terminal instances for debugging - types defined in src/types/terminal.d.ts
   
   let Terminal: any;
@@ -192,11 +196,12 @@
   
   export function write(data: string) {
     if (terminal) {
-      console.log('[Terminal.write] Writing data:', {
-        dataLength: data.length,
-        dataPreview: data.substring(0, 50),
-        terminalExists: !!terminal
-      });
+      // Commented out to reduce spam
+      // console.log('[Terminal.write] Writing data:', {
+      //   dataLength: data.length,
+      //   dataPreview: data.substring(0, 50),
+      //   terminalExists: !!terminal
+      // });
       // For small amounts of data or when viewport is small, write immediately
       const viewport = getViewportInfo();
       if (data.length < 100 || viewport.isSmall) {
@@ -358,7 +363,13 @@
       ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        console.log('Received message:', message.type);
+        // Only log claude-idle related messages
+        if (message.type === 'OUTPUT' && autoLaunchClaude) {
+          // Will log in the OUTPUT handler below
+        } else if (message.type !== 'OUTPUT') {
+          // Log non-OUTPUT messages briefly
+          // console.log('🌐 WebSocket:', message.type);
+        }
         
         switch (message.type) {
           case 'CONNECTED':
@@ -418,19 +429,7 @@
             dispatch('agent', { status: 'No agent' });
             break;
           case 'OUTPUT':
-            console.log('[Terminal] OUTPUT message received:', {
-              hasPayload: !!message.payload,
-              hasData: !!message.payload?.data,
-              dataLength: message.payload?.data?.length,
-              dataPreview: message.payload?.data?.substring(0, 50)
-            });
             if (message.payload?.data) {
-              console.log('[Terminal] Received OUTPUT message:', {
-                dataLength: message.payload.data.length,
-                dataPreview: message.payload.data.substring(0, 50),
-                hasTerminal: !!terminal,
-                isInitializing
-              });
               // Immediately hide loading overlay on first output
               if (isInitializing) {
                 console.log('[Terminal] First output received, hiding loading overlay');
@@ -454,6 +453,17 @@
                   accumulatedOutput = accumulatedOutput.slice(-500);
                 }
 
+                // Only log significant changes to reduce spam
+                // We'll log when Claude becomes idle below
+
+                // Only log significant terminal content to reduce spam
+                const cleanData = data.replace(/\x1b\[[0-9;]*[mGKHJ]/g, '').trim();
+
+                // Only log if this looks like important output (not just cursor movements)
+                if (cleanData && cleanData.length > 5 && !cleanData.match(/^\[\d+[A-Z]$/)) {
+                  console.log('📟 Terminal:', cleanData.substring(0, 80));
+                }
+
                 // Clear any existing timeout
                 if (claudeIdleTimeout) {
                   clearTimeout(claudeIdleTimeout);
@@ -475,23 +485,72 @@
                                                 trimmedOutput.endsWith('h:') ||
                                                 (lowerOutput.includes('human:') && Date.now() - lastDataReceived > 2000);
 
-                  if (hasClaudeCodePrompt || hasRegularClaudePrompt) {
+                  // Check for "esc to interrupt" text - when it's NOT present, Claude is idle
+                  const hasEscToInterrupt = accumulatedOutput.toLowerCase().includes('esc to interrupt');
+
+                  // Log check status once
+                  if (hasEscToInterrupt) {
+                    console.log('⏳ Claude still responding ("esc to interrupt" present)');
+                  }
+
+                  // Store the detection data globally for debugging
+                  if (typeof window !== 'undefined') {
+                    window.claudeDetectionData = {
+                      timestamp: new Date().toISOString(),
+                      hasEscToInterrupt,
+                      hasClaudeCodePrompt,
+                      hasRegularClaudePrompt,
+                      last100Chars: accumulatedOutput.slice(-100),
+                      fullAccumulatedOutput: accumulatedOutput,
+                      claudeState
+                    };
+                  }
+
+                  // Simplified: Just check if "esc to interrupt" is gone
+                  if (!hasEscToInterrupt && accumulatedOutput.length > 10) {
                     // Claude is idle and ready for input
                     if (claudeState !== 'idle') {
                       claudeState = 'idle';
-                      console.log('[Terminal] Claude is idle, dispatching claude-idle event');
-                      console.log('[Terminal] Last 100 chars of output:', accumulatedOutput.slice(-100));
+                      console.log('');
+                      console.log('🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯');
+                      console.log('🎯 CLAUDE IS NOW IDLE - DISPATCHING EVENT! 🎯');
+                      console.log('🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯');
+                      console.log('✅ No "esc to interrupt" found (Claude finished)');
+                      console.log('✅ Claude prompt detected:', hasClaudeCodePrompt ? '>' : hasRegularClaudePrompt ? 'human:' : 'unknown');
+                      console.log('📄 Last output:', accumulatedOutput.slice(-100).replace(/\x1b\[[0-9;]*[mGKHJ]/g, ''));
+                      console.log('🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯');
+                      console.log('');
+
+                      // Also store this specific idle event
+                      if (typeof window !== 'undefined') {
+                        window.lastClaudeIdleEvent = {
+                          timestamp: new Date().toISOString(),
+                          output: accumulatedOutput
+                        };
+                      }
+
                       dispatch('claude-idle');
                     }
                   } else if (Date.now() - lastDataReceived > 3000) {
                     // No data for 3 seconds, assume idle
                     if (claudeState !== 'idle') {
                       claudeState = 'idle';
-                      console.log('[Terminal] Claude is idle (timeout), dispatching claude-idle event');
+                      console.log('[Terminal] 🕐 CLAUDE IS IDLE (3s timeout) - DISPATCHING EVENT');
+                      console.log('[Terminal] Time since last data:', Date.now() - lastDataReceived, 'ms');
+                      console.log('[Terminal] Last output:', accumulatedOutput.slice(-100));
+
+                      if (typeof window !== 'undefined') {
+                        window.lastClaudeIdleEvent = {
+                          timestamp: new Date().toISOString(),
+                          reason: 'timeout',
+                          output: accumulatedOutput
+                        };
+                      }
+
                       dispatch('claude-idle');
                     }
                   }
-                }, 2000); // Check 2 seconds after last data
+                }, 4000); // Check 4 seconds after last data to ensure Claude is done
               }
             }
             break;
@@ -1623,15 +1682,16 @@
       );
       
       if (relevantMutation) {
-        console.log('[Terminal.MutationObserver] DOM change detected:', {
-          type: relevantMutation.type,
-          target: relevantMutation.target,
-          attributeName: relevantMutation.attributeName,
-          addedNodes: relevantMutation.addedNodes?.length || 0,
-          removedNodes: relevantMutation.removedNodes?.length || 0,
-          containerRect: terminalContainer?.getBoundingClientRect(),
-          xtermRect: terminalContainer?.querySelector('.xterm')?.getBoundingClientRect()
-        });
+        // Commented out to reduce spam
+        // console.log('[Terminal.MutationObserver] DOM change detected:', {
+        //   type: relevantMutation.type,
+        //   target: relevantMutation.target,
+        //   attributeName: relevantMutation.attributeName,
+        //   addedNodes: relevantMutation.addedNodes?.length || 0,
+        //   removedNodes: relevantMutation.removedNodes?.length || 0,
+        //   containerRect: terminalContainer?.getBoundingClientRect(),
+        //   xtermRect: terminalContainer?.querySelector('.xterm')?.getBoundingClientRect()
+        // });
       }
     });
     

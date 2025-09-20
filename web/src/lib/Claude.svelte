@@ -10,9 +10,12 @@
   export let terminalSessionId: string | null = null;
 </script>
 
-<Terminal 
-  {websocketUrl} 
+<Terminal
+  {websocketUrl}
   {panelId}
   autoLaunchClaude={true}
   bind:terminalSessionId
+  on:claude-idle
+  on:ready
+  on:agent
 />

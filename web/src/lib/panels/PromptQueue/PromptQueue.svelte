@@ -51,7 +51,14 @@
 
     // Listen for claude-idle events
     claudeIdleHandler = (event: CustomEvent) => {
-      console.log('[PromptQueue] Received claude-idle event:', event.detail);
+      console.log('');
+      console.log('🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯');
+      console.log('📬 [PromptQueue] RECEIVED CLAUDE-IDLE EVENT! 📬');
+      console.log('🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯');
+      console.log('[PromptQueue] Event detail:', event.detail);
+      console.log('[PromptQueue] Queue is running?', isRunning);
+      console.log('🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯');
+      console.log('');
 
       // Only process if queue is running
       if (!isRunning) return;

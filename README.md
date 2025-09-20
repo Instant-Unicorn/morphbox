@@ -1,25 +1,63 @@
-# MorphBox 🚀
+# MorphBox
 
 [![npm version](https://img.shields.io/npm/v/morphbox.svg)](https://www.npmjs.com/package/morphbox)
 [![Docker](https://img.shields.io/badge/Docker-Required-blue)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20|%20Linux%20|%20Windows-lightgrey)](https://github.com/MicahBly/morphbox)
 
-> **Run Claude AI in a secure Docker sandbox with full development tools** - Perfect for AI-assisted coding, learning, and experimentation in an isolated environment.
+> **An open-source development sandbox empowering the community to explore Anthropic Claude SDK features through secure, isolated environments - work from anywhere, including mobile and remote setups.**
 
-![MorphBox Demo](docs/images/morphbox-demo.gif)
+## 🎯 Project Vision
 
-## ✨ Why MorphBox?
+MorphBox is an open-source project designed to democratize AI-assisted development by providing a secure, containerized environment where developers can experiment with Claude AI SDK features and custom integrations. Whether you're working from a mobile device, remote server, or local machine, MorphBox ensures consistent, isolated development experiences.
 
-MorphBox gives you a **secure, isolated environment** where Claude AI can help you code without accessing your main system. Think of it as a playground where you can:
+### Key Innovation: Prompt Queue System
 
-- 🤖 **Code with Claude** - Built-in AI assistant for pair programming
-- 🔒 **Stay Secure** - Complete isolation from your host system
-- 📁 **Access Your Files** - Mount any directory as workspace
-- 🚀 **Start Fast** - Up and running in under 30 seconds
-- 💾 **Keep Your Work** - Persistent storage across sessions
+Our **Prompt Queue** feature enables autonomous, long-running AI sessions that continue processing tasks even when you're away. Queue up complex workflows, let Claude work through them systematically, and return to completed results - perfect for overnight builds, large refactoring tasks, or continuous integration workflows.
 
-## 🎯 Quick Start
+## 🚀 Features
+
+### Core Capabilities
+
+- **🤖 Claude SDK Integration** - Full access to Anthropic's Claude API with community-driven extensions
+- **📱 Mobile & Remote Ready** - Access your development environment from any device, anywhere
+- **🔄 Prompt Queue System** - Queue multiple tasks for autonomous execution over extended periods
+- **🐳 Complete Isolation** - Docker-based sandboxing protects your host system
+- **🛠️ SDK Experimentation** - Test and develop custom Claude integrations safely
+- **👥 Community Driven** - Share configurations, prompts, and workflows with the community
+- **⚡ Rapid Prototyping** - Pre-configured development environment with all essential tools
+- **🔌 Extensible Architecture** - Plugin system for custom tools and integrations
+
+### Prompt Queue System
+
+The Prompt Queue allows you to:
+- Queue multiple complex tasks for sequential execution
+- Run long-duration workflows autonomously
+- Schedule AI-assisted tasks for off-hours processing
+- Chain dependent operations with conditional logic
+- Monitor progress remotely via web interface
+
+Example workflow:
+```bash
+# Queue a complete refactoring session
+morphbox queue add "Analyze codebase for performance bottlenecks"
+morphbox queue add "Refactor identified bottlenecks with best practices"
+morphbox queue add "Generate comprehensive test suite"
+morphbox queue add "Run tests and fix any failures"
+morphbox queue start --autonomous  # Let it run unattended
+```
+
+## 📋 Prerequisites
+
+- **Docker Desktop** or **Docker Engine** (20.10+)
+- **Node.js** (14+) for npm installation
+- **Operating System**:
+  - macOS 11+ (Big Sur or later)
+  - Linux (Ubuntu 20.04+, Debian 11+, Fedora 34+)
+  - Windows 10/11 with WSL2
+  - iOS/Android (via web interface)
+
+## 🚀 Quick Start
 
 ```bash
 # Install globally via npm
@@ -28,107 +66,39 @@ npm install -g morphbox
 # Start MorphBox (mounts current directory)
 morphbox
 
-# Or use without installing
-npx morphbox
+# Access from browser (including mobile)
+# http://localhost:8008
 ```
 
-That's it! MorphBox will:
-1. ✅ Check Docker is installed
-2. ✅ Build the secure container
-3. ✅ Launch the web interface at `http://localhost:8008`
-4. ✅ Mount your current directory as `/workspace`
-
-## 🎮 Usage Examples
-
-### Basic Commands
-
+For mobile/remote access:
 ```bash
-morphbox              # Start with web interface (default)
-morphbox --terminal   # Start Claude in your terminal
-morphbox --config     # Generate morphbox.yml configuration file
-morphbox --vpn        # Bind to VPN interface for team access
-morphbox --help       # Show all options
+# Bind to network interface for remote access
+morphbox --vpn --auth
+
+# Or expose via secure tunnel (recommended for mobile)
+morphbox --tunnel
 ```
-
-### Real-World Scenarios
-
-**Learn a New Framework:**
-```bash
-cd my-react-project
-morphbox
-# Ask Claude: "Help me convert this to Next.js 14 with App Router"
-```
-
-**Code Review:**
-```bash
-cd legacy-codebase
-morphbox
-# Ask Claude: "Review this code for security issues and suggest improvements"
-```
-
-**Build a Feature:**
-```bash
-cd my-app
-morphbox
-# Ask Claude: "Help me add user authentication with JWT tokens"
-```
-
-## 🛠️ Features
-
-### Core Capabilities
-
-| Feature | Description |
-|---------|------------|
-| **🤖 Claude Integration** | Full Claude AI assistant with code-aware context |
-| **🐳 Docker Isolation** | Complete sandbox - no access to host system |
-| **📁 Workspace Mounting** | Your current directory available as `/workspace` |
-| **🖥️ Terminal Access** | Full bash terminal with tmux support |
-| **🌐 Web Interface** | Modern UI with panels for terminals and Claude |
-| **⚡ Fast Startup** | Container starts in seconds after first build |
-| **💾 Persistent Storage** | Claude config and data persists between sessions |
-| **🔐 Security First** | Network isolation with configurable access |
-
-### Access Modes
-
-- **Local (default)** - Accessible only from your machine (`localhost`)
-- **VPN Mode** - Auto-binds to VPN interface for secure team access
-- **External** ⚠️ - Expose to entire network (requires `--auth` flag and confirmation)
-
-### Pre-installed Tools
-
-- **Languages**: Node.js 20 LTS, Python 3.12, Go, Rust
-- **Package Managers**: npm, pip, cargo, yarn, pnpm
-- **Dev Tools**: git, vim, tmux, curl, wget, jq
-- **Build Tools**: gcc, make, cmake
-- **Claude Tools**: Claude CLI pre-configured
-
-## 📋 Requirements
-
-- **Docker Desktop** or **Docker Engine** (20.10+)
-- **Node.js** (14+ for npm installation)
-- **Operating System**:
-  - macOS 11+ (Big Sur or later)
-  - Linux (Ubuntu 20.04+, Debian 11+, Fedora 34+)
-  - Windows 10/11 with WSL2
 
 ## 📦 Installation
 
-### Method 1: npm (Recommended)
+### Recommended: npm/yarn
 
 ```bash
 npm install -g morphbox
+# or
+yarn global add morphbox
 ```
 
-### Method 2: Direct from Source
+### From Source
 
 ```bash
 git clone https://github.com/MicahBly/morphbox.git
-cd morphbox/web
+cd morphbox
 npm install
 npm link
 ```
 
-### Method 3: No Installation (npx)
+### Quick Run (npx)
 
 ```bash
 npx morphbox
@@ -136,179 +106,121 @@ npx morphbox
 
 ## 🔧 Configuration
 
-### Container Configuration (New in v0.9.6)
+### Community Configurations
 
-Generate a configuration file to customize your container:
+Browse and share configurations at [iu.dev/morphbox](https://iu.dev/morphbox)
 
-```bash
-morphbox --config  # Creates morphbox.yml in current directory
-```
+### Custom SDK Features
 
-Edit `morphbox.yml` to customize:
-- Install additional packages (vim, htop, etc.)
-- Set environment variables
-- Configure network allowlist/blocklist
-- Set resource limits (memory, CPU)
-- Pre-install language runtimes (Node.js, Python, Go)
-- Add custom startup scripts
+Create `morphbox.yml` to define custom Claude integrations:
 
-Example `morphbox.yml`:
 ```yaml
-container:
-  packages:
-    - postgresql-client
-    - redis-tools
-  environment:
-    EDITOR: vim
-network:
-  allowlist:
-    - github.com
-    - "*.googleapis.com"
-security:
-  memory_limit: "2g"
+# morphbox.yml
+sdk:
+  claude:
+    model: claude-3-opus
+    custom_tools:
+      - code_analyzer
+      - test_generator
+    prompt_templates:
+      - refactoring
+      - documentation
+
+prompt_queue:
+  max_concurrent: 2
+  timeout_minutes: 120
+  retry_failed: true
+
 development:
   runtimes:
     node: "20"
-    python: "3.11"
+    python: "3.12"
+  frameworks:
+    - react
+    - django
+    - fastapi
 ```
 
 ### Environment Variables
 
-Create a `.morphbox.env` file in your project:
-
-```env
-# Network binding
-MORPHBOX_HOST=localhost
-MORPHBOX_PORT=8008
-
-# Security
-MORPHBOX_AUTH_ENABLED=false
-MORPHBOX_AUTH_USERNAME=admin
-
-# Claude API (optional - for API access)
+```bash
+# .morphbox.env
 ANTHROPIC_API_KEY=your-key-here
+MORPHBOX_QUEUE_ENABLED=true
+MORPHBOX_REMOTE_ACCESS=true
+MORPHBOX_AUTH_TOKEN=secure-token-here
 ```
 
-## 🚀 Advanced Usage
+## 📱 Mobile & Remote Development
 
-### Terminal Mode
+### Mobile Access
 
-For a pure terminal experience without the web UI:
+1. Start MorphBox with tunnel support:
+```bash
+morphbox --tunnel --auth
+```
+
+2. Access the provided URL from any mobile browser
+3. Full IDE features including:
+   - Code editing with mobile-optimized UI
+   - Terminal access with virtual keyboard support
+   - Claude AI assistant with voice input
+   - File management and version control
+
+### Remote Server Deployment
 
 ```bash
-morphbox --terminal
+# On remote server
+docker run -d \
+  -p 8008:8008 \
+  -v $(pwd):/workspace \
+  -e MORPHBOX_AUTH=true \
+  morphbox/morphbox:latest
 ```
 
-This launches Claude directly in your terminal with full access to the mounted workspace.
+## 🤝 Community & Contribution
 
-### External Access Mode
+### Get Involved
 
-⚠️ **WARNING: Security Risk** - Only use on trusted networks!
+- **Share Configurations**: Submit your custom setups at [iu.dev/morphbox](https://iu.dev/morphbox)
+- **Contribute Code**: See [CONTRIBUTING.md](CONTRIBUTING.md)
+- **Report Issues**: [GitHub Issues](https://github.com/MicahBly/morphbox/issues)
+- **Join Discussions**: [GitHub Discussions](https://github.com/MicahBly/morphbox/discussions)
 
-External mode exposes MorphBox to your network (not just localhost):
+### Community Resources
 
-```bash
-# Requires --auth flag for security
-morphbox --external --auth
-
-# You'll see a security warning and must confirm:
-# "WARNING: External mode exposes MorphBox to your network!"
-# "This could allow others on your network to access your development environment."
-```
-
-**Security Considerations**:
-- **ALWAYS** use `--auth` flag with external mode
-- Only use on trusted, private networks
-- Consider using VPN mode instead for team access
-- External mode binds to `0.0.0.0` (all network interfaces)
-- Without `--auth`, external mode will be rejected
-
-### Team Collaboration (VPN Mode)
-
-Safer alternative for team access using VPN:
-
-```bash
-morphbox --vpn --auth
-```
-
-This automatically detects and binds to your VPN interface only, limiting access to VPN-connected clients. Team members can connect to `http://your-vpn-ip:8008` with authentication.
-
-### API Integration
-
-MorphBox exposes a REST API for automation:
-
-```bash
-# Start a session
-curl -X POST http://localhost:8008/api/sessions
-
-# Send a command to Claude
-curl -X POST http://localhost:8008/api/claude/message \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Write a Python script to process CSV files"}'
-```
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**Docker not found:**
-```bash
-# Install Docker Desktop from https://docker.com
-# Or on Linux:
-curl -fsSL https://get.docker.com | sh
-```
-
-**Permission denied:**
-```bash
-# Add user to docker group (Linux)
-sudo usermod -aG docker $USER
-# Then log out and back in
-```
-
-**Port already in use:**
-```bash
-# MorphBox automatically finds next available port
-# Or specify manually:
-MORPHBOX_PORT=8080 morphbox
-```
-
-**Need to reset/rebuild container:**
-```bash
-# See Docker Cleanup Guide for detailed instructions
-docker stop morphbox-vm && docker rm morphbox-vm
-docker rmi $(docker images -q morphbox)
-```
-
-See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for more solutions.
+- **Configuration Library**: Pre-built configs for various development scenarios
+- **Prompt Templates**: Curated prompts for common development tasks
+- **SDK Extensions**: Community-developed Claude integrations
+- **Workflow Automations**: Shareable prompt queue workflows
 
 ## 📖 Documentation
 
 - [Getting Started Guide](docs/GETTING_STARTED.md)
-- [Configuration Guide](docs/CONFIGURATION.md)
-- [Docker Cleanup Guide](docs/DOCKER_CLEANUP.md)
-- [Tutorials](docs/TUTORIALS.md)
+- [Prompt Queue Documentation](docs/PROMPT_QUEUE.md)
+- [SDK Integration Guide](docs/SDK_INTEGRATION.md)
+- [Mobile Development Guide](docs/MOBILE_GUIDE.md)
 - [API Documentation](docs/API.md)
 - [Architecture Overview](docs/ARCHITECTURE.md)
-- [Troubleshooting](docs/TROUBLESHOOTING.md)
 
-## 🤝 Contributing
+## 🛡️ Security
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+MorphBox prioritizes security through:
+- Complete Docker isolation
+- No host system access by default
+- Encrypted communication for remote access
+- Authentication required for network exposure
+- Regular security audits by the community
 
-```bash
-# Fork and clone
-git clone https://github.com/yourusername/morphbox.git
-cd morphbox
+## 🚧 Roadmap
 
-# Install dependencies
-npm install
-
-# Run tests
-npm test
-
-# Start development
-npm run dev
-```
+- [ ] Enhanced prompt queue with visual workflow builder
+- [ ] Native mobile apps (iOS/Android)
+- [ ] Multi-model support (GPT-4, Gemini, etc.)
+- [ ] Collaborative coding sessions
+- [ ] VS Code extension
+- [ ] Kubernetes deployment options
+- [ ] Enhanced SDK plugin marketplace
 
 ## 📜 License
 
@@ -320,16 +232,19 @@ MIT © [Micah Bly](https://github.com/MicahBly)
 - Powered by [Docker](https://docker.com)
 - UI framework: [SvelteKit](https://kit.svelte.dev)
 - Terminal: [xterm.js](https://xtermjs.org)
+- Community contributions from developers worldwide
 
 ## 🔗 Links
 
+- [Official Website](https://iu.dev/morphbox)
 - [GitHub Repository](https://github.com/MicahBly/morphbox)
 - [NPM Package](https://www.npmjs.com/package/morphbox)
-- [Issue Tracker](https://github.com/MicahBly/morphbox/issues)
-- [Discussions](https://github.com/MicahBly/morphbox/discussions)
+- [Community Configurations](https://iu.dev/morphbox)
+- [Discord Community](https://discord.gg/morphbox)
 
 ---
 
 <p align="center">
-  Made with ❤️ for developers who want to code with AI safely
+  <strong>Empowering developers to explore AI possibilities, together</strong><br>
+  Built by the community, for the community
 </p>

@@ -371,7 +371,7 @@ services:
       - $SCRIPT_DIR:/workspace/morphbox
       # Persist bash history and other user data (unique per instance)
       - claude-home-$WEB_PORT:/home/morphbox
-      # Persist Claude updates (shared across instances)
+      # Persist Claude updates (prevents re-downloads)
       - claude-npm-cache:/usr/local/lib/node_modules
       - claude-npm-bin:/usr/local/bin
     environment:
@@ -545,14 +545,15 @@ info "Instance tracking saved to $PID_FILE"
 
 # Save instance information for management
 node -e "
-const { saveInstance } = require('$SCRIPT_DIR/scripts/port-finder.js');
-saveInstance({
-  webPort: $WEB_PORT,
-  wsPort: $WS_PORT,
-  host: '$BIND_HOST',
-  containerName: '$CONTAINER_NAME',
-  workspace: '$USER_DIR',
-  pid: process.pid
+import('$SCRIPT_DIR/scripts/port-finder.js').then(({ saveInstance }) => {
+  saveInstance({
+    webPort: $WEB_PORT,
+    wsPort: $WS_PORT,
+    host: '$BIND_HOST',
+    containerName: '$CONTAINER_NAME',
+    workspace: '$USER_DIR',
+    pid: process.pid
+  });
 });
 " 2>/dev/null || true
 
@@ -616,8 +617,9 @@ cleanup() {
 
     # Remove instance from tracking
     node -e "
-    const { removeInstance } = require('$SCRIPT_DIR/scripts/port-finder.js');
-    removeInstance($WEB_PORT);
+    import('$SCRIPT_DIR/scripts/port-finder.js').then(({ removeInstance }) => {
+      removeInstance($WEB_PORT);
+    });
     " 2>/dev/null || true
     
     # Automatically stop Docker container

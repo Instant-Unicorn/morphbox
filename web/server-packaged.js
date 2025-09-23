@@ -17,14 +17,12 @@ const terminalMode = args.includes('--terminal');
 const path = env('SOCKET_PATH', false);
 const host = env('HOST', env('MORPHBOX_HOST', '127.0.0.1'));
 const port = env('PORT', !path && '8008');
-const wsPort = env('WS_PORT', '8009');
 
 console.log('[INFO] Starting MorphBox packaged server...');
 console.log('[DEBUG] Environment variables:');
 console.log('  - SOCKET_PATH:', path);
 console.log('  - HOST:', host);
 console.log('  - PORT:', port);
-console.log('  - WS_PORT:', wsPort);
 
 // For packaged version, WebSocket server runs inside Docker container
 console.log('[INFO] WebSocket server is provided by Docker container');

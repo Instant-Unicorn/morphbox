@@ -10,6 +10,10 @@ export MORPHBOX_PACKAGED="true"
 # This ensures we get the user's actual working directory
 INITIAL_PWD="$(pwd)"
 
+# Get script directory FIRST before we need it
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
+WEB_DIR="$SCRIPT_DIR"
+
 # Use Node.js lock manager for cross-platform compatibility
 LOCK_ACQUIRED=false
 
@@ -40,9 +44,6 @@ NC='\033[0m'
 info() { echo -e "${GREEN}[INFO]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
-
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
-WEB_DIR="$SCRIPT_DIR"
 
 # Load config from .morphbox.env if exists
 if [[ -f "$SCRIPT_DIR/.morphbox.env" ]]; then

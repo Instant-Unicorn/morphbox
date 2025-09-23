@@ -100,8 +100,9 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --vpn)
+            info "Detecting VPN interface..."
             # Auto-detect VPN interface IP
-            VPN_IP=$(ip addr show | grep -E "tailscale0|tun0|utun|wg0" | grep "inet " | awk '{print $2}' | cut -d/ -f1 | head -n1)
+            VPN_IP=$(ip addr show 2>/dev/null | grep -E "tailscale0|tun0|utun|wg0" | grep "inet " | awk '{print $2}' | cut -d/ -f1 | head -n1)
             if [[ -n "$VPN_IP" ]]; then
                 BIND_HOST="$VPN_IP"
                 ACCESS_MODE="vpn"
@@ -311,17 +312,35 @@ check_existing_instance() {
 
 # Find available ports
 info "Finding available ports..."
-PORT_RESULT=$(node "$SCRIPT_DIR/scripts/port-finder.js" find "$BIND_HOST")
-if [[ $? -ne 0 ]]; then
-    error "Failed to find available ports"
-fi
 
-# Parse the port result (using sed for compatibility, jq might not be available)
-WEB_PORT=$(echo $PORT_RESULT | sed -n 's/.*"webPort":\([0-9]*\).*/\1/p')
-WS_PORT=$(echo $PORT_RESULT | sed -n 's/.*"wsPort":\([0-9]*\).*/\1/p')
+# Check if port-finder exists
+if [[ ! -f "$SCRIPT_DIR/scripts/port-finder.js" ]]; then
+    warn "Port finder not found, using default ports"
+    WEB_PORT=8008
+    WS_PORT=8009
+else
+    # Try to run port-finder
+    PORT_RESULT=$(node "$SCRIPT_DIR/scripts/port-finder.js" find "$BIND_HOST" 2>&1)
+    PORT_FINDER_EXIT=$?
 
-if [[ -z "$WEB_PORT" ]] || [[ -z "$WS_PORT" ]]; then
-    error "Failed to parse port information"
+    if [[ $PORT_FINDER_EXIT -ne 0 ]]; then
+        warn "Port finder failed with exit code $PORT_FINDER_EXIT"
+        warn "Port finder output: $PORT_RESULT"
+        warn "Using default ports as fallback"
+        WEB_PORT=8008
+        WS_PORT=8009
+    else
+        # Parse the port result (using sed for compatibility, jq might not be available)
+        WEB_PORT=$(echo $PORT_RESULT | sed -n 's/.*"webPort":\([0-9]*\).*/\1/p')
+        WS_PORT=$(echo $PORT_RESULT | sed -n 's/.*"wsPort":\([0-9]*\).*/\1/p')
+
+        if [[ -z "$WEB_PORT" ]] || [[ -z "$WS_PORT" ]]; then
+            warn "Failed to parse port information from: $PORT_RESULT"
+            warn "Using default ports as fallback"
+            WEB_PORT=8008
+            WS_PORT=8009
+        fi
+    fi
 fi
 
 info "Using ports: $WEB_PORT (web), $WS_PORT (websocket)"

@@ -10,19 +10,25 @@ export MORPHBOX_PACKAGED="true"
 # This ensures we get the user's actual working directory
 INITIAL_PWD="$(pwd)"
 
-# Lock file to prevent multiple instances
-LOCK_FILE="/tmp/morphbox-startup.lock"
-LOCK_FD=200
+# Use Node.js lock manager for cross-platform compatibility
+LOCK_ACQUIRED=false
 
-# Acquire exclusive lock with timeout
-exec 200>"$LOCK_FILE"
-if ! flock -w 5 -x 200; then
+# Acquire lock using Node.js lock manager
+if node "$SCRIPT_DIR/scripts/lock-manager.js" acquire 5000 > /dev/null 2>&1; then
+    LOCK_ACQUIRED=true
+else
     echo "[ERROR] Another MorphBox instance is starting up. Please wait and try again."
     exit 1
 fi
 
 # Ensure lock is released on exit
-trap 'rm -f "$LOCK_FILE"' EXIT
+release_lock() {
+    if [[ "$LOCK_ACQUIRED" == "true" ]]; then
+        node "$SCRIPT_DIR/scripts/lock-manager.js" release > /dev/null 2>&1 || true
+        LOCK_ACQUIRED=false
+    fi
+}
+trap 'release_lock' EXIT
 
 # Colors
 GREEN='\033[0;32m'
@@ -51,6 +57,10 @@ AUTH_ENABLED=false
 TERMINAL_MODE=false
 MORPHBOX_AUTH_USERNAME=""
 MORPHBOX_AUTH_PASSWORD=""
+
+# Port variables (will be set dynamically)
+WEB_PORT=""
+WS_PORT=""
 
 # Apply bind mode
 if [[ "$ACCESS_MODE" == "external" ]]; then
@@ -202,6 +212,8 @@ elif [[ "$ACCESS_MODE" == "vpn" ]]; then
     fi
 fi
 
+info "Instance: $CONTAINER_NAME"
+
 # Function to check if port is in use and by what
 check_port_usage() {
     local port=$1
@@ -278,11 +290,30 @@ check_existing_instance() {
     fi
 }
 
+# Find available ports
+info "Finding available ports..."
+PORT_RESULT=$(node "$SCRIPT_DIR/scripts/port-finder.js" find "$BIND_HOST")
+if [[ $? -ne 0 ]]; then
+    error "Failed to find available ports"
+fi
+
+# Parse the port result (using sed for compatibility, jq might not be available)
+WEB_PORT=$(echo $PORT_RESULT | sed -n 's/.*"webPort":\([0-9]*\).*/\1/p')
+WS_PORT=$(echo $PORT_RESULT | sed -n 's/.*"wsPort":\([0-9]*\).*/\1/p')
+
+if [[ -z "$WEB_PORT" ]] || [[ -z "$WS_PORT" ]]; then
+    error "Failed to parse port information"
+fi
+
+info "Using ports: $WEB_PORT (web), $WS_PORT (websocket)"
+
+# Set container name based on port
+CONTAINER_NAME="morphbox-vm-$WEB_PORT"
+
 # Clean up any existing processes first
 cleanup_morphbox_processes
 
-# Check for port conflicts
-check_existing_instance
+# We don't need to check for existing instances anymore since we have unique ports
 
 # Start Docker container if not running
 info "Checking Docker container..."
@@ -294,18 +325,18 @@ USER_DIR="${MORPHBOX_USER_DIR:-$INITIAL_PWD}"
 info "User workspace: $USER_DIR"
 
 # Check if container exists (running or stopped)
-if docker ps -a | grep -q morphbox-vm; then
+if docker ps -a | grep -q "$CONTAINER_NAME"; then
     # Container exists - check if volumes are correct
-    CONTAINER_WORKSPACE=$(docker inspect morphbox-vm --format '{{ range .Mounts }}{{ if eq .Destination "/workspace" }}{{ .Source }}{{ end }}{{ end }}')
+    CONTAINER_WORKSPACE=$(docker inspect "$CONTAINER_NAME" --format '{{ range .Mounts }}{{ if eq .Destination "/workspace" }}{{ .Source }}{{ end }}{{ end }}')
     
     if [[ "$CONTAINER_WORKSPACE" != "$USER_DIR" ]]; then
         info "Container exists but with wrong workspace ($CONTAINER_WORKSPACE)"
         info "Removing old container to recreate with correct workspace..."
-        docker rm -f morphbox-vm 2>/dev/null || true
+        docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
         NEED_CREATE=true
-    elif ! docker ps | grep -q morphbox-vm; then
+    elif ! docker ps | grep -q "$CONTAINER_NAME"; then
         info "Starting existing MorphBox VM container..."
-        docker start morphbox-vm
+        docker start "$CONTAINER_NAME"
         sleep 2
         NEED_CREATE=false
     else
@@ -327,20 +358,20 @@ services:
     build:
       context: $SCRIPT_DIR/docker
       dockerfile: Dockerfile
-    container_name: morphbox-vm
-    hostname: morphbox-vm
+    container_name: $CONTAINER_NAME
+    hostname: $CONTAINER_NAME
     ports:
       - "2222:22"  # SSH port mapping
     volumes:
-      # Persist Claude authentication data
-      - claude-config:/home/morphbox/.config/claude-code
+      # Persist Claude authentication data (unique per instance)
+      - claude-config-$WEB_PORT:/home/morphbox/.config/claude-code
       # Mount USER'S CURRENT DIRECTORY as workspace (absolute path)
       - $USER_DIR:/workspace
       # Mount morphbox package directory for access to project files
       - $SCRIPT_DIR:/workspace/morphbox
-      # Persist bash history and other user data
-      - claude-home:/home/morphbox
-      # Persist Claude updates (prevents re-downloads)
+      # Persist bash history and other user data (unique per instance)
+      - claude-home-$WEB_PORT:/home/morphbox
+      # Persist Claude updates (shared across instances)
       - claude-npm-cache:/usr/local/lib/node_modules
       - claude-npm-bin:/usr/local/bin
     environment:
@@ -356,9 +387,9 @@ networks:
     driver: bridge
 
 volumes:
-  claude-config:
+  claude-config-$WEB_PORT:
     driver: local
-  claude-home:
+  claude-home-$WEB_PORT:
     driver: local
   claude-npm-cache:
     driver: local
@@ -380,7 +411,7 @@ check_claude_updates() {
     info "Checking for Claude updates..."
     
     # Get current version
-    CURRENT_VERSION=$(docker exec -u morphbox morphbox-vm npm list -g @anthropic-ai/claude-code 2>/dev/null | grep '@anthropic-ai/claude-code@' | sed 's/.*@anthropic-ai\/claude-code@//' | tr -d ' ')
+    CURRENT_VERSION=$(docker exec -u morphbox "$CONTAINER_NAME" npm list -g @anthropic-ai/claude-code 2>/dev/null | grep '@anthropic-ai/claude-code@' | sed 's/.*@anthropic-ai\/claude-code@//' | tr -d ' ')
     
     if [[ -z "$CURRENT_VERSION" ]]; then
         warn "Could not determine Claude version"
@@ -388,15 +419,15 @@ check_claude_updates() {
     fi
     
     # Check for updates (this will be silent if already up to date)
-    UPDATE_CHECK=$(docker exec -u morphbox morphbox-vm npm outdated -g @anthropic-ai/claude-code 2>/dev/null | grep '@anthropic-ai/claude-code' || true)
+    UPDATE_CHECK=$(docker exec -u morphbox "$CONTAINER_NAME" npm outdated -g @anthropic-ai/claude-code 2>/dev/null | grep '@anthropic-ai/claude-code' || true)
     
     if [[ -n "$UPDATE_CHECK" ]]; then
         LATEST_VERSION=$(echo "$UPDATE_CHECK" | awk '{print $4}')
         info "Claude update available: $CURRENT_VERSION → $LATEST_VERSION"
         info "Updating Claude in container..."
         
-        if docker exec -u morphbox morphbox-vm npm update -g @anthropic-ai/claude-code > /dev/null 2>&1; then
-            NEW_VERSION=$(docker exec -u morphbox morphbox-vm npm list -g @anthropic-ai/claude-code 2>/dev/null | grep '@anthropic-ai/claude-code@' | sed 's/.*@anthropic-ai\/claude-code@//' | tr -d ' ')
+        if docker exec -u morphbox "$CONTAINER_NAME" npm update -g @anthropic-ai/claude-code > /dev/null 2>&1; then
+            NEW_VERSION=$(docker exec -u morphbox "$CONTAINER_NAME" npm list -g @anthropic-ai/claude-code 2>/dev/null | grep '@anthropic-ai/claude-code@' | sed 's/.*@anthropic-ai\/claude-code@//' | tr -d ' ')
             info "Claude updated successfully to version $NEW_VERSION"
         else
             warn "Failed to update Claude - auto-update may still work inside the terminal"
@@ -413,11 +444,11 @@ check_claude_updates() {
 # Get local IP for external mode
 if [[ "$ACCESS_MODE" == "external" ]]; then
     LOCAL_IP=$(hostname -I | awk '{print $1}')
-    WS_URL="ws://${LOCAL_IP}:8009"
-    WEB_URL="http://${LOCAL_IP}:8008"
+    WS_URL="ws://${LOCAL_IP}:$WS_PORT"
+    WEB_URL="http://${LOCAL_IP}:$WEB_PORT"
 else
-    WS_URL="ws://localhost:8009"
-    WEB_URL="http://localhost:8008"
+    WS_URL="ws://localhost:$WS_PORT"
+    WEB_URL="http://localhost:$WEB_PORT"
 fi
 
 # Terminal mode - run Claude directly in terminal
@@ -452,7 +483,7 @@ if [[ "$TERMINAL_MODE" == "true" ]]; then
         -w "$CONTAINER_PATH" \
         -e "TERM=xterm-256color" \
         -e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}" \
-        morphbox-vm \
+        "$CONTAINER_NAME" \
         bash -c "claude || bash"
     
     # Exit after Claude exits
@@ -463,7 +494,8 @@ fi
 info "Starting WebSocket proxy..."
 # Set environment variables for WebSocket proxy (no password needed anymore)
 HOST="$BIND_HOST" \
-PORT=8009 \
+PORT=$WS_PORT \
+MORPHBOX_WEB_PORT=$WEB_PORT \
 MORPHBOX_VM_HOST="localhost" \
 MORPHBOX_VM_PORT=2222 \
 MORPHBOX_VM_USER="morphbox" \
@@ -480,8 +512,8 @@ MORPHBOX_AUTH_ENABLED="$MORPHBOX_AUTH_ENABLED" \
 MORPHBOX_AUTH_USERNAME="$MORPHBOX_AUTH_USERNAME" \
 MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
 HOST="$BIND_HOST" \
-PORT=8008 \
-WS_PORT=8009 \
+PORT=$WEB_PORT \
+WS_PORT=$WS_PORT \
 node "$WEB_DIR/server-packaged.js" > /tmp/morphbox-server.log 2>&1 &
 WEB_PID=$!
 
@@ -502,11 +534,27 @@ else
 fi
 
 # Store PIDs for tracking
-PID_FILE="/tmp/morphbox-${BIND_HOST//\./-}.pid"
+PID_FILE="/tmp/morphbox-${WEB_PORT}.pid"
 echo "WEB_PID=$WEB_PID" > "$PID_FILE"
 echo "WS_PID=$WS_PID" >> "$PID_FILE"
 echo "BIND_HOST=$BIND_HOST" >> "$PID_FILE"
+echo "WEB_PORT=$WEB_PORT" >> "$PID_FILE"
+echo "WS_PORT=$WS_PORT" >> "$PID_FILE"
+echo "CONTAINER_NAME=$CONTAINER_NAME" >> "$PID_FILE"
 info "Instance tracking saved to $PID_FILE"
+
+# Save instance information for management
+node -e "
+const { saveInstance } = require('$SCRIPT_DIR/scripts/port-finder.js');
+saveInstance({
+  webPort: $WEB_PORT,
+  wsPort: $WS_PORT,
+  host: '$BIND_HOST',
+  containerName: '$CONTAINER_NAME',
+  workspace: '$USER_DIR',
+  pid: process.pid
+});
+" 2>/dev/null || true
 
 info "MorphBox is running!"
 echo ""
@@ -546,7 +594,7 @@ cleanup() {
     
     # Try to load PIDs from file if not set
     if [[ -z "$WEB_PID" ]] || [[ -z "$WS_PID" ]]; then
-        PID_FILE="/tmp/morphbox-${BIND_HOST//\./-}.pid"
+        PID_FILE="/tmp/morphbox-${WEB_PORT}.pid"
         if [[ -f "$PID_FILE" ]]; then
             source "$PID_FILE"
         fi
@@ -564,13 +612,19 @@ cleanup() {
     pkill -f "node.*websocket-proxy" 2>/dev/null || true
     
     # Clean up PID file
-    rm -f "/tmp/morphbox-${BIND_HOST//\./-}.pid" 2>/dev/null || true
+    rm -f "/tmp/morphbox-${WEB_PORT}.pid" 2>/dev/null || true
+
+    # Remove instance from tracking
+    node -e "
+    const { removeInstance } = require('$SCRIPT_DIR/scripts/port-finder.js');
+    removeInstance($WEB_PORT);
+    " 2>/dev/null || true
     
     # Automatically stop Docker container
-    if docker ps | grep -q morphbox-vm; then
+    if docker ps | grep -q "$CONTAINER_NAME"; then
         info "Stopping Docker container..."
         # Use docker compose with the correct path
-        docker compose -f "$WEB_DIR/docker/docker-compose.yml" down || docker stop morphbox-vm
+        docker compose -f "$WEB_DIR/docker/docker-compose.yml" down || docker stop "$CONTAINER_NAME"
     fi
     
     info "MorphBox stopped"

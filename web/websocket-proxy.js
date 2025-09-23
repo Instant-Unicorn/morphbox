@@ -8,6 +8,7 @@ import { Client } from 'ssh2';
 import { spawn } from 'child_process';
 
 const WS_PORT = process.env.PORT || 8009;
+const WEB_PORT = process.env.MORPHBOX_WEB_PORT || 8008;
 const SSH_HOST = process.env.MORPHBOX_VM_HOST || 'localhost';
 const SSH_PORT = process.env.MORPHBOX_VM_PORT || 2222;
 const SSH_USER = process.env.MORPHBOX_VM_USER || 'morphbox';
@@ -32,19 +33,26 @@ wss.on('connection', (ws, req) => {
   // SECURITY FIX: Validate origin to prevent CSRF attacks
   const origin = req.headers.origin;
   
-  // Build allowed origins list
-  let allowedOrigins = ['http://localhost:8008', 'http://localhost:8009'];
-  
+  // Build allowed origins list dynamically based on actual ports
+  let allowedOrigins = [
+    `http://localhost:${WEB_PORT}`,
+    `http://localhost:${WS_PORT}`,
+    `http://127.0.0.1:${WEB_PORT}`,
+    `http://127.0.0.1:${WS_PORT}`,
+    `ws://localhost:${WS_PORT}`,
+    `ws://127.0.0.1:${WS_PORT}`
+  ];
+
   // Add custom allowed origins from environment
   if (process.env.MORPHBOX_ALLOWED_ORIGINS) {
     allowedOrigins = allowedOrigins.concat(process.env.MORPHBOX_ALLOWED_ORIGINS.split(','));
   }
-  
+
   // Dynamically add the current bind host origins
-  if (BIND_HOST && BIND_HOST !== '0.0.0.0') {
-    allowedOrigins.push(`http://${BIND_HOST}:8008`);
-    allowedOrigins.push(`http://${BIND_HOST}:8009`);
-    allowedOrigins.push(`ws://${BIND_HOST}:8009`);
+  if (BIND_HOST && BIND_HOST !== '0.0.0.0' && BIND_HOST !== 'localhost' && BIND_HOST !== '127.0.0.1') {
+    allowedOrigins.push(`http://${BIND_HOST}:${WEB_PORT}`);
+    allowedOrigins.push(`http://${BIND_HOST}:${WS_PORT}`);
+    allowedOrigins.push(`ws://${BIND_HOST}:${WS_PORT}`);
   }
   
   if (origin && !allowedOrigins.includes(origin)) {

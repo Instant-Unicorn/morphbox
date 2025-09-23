@@ -46,6 +46,7 @@ Options:
   --auth        Enable authentication
   --dev         Skip security warnings (development mode)
   --config      Generate example morphbox.yml configuration file
+  --list        List all running MorphBox instances
   --help        Show this help message
 
 Examples:
@@ -54,6 +55,7 @@ Examples:
   morphbox --external --auth  # Expose to network with authentication
   morphbox --vpn              # Bind to VPN interface only
   morphbox --config           # Generate morphbox.yml in current directory
+  morphbox --list             # Show all running instances
 
 For more information, visit: https://github.com/instant-unicorn/morphbox
 `);
@@ -211,6 +213,39 @@ async function checkDocker() {
   }
 }
 
+// Show running instances
+function showInstances() {
+  const scriptDir = getInstallationDir();
+  const { execSync } = require('child_process');
+
+  try {
+    const result = execSync(`node "${scriptDir}/scripts/port-finder.js" list`, { encoding: 'utf8' });
+    const instances = JSON.parse(result);
+
+    if (instances.length === 0) {
+      log.info('No MorphBox instances are currently running');
+      return;
+    }
+
+    console.log(`\n${colors.magenta}Running MorphBox Instances:${colors.reset}`);
+    console.log('─'.repeat(60));
+
+    instances.forEach((instance, index) => {
+      console.log(`\n${colors.green}Instance ${index + 1}:${colors.reset}`);
+      console.log(`  ${colors.blue}Container:${colors.reset} ${instance.containerName || 'N/A'}`);
+      console.log(`  ${colors.blue}Workspace:${colors.reset} ${instance.workspace || 'N/A'}`);
+      console.log(`  ${colors.blue}Web URL:${colors.reset} http://${instance.host || 'localhost'}:${instance.webPort}`);
+      console.log(`  ${colors.blue}WS URL:${colors.reset} ws://${instance.host || 'localhost'}:${instance.wsPort}`);
+      console.log(`  ${colors.blue}Started:${colors.reset} ${instance.timestamp || 'Unknown'}`);
+    });
+
+    console.log('\n' + '─'.repeat(60));
+    log.info(`Total instances: ${instances.length}`);
+  } catch (e) {
+    log.error('Failed to list instances: ' + e.message);
+  }
+}
+
 // Main function
 async function main() {
   // Check for help flag
@@ -218,7 +253,13 @@ async function main() {
     showHelp();
     process.exit(0);
   }
-  
+
+  // Check for list flag
+  if (args.includes('--list')) {
+    showInstances();
+    process.exit(0);
+  }
+
   // Check for config flag
   if (args.includes('--config')) {
     generateConfigFile();

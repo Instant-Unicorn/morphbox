@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
+# Debug mode - set MORPHBOX_DEBUG=1 to enable
+if [[ "${MORPHBOX_DEBUG:-0}" == "1" ]]; then
+    set -x  # Enable command tracing
+fi
+
 # Mark this as packaged version for different behavior
 export MORPHBOX_PACKAGED="true"
 
@@ -14,15 +19,28 @@ INITIAL_PWD="$(pwd)"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 WEB_DIR="$SCRIPT_DIR"
 
+# Early output so user knows script is running
+echo "[INFO] Starting MorphBox..."
+
 # Use Node.js lock manager for cross-platform compatibility
 LOCK_ACQUIRED=false
 
-# Acquire lock using Node.js lock manager
-if node "$SCRIPT_DIR/scripts/lock-manager.js" acquire 5000 > /dev/null 2>&1; then
-    LOCK_ACQUIRED=true
+# Try to acquire lock using Node.js lock manager
+# Check if lock-manager.js exists and is executable
+if [[ -f "$SCRIPT_DIR/scripts/lock-manager.js" ]]; then
+    # Try to acquire lock, but don't block startup if it fails
+    if node "$SCRIPT_DIR/scripts/lock-manager.js" acquire 5000 > /dev/null 2>&1; then
+        LOCK_ACQUIRED=true
+    else
+        # Lock acquisition failed - could be another instance or script error
+        # For now, continue with a warning rather than blocking
+        warn "Could not acquire startup lock - another instance may be running"
+        LOCK_ACQUIRED=false
+    fi
 else
-    echo "[ERROR] Another MorphBox instance is starting up. Please wait and try again."
-    exit 1
+    # Lock manager not found - continue without locking
+    warn "Lock manager not found - proceeding without instance locking"
+    LOCK_ACQUIRED=false
 fi
 
 # Ensure lock is released on exit

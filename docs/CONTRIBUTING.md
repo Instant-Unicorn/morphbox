@@ -83,7 +83,7 @@ New to open source? We love helping first-time contributors! Look for issues lab
 ### Reporting Bugs
 
 Before creating a bug report:
-1. Check [existing issues](https://github.com/MicahBly/morphbox/issues) to avoid duplicates
+1. Check [existing issues](https://github.com/instant-unicorn/morphbox/issues) to avoid duplicates
 2. Verify you're using the latest version
 3. Collect relevant information (error messages, logs, system info)
 
@@ -97,7 +97,7 @@ When reporting:
 ### Suggesting Features
 
 We welcome feature suggestions! Please:
-1. Check if it's already suggested in [issues](https://github.com/MicahBly/morphbox/issues) or [discussions](https://github.com/MicahBly/morphbox/discussions)
+1. Check if it's already suggested in [issues](https://github.com/instant-unicorn/morphbox/issues) or [discussions](https://github.com/instant-unicorn/morphbox/discussions)
 2. Explain the problem your feature solves
 3. Describe your proposed solution
 4. Consider alternative approaches

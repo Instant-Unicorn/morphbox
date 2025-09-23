@@ -67,10 +67,10 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MicahBly/morphbox.git"
+    "url": "git+https://github.com/instant-unicorn/morphbox.git"
   },
   "bugs": {
-    "url": "https://github.com/MicahBly/morphbox/issues"
+    "url": "https://github.com/instant-unicorn/morphbox/issues"
   },
   "homepage": "https://morphbox.iu.dev",
   "engines": {

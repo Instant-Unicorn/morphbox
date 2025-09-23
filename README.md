@@ -3,7 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/morphbox.svg)](https://www.npmjs.com/package/morphbox)
 [![Docker](https://img.shields.io/badge/Docker-Required-blue)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS%20|%20Linux%20|%20Windows-lightgrey)](https://github.com/MicahBly/morphbox)
+[![Platform](https://img.shields.io/badge/platform-macOS%20|%20Linux%20|%20Windows-lightgrey)](https://github.com/instant-unicorn/morphbox)
 
 > **Open-source Docker sandbox for experimenting with Claude AI development tools - enabling the community to explore AI-assisted coding in isolated environments with autonomous prompt processing capabilities.**
 
@@ -90,7 +90,7 @@ npx morphbox
 ### From Source
 
 ```bash
-git clone https://github.com/MicahBly/morphbox.git
+git clone https://github.com/instant-unicorn/morphbox.git
 cd morphbox/web
 npm install
 npm link
@@ -276,9 +276,9 @@ See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for detailed guidelines.
 ### Community Resources
 
 - **Website**: [iu.dev/morphbox](https://iu.dev/morphbox)
-- **GitHub**: [github.com/MicahBly/morphbox](https://github.com/MicahBly/morphbox)
-- **Issues**: [GitHub Issues](https://github.com/MicahBly/morphbox/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/MicahBly/morphbox/discussions)
+- **GitHub**: [github.com/instant-unicorn/morphbox](https://github.com/instant-unicorn/morphbox)
+- **Issues**: [GitHub Issues](https://github.com/instant-unicorn/morphbox/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/instant-unicorn/morphbox/discussions)
 
 ## 🚧 Roadmap
 
@@ -290,7 +290,7 @@ See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for detailed guidelines.
 
 ## 📜 License
 
-MIT © [Micah Bly](https://github.com/MicahBly)
+MIT © [Instant Unicorn](https://github.com/instant-unicorn)
 
 ## 🙏 Acknowledgments
 

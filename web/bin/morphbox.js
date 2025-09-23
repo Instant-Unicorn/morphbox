@@ -55,7 +55,7 @@ Examples:
   morphbox --vpn              # Bind to VPN interface only
   morphbox --config           # Generate morphbox.yml in current directory
 
-For more information, visit: https://github.com/MicahBly/morphbox
+For more information, visit: https://github.com/instant-unicorn/morphbox
 `);
 }
 

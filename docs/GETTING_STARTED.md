@@ -153,7 +153,7 @@ For developers or contributors:
 
 ```bash
 # Clone the repository
-git clone https://github.com/MicahBly/morphbox.git
+git clone https://github.com/instant-unicorn/morphbox.git
 cd morphbox/web
 
 # Install dependencies
@@ -417,14 +417,14 @@ Now that you have MorphBox running:
    - Set up team access
 
 4. **Join the Community**
-   - [GitHub Discussions](https://github.com/MicahBly/morphbox/discussions)
+   - [GitHub Discussions](https://github.com/instant-unicorn/morphbox/discussions)
    - Report issues
    - Share your projects
 
 ## Getting Help
 
 - **Documentation**: [Full documentation](../README.md#-documentation)
-- **Issues**: [GitHub Issues](https://github.com/MicahBly/morphbox/issues)
+- **Issues**: [GitHub Issues](https://github.com/instant-unicorn/morphbox/issues)
 - **Quick Help**: Run `morphbox --help`
 
 ## Tips for Success

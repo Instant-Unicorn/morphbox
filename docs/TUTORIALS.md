@@ -509,7 +509,7 @@ After completing these tutorials:
 
 - If you get stuck, ask Claude to explain differently
 - Check the [Troubleshooting Guide](TROUBLESHOOTING.md)
-- Join the [GitHub Discussions](https://github.com/MicahBly/morphbox/discussions)
+- Join the [GitHub Discussions](https://github.com/instant-unicorn/morphbox/discussions)
 
 ---
 

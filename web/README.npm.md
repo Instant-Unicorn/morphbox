@@ -142,9 +142,9 @@ MorphBox runs in Docker containers isolated from your host system. By default, o
 
 ## Documentation
 
-- [GitHub](https://github.com/MicahBly/morphbox)
-- [User Manual](https://github.com/MicahBly/morphbox/blob/main/docs/USER_MANUAL.md)
-- [API Reference](https://github.com/MicahBly/morphbox/blob/main/docs/API_REFERENCE.md)
+- [GitHub](https://github.com/instant-unicorn/morphbox)
+- [User Manual](https://github.com/instant-unicorn/morphbox/blob/main/docs/USER_MANUAL.md)
+- [API Reference](https://github.com/instant-unicorn/morphbox/blob/main/docs/API_REFERENCE.md)
 
 ## License
 

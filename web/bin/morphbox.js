@@ -214,9 +214,9 @@ async function checkDocker() {
 }
 
 // Show running instances
-function showInstances() {
+async function showInstances() {
   const scriptDir = getInstallationDir();
-  const { execSync } = require('child_process');
+  const { execSync } = await import('child_process');
 
   try {
     const result = execSync(`node "${scriptDir}/scripts/port-finder.js" list`, { encoding: 'utf8' });
@@ -256,7 +256,7 @@ async function main() {
 
   // Check for list flag
   if (args.includes('--list')) {
-    showInstances();
+    await showInstances();
     process.exit(0);
   }
 

@@ -168,7 +168,8 @@ export async function findAvailablePorts(host = 'localhost') {
     const wsAvailable = await isPortAvailable(wsPort, host);
 
     if (webAvailable && wsAvailable) {
-      console.log(`[Port Finder] Found available ports: ${webPort} (web), ${wsPort} (websocket)`);
+      // Log to stderr for debugging, stdout is for JSON only
+      console.error(`[Port Finder] Found available ports: ${webPort} (web), ${wsPort} (websocket)`);
       return { webPort, wsPort };
     } else {
       if (!webAvailable) {

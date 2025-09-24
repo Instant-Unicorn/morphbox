@@ -318,8 +318,8 @@ if [[ ! -f "$SCRIPT_DIR/scripts/port-finder.js" ]]; then
     WEB_PORT=8008
     WS_PORT=8009
 else
-    # Try to run port-finder
-    PORT_RESULT=$(node "$SCRIPT_DIR/scripts/port-finder.js" find "$BIND_HOST" 2>&1)
+    # Try to run port-finder (only capture stdout, let stderr go to console)
+    PORT_RESULT=$(node "$SCRIPT_DIR/scripts/port-finder.js" find "$BIND_HOST")
     PORT_FINDER_EXIT=$?
 
     if [[ $PORT_FINDER_EXIT -ne 0 ]]; then
@@ -346,8 +346,11 @@ info "Using ports: $WEB_PORT (web), $WS_PORT (websocket)"
 
 # Set container name based on port
 CONTAINER_NAME="morphbox-vm-$WEB_PORT"
+# Calculate SSH port based on web port (offset by 14214 to get 2222 for port 8008)
+SSH_PORT=$((WEB_PORT - 8008 + 2222))
 
 info "Instance: $CONTAINER_NAME"
+info "SSH port: $SSH_PORT"
 
 # Clean up any existing processes first
 cleanup_morphbox_processes
@@ -400,7 +403,7 @@ services:
     container_name: $CONTAINER_NAME
     hostname: $CONTAINER_NAME
     ports:
-      - "2222:22"  # SSH port mapping
+      - "$SSH_PORT:22"  # SSH port mapping (unique per instance)
     volumes:
       # Persist Claude authentication data (unique per instance)
       - claude-config-$WEB_PORT:/home/morphbox/.config/claude-code
@@ -536,7 +539,7 @@ HOST="$BIND_HOST" \
 PORT=$WS_PORT \
 MORPHBOX_WEB_PORT=$WEB_PORT \
 MORPHBOX_VM_HOST="localhost" \
-MORPHBOX_VM_PORT=2222 \
+MORPHBOX_VM_PORT=$SSH_PORT \
 MORPHBOX_VM_USER="morphbox" \
 node "$WEB_DIR/websocket-proxy.js" > /tmp/morphbox-websocket-proxy.log 2>&1 &
 WS_PID=$!

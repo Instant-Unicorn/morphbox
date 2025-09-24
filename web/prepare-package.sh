@@ -84,9 +84,8 @@ else
     exit 1
 fi
 
-# Copy scripts - use the packaged version for morphbox-start
-cp scripts/morphbox-start-packaged scripts/morphbox-start
-# morphbox-start-docker already exists in scripts/
+# Keep the current morphbox-start (don't overwrite with packaged version)
+# This preserves our multi-instance changes
 chmod +x scripts/*
 
 # Copy other necessary files

@@ -233,8 +233,6 @@ elif [[ "$ACCESS_MODE" == "vpn" ]]; then
     fi
 fi
 
-info "Instance: $CONTAINER_NAME"
-
 # Function to check if port is in use and by what
 check_port_usage() {
     local port=$1
@@ -348,6 +346,8 @@ info "Using ports: $WEB_PORT (web), $WS_PORT (websocket)"
 
 # Set container name based on port
 CONTAINER_NAME="morphbox-vm-$WEB_PORT"
+
+info "Instance: $CONTAINER_NAME"
 
 # Clean up any existing processes first
 cleanup_morphbox_processes

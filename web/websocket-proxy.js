@@ -31,20 +31,27 @@ wss.on('connection', (ws, req) => {
   
   // SECURITY FIX: Validate origin to prevent CSRF attacks
   const origin = req.headers.origin;
-  
-  // Build allowed origins list
-  let allowedOrigins = ['http://localhost:8008', 'http://localhost:8009'];
-  
+
+  // Build allowed origins list based on the actual ports being used
+  const webPort = parseInt(process.env.PORT || '8009') - 1; // Web server is always WS_PORT - 1
+  const wsPort = parseInt(process.env.PORT || '8009');
+
+  let allowedOrigins = [
+    `http://localhost:${webPort}`,
+    `http://localhost:${wsPort}`,
+    `ws://localhost:${wsPort}`
+  ];
+
   // Add custom allowed origins from environment
   if (process.env.MORPHBOX_ALLOWED_ORIGINS) {
     allowedOrigins = allowedOrigins.concat(process.env.MORPHBOX_ALLOWED_ORIGINS.split(','));
   }
-  
+
   // Dynamically add the current bind host origins
   if (BIND_HOST && BIND_HOST !== '0.0.0.0') {
-    allowedOrigins.push(`http://${BIND_HOST}:8008`);
-    allowedOrigins.push(`http://${BIND_HOST}:8009`);
-    allowedOrigins.push(`ws://${BIND_HOST}:8009`);
+    allowedOrigins.push(`http://${BIND_HOST}:${webPort}`);
+    allowedOrigins.push(`http://${BIND_HOST}:${wsPort}`);
+    allowedOrigins.push(`ws://${BIND_HOST}:${wsPort}`);
   }
   
   if (origin && !allowedOrigins.includes(origin)) {

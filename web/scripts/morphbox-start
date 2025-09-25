@@ -324,10 +324,9 @@ SSH_PORT=2222
 info "Using shared container: $CONTAINER_NAME"
 info "SSH port: $SSH_PORT"
 
-# Clean up any existing processes first
-cleanup_morphbox_processes
-
-# We don't need to check for existing instances anymore since we have unique ports
+# Don't clean up processes - we support multiple instances
+# Each instance uses unique ports so they don't conflict
+# cleanup_morphbox_processes - DISABLED for multi-instance support
 
 # Start Docker container if not running
 info "Checking Docker container..."
@@ -344,10 +343,12 @@ if docker ps -a | grep -q "$CONTAINER_NAME"; then
     CONTAINER_WORKSPACE=$(docker inspect "$CONTAINER_NAME" --format '{{ range .Mounts }}{{ if eq .Destination "/workspace" }}{{ .Source }}{{ end }}{{ end }}')
     
     if [[ "$CONTAINER_WORKSPACE" != "$USER_DIR" ]]; then
-        info "Container exists but with wrong workspace ($CONTAINER_WORKSPACE)"
-        info "Removing old container to recreate with correct workspace..."
-        docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
-        NEED_CREATE=true
+        # For multi-instance support, we can't recreate the container
+        # as it would break other instances. Just use the existing container.
+        warn "Container is using workspace: $CONTAINER_WORKSPACE"
+        warn "Your current directory: $USER_DIR"
+        info "Using existing container with different workspace"
+        NEED_CREATE=false
     elif ! docker ps | grep -q "$CONTAINER_NAME"; then
         info "Starting existing MorphBox VM container..."
         docker start "$CONTAINER_NAME"

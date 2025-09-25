@@ -636,12 +636,8 @@ cleanup() {
     });
     " 2>/dev/null || true
     
-    # Automatically stop Docker container
-    if docker ps | grep -q "$CONTAINER_NAME"; then
-        info "Stopping Docker container..."
-        # Use docker compose with the correct path
-        docker compose -f "$WEB_DIR/docker/docker-compose.yml" down || docker stop "$CONTAINER_NAME"
-    fi
+    # Don't stop the shared Docker container - it's used by all instances
+    # Container will persist for other morphbox instances to use
     
     info "MorphBox stopped"
     

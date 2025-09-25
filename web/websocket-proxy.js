@@ -32,7 +32,7 @@ wss.on('connection', (ws, req) => {
   
   // SECURITY FIX: Validate origin to prevent CSRF attacks
   const origin = req.headers.origin;
-  
+
   // Build allowed origins list dynamically based on actual ports
   let allowedOrigins = [
     `http://localhost:${WEB_PORT}`,

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import fs from 'fs';
@@ -67,6 +67,24 @@ function getInstallationDir() {
   // They're in the parent directory of bin/
   const npmPackageRoot = path.resolve(__dirname, '..');
   return npmPackageRoot;
+}
+
+// List all running MorphBox instances
+function listInstances() {
+  const scriptPath = join(getInstallationDir(), 'scripts', 'port-finder.js');
+
+  if (!fs.existsSync(scriptPath)) {
+    log.error('Instance tracking not available in this version');
+    process.exit(1);
+  }
+
+  try {
+    // Use execSync to run the port-finder list command
+    execSync(`node "${scriptPath}" list`, { stdio: 'inherit' });
+  } catch (e) {
+    log.error('Failed to list instances: ' + e.message);
+    process.exit(1);
+  }
 }
 
 // Generate example configuration file
@@ -264,6 +282,12 @@ async function main() {
   if (args.includes('--config')) {
     generateConfigFile();
     return; // generateConfigFile handles exit
+  }
+
+  // Check for list flag
+  if (args.includes('--list')) {
+    listInstances();
+    return;
   }
   
   // Check Docker is available

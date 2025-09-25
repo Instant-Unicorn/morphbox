@@ -1,1 +1,2 @@
 - never run morphbox dev server
+- Always use web/prepare-package.sh for the publishing script, never make a new file

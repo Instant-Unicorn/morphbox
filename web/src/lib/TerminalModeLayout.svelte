@@ -5,7 +5,8 @@
   import { settings, applyTheme } from '$lib/panels/Settings/settings-store';
   
   // WebSocket URL should use the same hostname as the web interface
-  let websocketUrl = browser ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:8009` : '';
+  // Port is always webPort + 1 (8008->8009, 8010->8011, etc.)
+  let websocketUrl = browser ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:${parseInt(window.location.port) + 1}` : '';
   let claudeComponent: any;
   
   onMount(() => {

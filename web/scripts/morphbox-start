@@ -316,12 +316,12 @@ fi
 
 info "Using ports: $WEB_PORT (web), $WS_PORT (websocket)"
 
-# Set container name based on port
-CONTAINER_NAME="morphbox-vm-$WEB_PORT"
-# Calculate SSH port based on web port (offset by 14214 to get 2222 for port 8008)
-SSH_PORT=$((WEB_PORT - 8008 + 2222))
+# Use shared container for all instances
+CONTAINER_NAME="morphbox-vm"
+# Use fixed SSH port for the shared container
+SSH_PORT=2222
 
-info "Instance: $CONTAINER_NAME"
+info "Using shared container: $CONTAINER_NAME"
 info "SSH port: $SSH_PORT"
 
 # Clean up any existing processes first
@@ -377,14 +377,14 @@ services:
     ports:
       - "$SSH_PORT:22"  # SSH port mapping (unique per instance)
     volumes:
-      # Persist Claude authentication data (unique per instance)
-      - claude-config-$WEB_PORT:/home/morphbox/.config/claude-code
+      # Persist Claude authentication data (shared across instances)
+      - claude-config:/home/morphbox/.config/claude-code
       # Mount USER'S CURRENT DIRECTORY as workspace (absolute path)
       - $USER_DIR:/workspace
       # Mount morphbox package directory for access to project files
       - $SCRIPT_DIR:/workspace/morphbox
-      # Persist bash history and other user data (unique per instance)
-      - claude-home-$WEB_PORT:/home/morphbox
+      # Persist bash history and other user data (shared across instances)
+      - claude-home:/home/morphbox
       # Persist Claude updates (prevents re-downloads)
       - claude-npm-cache:/usr/local/lib/node_modules
       - claude-npm-bin:/usr/local/bin
@@ -401,9 +401,9 @@ networks:
     driver: bridge
 
 volumes:
-  claude-config-$WEB_PORT:
+  claude-config:
     driver: local
-  claude-home-$WEB_PORT:
+  claude-home:
     driver: local
   claude-npm-cache:
     driver: local

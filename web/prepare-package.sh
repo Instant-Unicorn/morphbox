@@ -84,8 +84,9 @@ else
     exit 1
 fi
 
-# Keep the current morphbox-start (don't overwrite with packaged version)
-# This preserves our multi-instance changes
+# Copy scripts - morphbox-start is already the current version
+# No need to overwrite it with an old packaged version
+# Just ensure all scripts are executable
 chmod +x scripts/*
 
 # Copy other necessary files

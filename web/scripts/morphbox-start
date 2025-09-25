@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
+# Debug mode - set MORPHBOX_DEBUG=1 to enable
+if [[ "${MORPHBOX_DEBUG:-0}" == "1" ]]; then
+    set -x  # Enable command tracing
+fi
+
 # Mark this as packaged version for different behavior
 export MORPHBOX_PACKAGED="true"
 
@@ -10,25 +15,54 @@ export MORPHBOX_PACKAGED="true"
 # This ensures we get the user's actual working directory
 INITIAL_PWD="$(pwd)"
 
-# No locking - multiple instances are supported
+# Get script directory FIRST before we need it
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
+WEB_DIR="$SCRIPT_DIR"
 
-# Colors
+# Define color codes early
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+# Define logging functions early so they can be used anywhere
 info() { echo -e "${GREEN}[INFO]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
-WEB_DIR="$SCRIPT_DIR"
+# Early output so user knows script is running
+info "Starting MorphBox..."
 
-# Port variables (will be set dynamically)
-WEB_PORT=""
-WS_PORT=""
+# Use Node.js lock manager for cross-platform compatibility
+LOCK_ACQUIRED=false
+
+# Try to acquire lock using Node.js lock manager
+# Check if lock-manager.js exists and is executable
+if [[ -f "$SCRIPT_DIR/scripts/lock-manager.js" ]]; then
+    # Try to acquire lock, but don't block startup if it fails
+    if node "$SCRIPT_DIR/scripts/lock-manager.js" acquire 5000 > /dev/null 2>&1; then
+        LOCK_ACQUIRED=true
+    else
+        # Lock acquisition failed - could be another instance or script error
+        # For now, continue with a warning rather than blocking
+        warn "Could not acquire startup lock - another instance may be running"
+        LOCK_ACQUIRED=false
+    fi
+else
+    # Lock manager not found - continue without locking
+    warn "Lock manager not found - proceeding without instance locking"
+    LOCK_ACQUIRED=false
+fi
+
+# Ensure lock is released on exit
+release_lock() {
+    if [[ "$LOCK_ACQUIRED" == "true" ]]; then
+        node "$SCRIPT_DIR/scripts/lock-manager.js" release > /dev/null 2>&1 || true
+        LOCK_ACQUIRED=false
+    fi
+}
+trap 'release_lock' EXIT
 
 # Load config from .morphbox.env if exists
 if [[ -f "$SCRIPT_DIR/.morphbox.env" ]]; then
@@ -43,6 +77,10 @@ AUTH_ENABLED=false
 TERMINAL_MODE=false
 MORPHBOX_AUTH_USERNAME=""
 MORPHBOX_AUTH_PASSWORD=""
+
+# Port variables (will be set dynamically)
+WEB_PORT=""
+WS_PORT=""
 
 # Apply bind mode
 if [[ "$ACCESS_MODE" == "external" ]]; then
@@ -63,8 +101,9 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --vpn)
+            info "Detecting VPN interface..."
             # Auto-detect VPN interface IP
-            VPN_IP=$(ip addr show | grep -E "tailscale0|tun0|utun|wg0" | grep "inet " | awk '{print $2}' | cut -d/ -f1 | head -n1)
+            VPN_IP=$(ip addr show 2>/dev/null | grep -E "tailscale0|tun0|utun|wg0" | grep "inet " | awk '{print $2}' | cut -d/ -f1 | head -n1)
             if [[ -n "$VPN_IP" ]]; then
                 BIND_HOST="$VPN_IP"
                 ACCESS_MODE="vpn"
@@ -236,37 +275,87 @@ cleanup_morphbox_processes() {
     sleep 1
 }
 
-# Find available ports for this instance
+# Check for existing instances on our target ports
+check_existing_instance() {
+    local need_cleanup=false
+    
+    # Check port 8008
+    set +e  # Temporarily disable error checking
+    check_port_usage 8008 "$BIND_HOST"
+    local status=$?
+    set -e  # Re-enable error checking
+    if [[ $status -eq 0 ]]; then
+        warn "MorphBox is already running on ${BIND_HOST}:8008"
+        need_cleanup=true
+    elif [[ $status -eq 1 ]]; then
+        error "Port ${BIND_HOST}:8008 is in use by another process. Please free the port and try again."
+    fi
+    
+    # Check port 8009
+    set +e  # Temporarily disable error checking
+    check_port_usage 8009 "$BIND_HOST"
+    status=$?
+    set -e  # Re-enable error checking
+    if [[ $status -eq 0 ]]; then
+        warn "MorphBox WebSocket proxy is already running on ${BIND_HOST}:8009"
+        need_cleanup=true
+    elif [[ $status -eq 1 ]]; then
+        error "Port ${BIND_HOST}:8009 is in use by another process. Please free the port and try again."
+    fi
+    
+    if [[ "$need_cleanup" == "true" ]]; then
+        info "Stopping existing MorphBox instance..."
+        cleanup_morphbox_processes
+    fi
+}
+
+# Find available ports
 info "Finding available ports..."
+
+# Check if port-finder exists
 if [[ ! -f "$SCRIPT_DIR/scripts/port-finder.js" ]]; then
     warn "Port finder not found, using default ports"
     WEB_PORT=8008
     WS_PORT=8009
 else
-    # Get available ports from port-finder
-    PORT_RESULT=$(node "$SCRIPT_DIR/scripts/port-finder.js" find "$BIND_HOST" 2>&1)
-    if [[ $? -ne 0 ]]; then
-        error "Failed to find available ports: $PORT_RESULT"
-    fi
+    # Try to run port-finder (only capture stdout, let stderr go to console)
+    PORT_RESULT=$(node "$SCRIPT_DIR/scripts/port-finder.js" find "$BIND_HOST")
+    PORT_FINDER_EXIT=$?
 
-    # Parse the JSON result
-    WEB_PORT=$(echo $PORT_RESULT | grep -o '"webPort":[0-9]*' | cut -d: -f2)
-    WS_PORT=$(echo $PORT_RESULT | grep -o '"wsPort":[0-9]*' | cut -d: -f2)
+    if [[ $PORT_FINDER_EXIT -ne 0 ]]; then
+        warn "Port finder failed with exit code $PORT_FINDER_EXIT"
+        warn "Port finder output: $PORT_RESULT"
+        warn "Using default ports as fallback"
+        WEB_PORT=8008
+        WS_PORT=8009
+    else
+        # Parse the port result (using sed for compatibility, jq might not be available)
+        WEB_PORT=$(echo $PORT_RESULT | sed -n 's/.*"webPort":\([0-9]*\).*/\1/p')
+        WS_PORT=$(echo $PORT_RESULT | sed -n 's/.*"wsPort":\([0-9]*\).*/\1/p')
 
-    if [[ -z "$WEB_PORT" ]] || [[ -z "$WS_PORT" ]]; then
-        error "Failed to parse port information"
+        if [[ -z "$WEB_PORT" ]] || [[ -z "$WS_PORT" ]]; then
+            warn "Failed to parse port information from: $PORT_RESULT"
+            warn "Using default ports as fallback"
+            WEB_PORT=8008
+            WS_PORT=8009
+        fi
     fi
 fi
 
 info "Using ports: $WEB_PORT (web), $WS_PORT (websocket)"
 
-# Use single shared container for all instances
-CONTAINER_NAME="morphbox-vm"
-# Always use the same SSH port for the shared VM
-SSH_PORT=2222
+# Set container name based on port
+CONTAINER_NAME="morphbox-vm-$WEB_PORT"
+# Calculate SSH port based on web port (offset by 14214 to get 2222 for port 8008)
+SSH_PORT=$((WEB_PORT - 8008 + 2222))
 
 info "Instance: $CONTAINER_NAME"
 info "SSH port: $SSH_PORT"
+
+# Clean up any existing processes first
+cleanup_morphbox_processes
+
+# We don't need to check for existing instances anymore since we have unique ports
 
 # Start Docker container if not running
 info "Checking Docker container..."
@@ -281,7 +370,7 @@ info "User workspace: $USER_DIR"
 if docker ps -a | grep -q "$CONTAINER_NAME"; then
     # Container exists - check if volumes are correct
     CONTAINER_WORKSPACE=$(docker inspect "$CONTAINER_NAME" --format '{{ range .Mounts }}{{ if eq .Destination "/workspace" }}{{ .Source }}{{ end }}{{ end }}')
-
+    
     if [[ "$CONTAINER_WORKSPACE" != "$USER_DIR" ]]; then
         info "Container exists but with wrong workspace ($CONTAINER_WORKSPACE)"
         info "Removing old container to recreate with correct workspace..."
@@ -314,16 +403,16 @@ services:
     container_name: $CONTAINER_NAME
     hostname: $CONTAINER_NAME
     ports:
-      - "$SSH_PORT:22"  # SSH port mapping
+      - "$SSH_PORT:22"  # SSH port mapping (unique per instance)
     volumes:
-      # Persist Claude authentication data
-      - claude-config:/home/morphbox/.config/claude-code
+      # Persist Claude authentication data (unique per instance)
+      - claude-config-$WEB_PORT:/home/morphbox/.config/claude-code
       # Mount USER'S CURRENT DIRECTORY as workspace (absolute path)
       - $USER_DIR:/workspace
       # Mount morphbox package directory for access to project files
       - $SCRIPT_DIR:/workspace/morphbox
-      # Persist bash history and other user data
-      - claude-home:/home/morphbox
+      # Persist bash history and other user data (unique per instance)
+      - claude-home-$WEB_PORT:/home/morphbox
       # Persist Claude updates (prevents re-downloads)
       - claude-npm-cache:/usr/local/lib/node_modules
       - claude-npm-bin:/usr/local/bin
@@ -340,9 +429,9 @@ networks:
     driver: bridge
 
 volumes:
-  claude-config:
+  claude-config-$WEB_PORT:
     driver: local
-  claude-home:
+  claude-home-$WEB_PORT:
     driver: local
   claude-npm-cache:
     driver: local
@@ -352,9 +441,6 @@ EOF
     
     # Use the temporary compose file to create container
     docker compose -f "$TEMP_COMPOSE" up -d
-
-    # Clean up temp compose file
-    rm -f "$TEMP_COMPOSE"
     
     # Clean up temp file
     rm -f "$TEMP_COMPOSE"
@@ -439,7 +525,7 @@ if [[ "$TERMINAL_MODE" == "true" ]]; then
         -w "$CONTAINER_PATH" \
         -e "TERM=xterm-256color" \
         -e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}" \
-        morphbox-vm \
+        "$CONTAINER_NAME" \
         bash -c "claude || bash"
     
     # Exit after Claude exits
@@ -451,10 +537,11 @@ info "Starting WebSocket proxy..."
 # Set environment variables for WebSocket proxy (no password needed anymore)
 HOST="$BIND_HOST" \
 PORT=$WS_PORT \
+MORPHBOX_WEB_PORT=$WEB_PORT \
 MORPHBOX_VM_HOST="localhost" \
 MORPHBOX_VM_PORT=$SSH_PORT \
 MORPHBOX_VM_USER="morphbox" \
-node "$WEB_DIR/websocket-proxy.js" > "/tmp/morphbox-$WEB_PORT-websocket.log" 2>&1 &
+node "$WEB_DIR/websocket-proxy.js" > /tmp/morphbox-websocket-proxy.log 2>&1 &
 WS_PID=$!
 
 # Start the packaged server
@@ -469,7 +556,7 @@ MORPHBOX_AUTH_PASSWORD="$MORPHBOX_AUTH_PASSWORD" \
 HOST="$BIND_HOST" \
 PORT=$WEB_PORT \
 WS_PORT=$WS_PORT \
-node "$WEB_DIR/server-packaged.js" > "/tmp/morphbox-$WEB_PORT-server.log" 2>&1 &
+node "$WEB_DIR/server-packaged.js" > /tmp/morphbox-server.log 2>&1 &
 WEB_PID=$!
 
 # Wait for web server
@@ -488,21 +575,29 @@ else
     error "WebSocket proxy failed to start or died immediately"
 fi
 
-# Store PIDs and register instance
-PID_FILE="/tmp/morphbox-$WEB_PORT.pid"
+# Store PIDs for tracking
+PID_FILE="/tmp/morphbox-${WEB_PORT}.pid"
 echo "WEB_PID=$WEB_PID" > "$PID_FILE"
 echo "WS_PID=$WS_PID" >> "$PID_FILE"
 echo "BIND_HOST=$BIND_HOST" >> "$PID_FILE"
 echo "WEB_PORT=$WEB_PORT" >> "$PID_FILE"
 echo "WS_PORT=$WS_PORT" >> "$PID_FILE"
-
 echo "CONTAINER_NAME=$CONTAINER_NAME" >> "$PID_FILE"
 info "Instance tracking saved to $PID_FILE"
 
-# Register this instance with port-finder (only once!)
-if [[ -f "$SCRIPT_DIR/scripts/port-finder.js" ]]; then
-    node "$SCRIPT_DIR/scripts/port-finder.js" register $WEB_PORT $WS_PORT $WEB_PID $WS_PID "$USER_DIR" "$BIND_HOST"
-fi
+# Save instance information for management
+node -e "
+import('$SCRIPT_DIR/scripts/port-finder.js').then(({ saveInstance }) => {
+  saveInstance({
+    webPort: $WEB_PORT,
+    wsPort: $WS_PORT,
+    host: '$BIND_HOST',
+    containerName: '$CONTAINER_NAME',
+    workspace: '$USER_DIR',
+    pid: process.pid
+  });
+});
+" 2>/dev/null || true
 
 info "MorphBox is running!"
 echo ""
@@ -542,7 +637,7 @@ cleanup() {
     
     # Try to load PIDs from file if not set
     if [[ -z "$WEB_PID" ]] || [[ -z "$WS_PID" ]]; then
-        PID_FILE="/tmp/morphbox-$WEB_PORT.pid"
+        PID_FILE="/tmp/morphbox-${WEB_PORT}.pid"
         if [[ -f "$PID_FILE" ]]; then
             source "$PID_FILE"
         fi
@@ -560,27 +655,20 @@ cleanup() {
     pkill -f "node.*websocket-proxy" 2>/dev/null || true
     
     # Clean up PID file
-    rm -f "/tmp/morphbox-$WEB_PORT.pid" 2>/dev/null || true
+    rm -f "/tmp/morphbox-${WEB_PORT}.pid" 2>/dev/null || true
 
-    # Unregister instance
-    if [[ -f "$SCRIPT_DIR/scripts/port-finder.js" ]]; then
-        node "$SCRIPT_DIR/scripts/port-finder.js" unregister $WEB_PORT 2>/dev/null || true
-    fi
-
-    # Check if this is the last running instance
-    if [[ -f "$SCRIPT_DIR/scripts/port-finder.js" ]]; then
-        # Count instances by looking for port numbers at start of lines
-        INSTANCE_COUNT=$(node "$SCRIPT_DIR/scripts/port-finder.js" list 2>/dev/null | grep "^[0-9]" | wc -l)
-        if [[ "$INSTANCE_COUNT" -le 1 ]]; then
-            # This is the last instance, stop the container
-            info "Last MorphBox instance, stopping Docker container..."
-            docker stop "$CONTAINER_NAME" 2>/dev/null || true
-        else
-            info "Other MorphBox instances still running, keeping container alive"
-        fi
-    else
-        # If we can't check instances, keep container running to be safe
-        info "Container will remain running for other instances"
+    # Remove instance from tracking
+    node -e "
+    import('$SCRIPT_DIR/scripts/port-finder.js').then(({ removeInstance }) => {
+      removeInstance($WEB_PORT);
+    });
+    " 2>/dev/null || true
+    
+    # Automatically stop Docker container
+    if docker ps | grep -q "$CONTAINER_NAME"; then
+        info "Stopping Docker container..."
+        # Use docker compose with the correct path
+        docker compose -f "$WEB_DIR/docker/docker-compose.yml" down || docker stop "$CONTAINER_NAME"
     fi
     
     info "MorphBox stopped"

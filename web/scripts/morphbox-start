@@ -260,10 +260,10 @@ fi
 
 info "Using ports: $WEB_PORT (web), $WS_PORT (websocket)"
 
-# Set container name based on port
-CONTAINER_NAME="morphbox-vm-$WEB_PORT"
-# Calculate SSH port based on web port (offset by 14214 to get 2222 for port 8008)
-SSH_PORT=$((WEB_PORT - 8008 + 2222))
+# Use single shared container for all instances
+CONTAINER_NAME="morphbox-vm"
+# Always use the same SSH port for the shared VM
+SSH_PORT=2222
 
 info "Instance: $CONTAINER_NAME"
 info "SSH port: $SSH_PORT"
@@ -495,10 +495,11 @@ echo "WS_PID=$WS_PID" >> "$PID_FILE"
 echo "BIND_HOST=$BIND_HOST" >> "$PID_FILE"
 echo "WEB_PORT=$WEB_PORT" >> "$PID_FILE"
 echo "WS_PORT=$WS_PORT" >> "$PID_FILE"
+
 echo "CONTAINER_NAME=$CONTAINER_NAME" >> "$PID_FILE"
 info "Instance tracking saved to $PID_FILE"
 
-# Register with instance tracker
+# Register this instance with port-finder (only once!)
 if [[ -f "$SCRIPT_DIR/scripts/port-finder.js" ]]; then
     node "$SCRIPT_DIR/scripts/port-finder.js" register $WEB_PORT $WS_PORT $WEB_PID $WS_PID "$USER_DIR" "$BIND_HOST"
 fi
@@ -566,10 +567,20 @@ cleanup() {
         node "$SCRIPT_DIR/scripts/port-finder.js" unregister $WEB_PORT 2>/dev/null || true
     fi
 
-    # Automatically remove Docker container (not just stop)
-    if docker ps -a | grep -q "$CONTAINER_NAME"; then
-        info "Removing Docker container..."
-        docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
+    # Check if this is the last running instance
+    if [[ -f "$SCRIPT_DIR/scripts/port-finder.js" ]]; then
+        # Count instances by looking for port numbers at start of lines
+        INSTANCE_COUNT=$(node "$SCRIPT_DIR/scripts/port-finder.js" list 2>/dev/null | grep "^[0-9]" | wc -l)
+        if [[ "$INSTANCE_COUNT" -le 1 ]]; then
+            # This is the last instance, stop the container
+            info "Last MorphBox instance, stopping Docker container..."
+            docker stop "$CONTAINER_NAME" 2>/dev/null || true
+        else
+            info "Other MorphBox instances still running, keeping container alive"
+        fi
+    else
+        # If we can't check instances, keep container running to be safe
+        info "Container will remain running for other instances"
     fi
     
     info "MorphBox stopped"

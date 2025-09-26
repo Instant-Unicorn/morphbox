@@ -74,8 +74,28 @@ while [[ $# -gt 0 ]]; do
             ;;
         --vpn)
             info "Detecting VPN interface..."
-            # Auto-detect VPN interface IP
-            VPN_IP=$(ip addr show 2>/dev/null | grep -E "tailscale0|tun0|utun|wg0" | grep "inet " | awk '{print $2}' | cut -d/ -f1 | head -n1)
+            # Auto-detect VPN interface IP (works on both Mac and Linux)
+            if [[ "$(uname)" == "Darwin" ]]; then
+                # Mac: Find VPN interfaces and get the first valid IP
+                # Look for utun*, tailscale*, tun*, wg* interfaces with real IPs
+                VPN_IP=""
+                # Temporarily disable exit on error for interface detection
+                set +e
+                IFACES=$(ifconfig -l | tr ' ' '\n' | grep -E '^(utun|tailscale|tun|wg)[0-9]+$')
+                set -e
+                for iface in $IFACES; do
+                    IP=$(ifconfig "$iface" 2>/dev/null | grep "inet " | awk '{print $2}' || true)
+                    # Skip if no IP, loopback, or link-local
+                    if [[ -n "$IP" ]] && [[ "$IP" != "127."* ]] && [[ "$IP" != "169.254."* ]]; then
+                        VPN_IP="$IP"
+                        break
+                    fi
+                done
+            else
+                # Linux: use ip addr show
+                VPN_IP=$(ip addr show 2>/dev/null | grep -E "tailscale0|tun0|utun|wg0" | grep "inet " | awk '{print $2}' | cut -d/ -f1 | head -n1)
+            fi
+
             if [[ -n "$VPN_IP" ]]; then
                 BIND_HOST="$VPN_IP"
                 ACCESS_MODE="vpn"
@@ -209,17 +229,36 @@ fi
 check_port_usage() {
     local port=$1
     local bind_ip=$2
-    # Check if port is in use on specific IP
-    if netstat -tulpn 2>/dev/null | grep -q "${bind_ip}:${port}" || ss -tulpn 2>/dev/null | grep -q "${bind_ip}:${port}"; then
-        # Get the process using this port
-        local pid=$(ss -tulpn 2>/dev/null | grep "${bind_ip}:${port}" | grep -oP 'pid=\K[0-9]+' | head -1)
-        if [[ -n "$pid" ]]; then
-            local pname=$(ps -p "$pid" -o comm= 2>/dev/null || echo "unknown")
-            # Check if it's a morphbox process
-            if ps -p "$pid" -o args= 2>/dev/null | grep -qE "morphbox|server-packaged|websocket-proxy"; then
-                return 0  # It's morphbox
-            else
-                return 1  # It's another process
+
+    # OS-specific port checking
+    if [[ "$(uname)" == "Darwin" ]]; then
+        # Mac: use lsof to check port usage
+        local lsof_output=$(lsof -i TCP:${port} -P 2>/dev/null | grep LISTEN)
+        if [[ -n "$lsof_output" ]]; then
+            # Get the process name and PID
+            local pid=$(echo "$lsof_output" | awk '{print $2}' | head -1)
+            if [[ -n "$pid" ]]; then
+                # Check if it's a morphbox process
+                if ps -p "$pid" -o args= 2>/dev/null | grep -qE "morphbox|server-packaged|websocket-proxy"; then
+                    return 0  # It's morphbox
+                else
+                    return 1  # It's another process
+                fi
+            fi
+        fi
+    else
+        # Linux: use netstat/ss
+        if netstat -tulpn 2>/dev/null | grep -q "${bind_ip}:${port}" || ss -tulpn 2>/dev/null | grep -q "${bind_ip}:${port}"; then
+            # Get the process using this port
+            local pid=$(ss -tulpn 2>/dev/null | grep "${bind_ip}:${port}" | grep -oP 'pid=\K[0-9]+' | head -1)
+            if [[ -n "$pid" ]]; then
+                local pname=$(ps -p "$pid" -o comm= 2>/dev/null || echo "unknown")
+                # Check if it's a morphbox process
+                if ps -p "$pid" -o args= 2>/dev/null | grep -qE "morphbox|server-packaged|websocket-proxy"; then
+                    return 0  # It's morphbox
+                else
+                    return 1  # It's another process
+                fi
             fi
         fi
     fi

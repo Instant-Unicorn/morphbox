@@ -265,26 +265,7 @@ check_port_usage() {
     return 2  # Port is free
 }
 
-# Enhanced cleanup function
-cleanup_morphbox_processes() {
-    info "Cleaning up any existing MorphBox processes..."
-    
-    # Temporarily disable exit on error for cleanup
-    set +e
-    
-    # Kill all morphbox-related processes (except ourselves)
-    pkill -f "node.*server-packaged" 2>/dev/null || true
-    pkill -f "node.*websocket-proxy" 2>/dev/null || true
-    
-    # Clean up PID files (use find to avoid glob issues)
-    find /tmp -maxdepth 1 -name "morphbox-*.pid" -type f -delete 2>/dev/null || true
-    
-    # Re-enable exit on error
-    set -e
-    
-    # Wait a moment for ports to be released
-    sleep 1
-}
+# Removed cleanup_morphbox_processes function - not needed for multi-instance support
 
 # Check for existing instances on our target ports
 check_existing_instance() {
@@ -315,8 +296,7 @@ check_existing_instance() {
     fi
     
     if [[ "$need_cleanup" == "true" ]]; then
-        info "Stopping existing MorphBox instance..."
-        cleanup_morphbox_processes
+        error "Cannot start: Ports are already in use by another MorphBox instance"
     fi
 }
 
@@ -655,16 +635,22 @@ cleanup() {
         fi
     fi
     
-    # Kill child processes first
-    [[ -n "$WEB_PID" ]] && kill $WEB_PID 2>/dev/null || true
-    [[ -n "$WS_PID" ]] && kill $WS_PID 2>/dev/null || true
-    
-    # Give them a moment to stop gracefully
-    sleep 0.5
-    
-    # Force kill any remaining processes
-    pkill -f "node.*server-packaged" 2>/dev/null || true
-    pkill -f "node.*websocket-proxy" 2>/dev/null || true
+    # Kill ONLY this instance's processes using their PIDs
+    if [[ -n "$WEB_PID" ]]; then
+        kill $WEB_PID 2>/dev/null || true
+        # Wait briefly and force kill if still running
+        sleep 0.5
+        kill -9 $WEB_PID 2>/dev/null || true
+    fi
+
+    if [[ -n "$WS_PID" ]]; then
+        kill $WS_PID 2>/dev/null || true
+        # Wait briefly and force kill if still running
+        sleep 0.5
+        kill -9 $WS_PID 2>/dev/null || true
+    fi
+
+    # Do NOT use pkill as it kills ALL instances
     
     # Clean up PID file
     rm -f "/tmp/morphbox-${WEB_PORT}.pid" 2>/dev/null || true

@@ -422,18 +422,18 @@
         const newWidthPx = e.clientX - containerRect.left - panelLeft;
         const newWidthPercent = (newWidthPx / containerWidth) * 100;
         
-        // Constrain width to reasonable bounds (10% min)
-        const finalWidth = Math.max(10, newWidthPercent);
-        
-        dispatch('resize', { 
-          panelId: panel.id, 
+        // Constrain width to reasonable bounds (10% min, 100% max)
+        const finalWidth = Math.max(10, Math.min(100, newWidthPercent));
+
+        dispatch('resize', {
+          panelId: panel.id,
           newWidth: finalWidth
         });
       } else if (resizeSide === 'left') {
         // For left resize, just adjust this panel's width
         const deltaX = resizeStartX - e.clientX; // Inverted for left resize
         const deltaPercent = (deltaX / containerWidth) * 100;
-        const newWidth = Math.max(10, resizeStartWidth + deltaPercent);
+        const newWidth = Math.max(10, Math.min(100, resizeStartWidth + deltaPercent));
         
         dispatch('resize', { 
           panelId: panel.id, 
@@ -492,16 +492,16 @@
         const panelLeft = panelRect.left - containerRect.left;
         const newWidthPx = touch.clientX - containerRect.left - panelLeft;
         const newWidthPercent = (newWidthPx / containerWidth) * 100;
-        const finalWidth = Math.max(10, newWidthPercent);
-        
-        dispatch('resize', { 
-          panelId: panel.id, 
+        const finalWidth = Math.max(10, Math.min(100, newWidthPercent));
+
+        dispatch('resize', {
+          panelId: panel.id,
           newWidth: finalWidth
         });
       } else if (resizeSide === 'left') {
         const deltaX = resizeStartX - touch.clientX;
         const deltaPercent = (deltaX / containerWidth) * 100;
-        const newWidth = Math.max(10, resizeStartWidth + deltaPercent);
+        const newWidth = Math.max(10, Math.min(100, resizeStartWidth + deltaPercent));
         
         dispatch('resize', { 
           panelId: panel.id, 

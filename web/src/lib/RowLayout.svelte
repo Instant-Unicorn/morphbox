@@ -521,23 +521,29 @@
     const updates: Partial<Panel> = {};
     
     if (newWidth !== undefined) {
-      // For any resize, ensure we don't exceed 100% total width in the row
       const row = rows.find(r => r.panels.some(p => p.id === panelId));
       if (row) {
-        const otherPanelsWidth = row.panels
-          .filter(p => p.id !== panelId)
-          .reduce((sum, p) => sum + (p.widthPercent || 0), 0);
-        
-        // Constrain new width so total doesn't exceed 100%
-        const maxAllowedWidth = 100 - otherPanelsWidth;
-        const constrainedWidth = Math.min(newWidth, maxAllowedWidth);
-        
-        updates.widthPercent = constrainedWidth;
-        
-        // For left resize, we need to redistribute space
-        if (isLeftResize && row.panels.length > 1) {
-          // Simple approach: just resize this panel, let CSS handle the layout
-          // The flex layout will automatically adjust other panels
+        // If this is the only panel in the row, allow free resizing up to 100%
+        if (row.panels.length === 1) {
+          // Allow single panels to resize freely between 10% and 100%
+          updates.widthPercent = Math.max(10, Math.min(100, newWidth));
+        } else {
+          // For multiple panels, ensure we don't exceed 100% total width in the row
+          const otherPanelsWidth = row.panels
+            .filter(p => p.id !== panelId)
+            .reduce((sum, p) => sum + (p.widthPercent || 0), 0);
+
+          // Constrain new width so total doesn't exceed 100%
+          const maxAllowedWidth = 100 - otherPanelsWidth;
+          const constrainedWidth = Math.min(newWidth, maxAllowedWidth);
+
+          updates.widthPercent = constrainedWidth;
+
+          // For left resize, we need to redistribute space
+          if (isLeftResize && row.panels.length > 1) {
+            // Simple approach: just resize this panel, let CSS handle the layout
+            // The flex layout will automatically adjust other panels
+          }
         }
       } else {
         updates.widthPercent = newWidth;

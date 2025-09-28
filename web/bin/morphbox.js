@@ -45,7 +45,7 @@ function getVersion() {
 // Show version
 function showVersion() {
   const version = getVersion();
-  console.log(`${colors.magenta}MorphBox${colors.reset} version ${colors.green}${version}${colors.reset}`);
+  console.log(`${colors.green}v${version}${colors.reset}`);
 }
 
 // Show help

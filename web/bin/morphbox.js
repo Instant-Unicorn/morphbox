@@ -31,6 +31,23 @@ const log = {
 // Parse command line arguments
 const args = process.argv.slice(2);
 
+// Get version from package.json
+function getVersion() {
+  const packageJsonPath = join(__dirname, '..', 'package.json');
+  try {
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    return packageJson.version;
+  } catch (e) {
+    return 'unknown';
+  }
+}
+
+// Show version
+function showVersion() {
+  const version = getVersion();
+  console.log(`${colors.magenta}MorphBox${colors.reset} version ${colors.green}${version}${colors.reset}`);
+}
+
 // Show help
 function showHelp() {
   console.log(`
@@ -47,6 +64,7 @@ Options:
   --dev         Skip security warnings (development mode)
   --config      Generate example morphbox.yml configuration file
   --list        List all running MorphBox instances
+  --version     Show version information
   --help        Show this help message
 
 Examples:
@@ -56,6 +74,7 @@ Examples:
   morphbox --vpn              # Bind to VPN interface only
   morphbox --config           # Generate morphbox.yml in current directory
   morphbox --list             # Show all running instances
+  morphbox --version          # Display current version
 
 For more information, visit: https://github.com/instant-unicorn/morphbox
 `);
@@ -272,6 +291,12 @@ async function main() {
     process.exit(0);
   }
 
+  // Check for version flag
+  if (args.includes('--version') || args.includes('-v')) {
+    showVersion();
+    process.exit(0);
+  }
+
   // Check for list flag
   if (args.includes('--list')) {
     await showInstances();
@@ -282,12 +307,6 @@ async function main() {
   if (args.includes('--config')) {
     generateConfigFile();
     return; // generateConfigFile handles exit
-  }
-
-  // Check for list flag
-  if (args.includes('--list')) {
-    listInstances();
-    return;
   }
   
   // Check Docker is available

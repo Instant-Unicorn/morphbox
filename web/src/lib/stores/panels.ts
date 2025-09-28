@@ -53,6 +53,8 @@ export interface Panel {
   headerColor?: string; // Custom header background color
   backgroundColor?: string; // Custom panel background color
   borderColor?: string; // Custom panel border color
+  textColor?: string; // Custom text color for terminals
+  boldTextColor?: string; // Custom bold text color for terminals
   // Row-based layout properties
   rowIndex?: number; // Which row the panel is in
   widthPercent?: number; // Percentage of row width (e.g., 50 for 50%)

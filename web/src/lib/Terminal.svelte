@@ -32,6 +32,9 @@
   export let websocketUrl = 'ws://localhost:3000';
   export let autoLaunchClaude = false;
   export let panelId: string = '';
+  export let backgroundColor: string | undefined = undefined;
+  export let textColor: string | undefined = undefined;
+  export let boldTextColor: string | undefined = undefined;
   
   let terminalContainer: HTMLDivElement;
   let terminal: any;
@@ -65,6 +68,11 @@
   let lastDataReceived: number = 0;
   let claudeState: 'idle' | 'responding' = 'idle';
   let accumulatedOutput: string = ''; // Track recent output for pattern detection
+
+  // React to color changes
+  $: if (terminal && (backgroundColor || textColor || boldTextColor)) {
+    updateTerminalSettings();
+  }
   
   // Check if running on remote server (not localhost)
   function isRemoteServer(): boolean {
@@ -969,8 +977,33 @@
       terminal.options.cursorStyle = currentSettings.terminal.cursorStyle;
       terminal.options.cursorBlink = currentSettings.terminal.cursorBlink;
       
-      // Update theme based on settings
-      if (currentSettings.theme === 'light') {
+      // Update theme based on settings and custom colors
+      if (backgroundColor || textColor || boldTextColor) {
+        // Use custom colors passed from panel
+        terminal.options.theme = {
+          background: backgroundColor || '#1e1e1e',
+          foreground: textColor || '#d4d4d4',
+          cursor: textColor || '#d4d4d4',
+          cursorAccent: backgroundColor || '#1e1e1e',
+          selectionBackground: '#264f78',
+          black: '#000000',
+          red: '#cd3131',
+          green: '#0dbc79',
+          yellow: '#e5e510',
+          blue: '#2472c8',
+          brightBlack: '#808080',
+          brightRed: '#f14c4c',
+          brightGreen: '#23d18b',
+          brightYellow: '#f5f543',
+          brightBlue: '#3b8eea',
+          brightMagenta: boldTextColor || '#d670d6',
+          brightCyan: boldTextColor || '#29b8db',
+          brightWhite: boldTextColor || '#e5e5e5',
+          cyan: '#11a8cd',
+          magenta: '#bc3fbc',
+          white: textColor || '#cccccc'
+        };
+      } else if (currentSettings.theme === 'light') {
         terminal.options.theme = {
           background: '#ffffff',
           foreground: '#333333',

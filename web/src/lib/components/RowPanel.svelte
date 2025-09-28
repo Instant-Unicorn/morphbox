@@ -55,6 +55,8 @@
   let headerColorInput: HTMLInputElement;
   let backgroundColorInput: HTMLInputElement;
   let borderColorInput: HTMLInputElement;
+  let textColorInput: HTMLInputElement;
+  let boldTextColorInput: HTMLInputElement;
   let dropZone: 'before' | 'after' | 'center' | null = null;
   
   // Resize state
@@ -191,13 +193,17 @@
     }
   }
   
-  function handleColorChange(type: 'header' | 'background' | 'border', color: string) {
+  function handleColorChange(type: 'header' | 'background' | 'border' | 'text' | 'boldText', color: string) {
     if (type === 'header') {
       panelStore.updatePanel(panel.id, { headerColor: color });
     } else if (type === 'background') {
       panelStore.updatePanel(panel.id, { backgroundColor: color });
     } else if (type === 'border') {
       panelStore.updatePanel(panel.id, { borderColor: color });
+    } else if (type === 'text') {
+      panelStore.updatePanel(panel.id, { textColor: color });
+    } else if (type === 'boldText') {
+      panelStore.updatePanel(panel.id, { boldTextColor: color });
     }
   }
   
@@ -205,7 +211,9 @@
     panelStore.updatePanel(panel.id, {
       headerColor: '#636363',
       backgroundColor: '#2a2a2a',
-      borderColor: '#444'
+      borderColor: '#444',
+      textColor: undefined,
+      boldTextColor: undefined
     });
   }
   
@@ -758,6 +766,52 @@
                   ></button>
                 </div>
               </div>
+
+              <!-- Text Color (for terminals) -->
+              {#if panel.type === 'terminal' || panel.type === 'claude'}
+                <div class="color-option">
+                  <label for="text-color-{panel.id}">Text</label>
+                  <div class="color-input-wrapper">
+                    <input
+                      id="text-color-{panel.id}"
+                      bind:this={textColorInput}
+                      type="color"
+                      value={panel.textColor || '#d4d4d4'}
+                      on:input={(e) => handleColorChange('text', e.currentTarget.value)}
+                      class="color-picker-input"
+                    />
+                    <button
+                      class="color-preview"
+                      style="background-color: {panel.textColor || '#d4d4d4'};"
+                      on:click={() => textColorInput?.click()}
+                      type="button"
+                      aria-label="Choose text color"
+                    ></button>
+                  </div>
+                </div>
+
+                <!-- Bold Text Color (for terminals) -->
+                <div class="color-option">
+                  <label for="bold-text-color-{panel.id}">Bold Text</label>
+                  <div class="color-input-wrapper">
+                    <input
+                      id="bold-text-color-{panel.id}"
+                      bind:this={boldTextColorInput}
+                      type="color"
+                      value={panel.boldTextColor || '#e5e5e5'}
+                      on:input={(e) => handleColorChange('boldText', e.currentTarget.value)}
+                      class="color-picker-input"
+                    />
+                    <button
+                      class="color-preview"
+                      style="background-color: {panel.boldTextColor || '#e5e5e5'};"
+                      on:click={() => boldTextColorInput?.click()}
+                      type="button"
+                      aria-label="Choose bold text color"
+                    ></button>
+                  </div>
+                </div>
+              {/if}
             </div>
           </div>
         {/if}
@@ -809,6 +863,9 @@
           {websocketUrl}
           panelId={panel.id}
           autoLaunchClaude={panel.type === 'claude'}
+          backgroundColor={panel.backgroundColor}
+          textColor={panel.textColor}
+          boldTextColor={panel.boldTextColor}
           on:ready={handleTerminalReady}
           on:claude-idle={() => {
             console.log('🔄🔄🔄 [RowPanel] Claude idle event received from panel:', panel.id, '🔄🔄🔄');

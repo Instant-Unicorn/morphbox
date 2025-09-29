@@ -33,40 +33,41 @@ function generatePanelId(name: string): string {
     Date.now().toString(36);
 }
 
-async function generatePanelWithClaude(name: string, description: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    console.log('=== Starting Claude Panel Generation ===');
-    console.log('Panel Name:', name);
-    console.log('Description:', description);
-    
-    const prompt = `Create a vanilla JavaScript panel for MorphBox with the following requirements:
+const DEFAULT_SYSTEM_PROMPT = `Create a vanilla JavaScript panel for MorphBox with the following requirements:
 
-Panel Name: ${name}
-Description: ${description}
+Panel Name: {name}
+Description: {description}
 
 Generate a complete HTML/CSS/JavaScript panel that:
 1. Uses vanilla JavaScript (no frameworks)
 2. Has access to these variables: panelId, data, websocketUrl
-3. Uses MorphBox CSS variables for theming (--bg-primary, --text-primary, --border-color, etc.)
-4. Implements the functionality described above
-5. Uses proper error handling and loading states where applicable
-6. IMPORTANT: The JavaScript code will be automatically wrapped in an onMount() function, so you can safely access DOM elements directly without waiting for DOMContentLoaded
+3. Can connect to WebSocket for real-time data: const ws = new WebSocket(websocketUrl)
+4. Uses MorphBox CSS variables for theming (--bg-primary, --text-primary, --border-color, etc.)
+5. Implements the functionality described above
+6. Uses proper error handling and loading states where applicable
+7. IMPORTANT: The JavaScript code will be automatically wrapped in an onMount() function, so you can safely access DOM elements directly without waiting for DOMContentLoaded
+8. Is responsive and works well on mobile
+
+WebSocket Access:
+- Connect using: new WebSocket(websocketUrl)
+- Listen for 'OUTPUT' events (terminal output)
+- Listen for 'context_update' events (Claude Code context tracking)
+- See full API: https://github.com/instant-unicorn/morphbox/blob/main/docs/CUSTOM_PANELS.md
 
 IMPORTANT: Return ONLY the HTML code starting with <div> tags. Do not include any markdown formatting, code blocks, or explanations. Just the raw HTML/CSS/JavaScript code.
-6. Is responsive and works well on mobile
 
 The panel should follow this structure:
 <!--
 @morphbox-panel
 id: (will be generated)
-name: ${name}
-description: ${description}
+name: {name}
+description: {description}
 version: 1.0.0
 -->
 
 <div class="custom-panel">
   <div class="panel-header">
-    <h2>${name}</h2>
+    <h2>{name}</h2>
   </div>
   <div class="panel-content">
     <!-- Panel content here -->
@@ -84,6 +85,19 @@ version: 1.0.0
 </script>
 
 Make it fully functional and production-ready. Use modern JavaScript features.`;
+
+async function generatePanelWithClaude(name: string, description: string, customPrompt?: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    console.log('=== Starting Claude Panel Generation ===');
+    console.log('Panel Name:', name);
+    console.log('Description:', description);
+    console.log('Using custom prompt:', !!customPrompt);
+
+    // Use custom prompt or default, replacing placeholders
+    const promptTemplate = customPrompt || DEFAULT_SYSTEM_PROMPT;
+    const prompt = promptTemplate
+      .replace(/\{name\}/g, name)
+      .replace(/\{description\}/g, description);
 
     console.log('Prompt length:', prompt.length);
     
@@ -244,24 +258,24 @@ Make it fully functional and production-ready. Use modern JavaScript features.`;
 
 export const POST: RequestHandler = async ({ request }) => {
   try {
-    const { name, description } = await request.json();
-    
+    const { name, description, customPrompt } = await request.json();
+
     if (!name || !description) {
       return json({ error: 'Name and description are required' }, { status: 400 });
     }
-    
+
     // Ensure the directory exists
     await mkdir(PANELS_DIR, { recursive: true });
-    
+
     // Generate panel ID and filename
     const id = generatePanelId(name);
     const filename = `${id}.morph`;
     const filepath = join(PANELS_DIR, filename);
-    
+
     // Generate panel content using Claude
     let content: string;
     try {
-      content = await generatePanelWithClaude(name, description);
+      content = await generatePanelWithClaude(name, description, customPrompt);
       
       // Update the metadata in the generated content with the actual ID
       content = content.replace(

@@ -53,6 +53,9 @@
       requireAuthExternal: boolean;
       showSecurityWarnings: boolean;
     };
+    customPanels?: {
+      systemPrompt: string;
+    };
   }
   
   // Default settings
@@ -108,6 +111,60 @@
       autoLockMinutes: 30,
       requireAuthExternal: true,
       showSecurityWarnings: true
+    },
+    customPanels: {
+      systemPrompt: `Create a vanilla JavaScript panel for MorphBox with the following requirements:
+
+Panel Name: {name}
+Description: {description}
+
+Generate a complete HTML/CSS/JavaScript panel that:
+1. Uses vanilla JavaScript (no frameworks)
+2. Has access to these variables: panelId, data, websocketUrl
+3. Can connect to WebSocket for real-time data: const ws = new WebSocket(websocketUrl)
+4. Uses MorphBox CSS variables for theming (--bg-primary, --text-primary, --border-color, etc.)
+5. Implements the functionality described above
+6. Uses proper error handling and loading states where applicable
+7. IMPORTANT: The JavaScript code will be automatically wrapped in an onMount() function, so you can safely access DOM elements directly without waiting for DOMContentLoaded
+8. Is responsive and works well on mobile
+
+WebSocket Access:
+- Connect using: new WebSocket(websocketUrl)
+- Listen for 'OUTPUT' events (terminal output)
+- Listen for 'context_update' events (Claude Code context tracking)
+- See full API: https://github.com/instant-unicorn/morphbox/blob/main/docs/CUSTOM_PANELS.md
+
+IMPORTANT: Return ONLY the HTML code starting with <div> tags. Do not include any markdown formatting, code blocks, or explanations. Just the raw HTML/CSS/JavaScript code.
+
+The panel should follow this structure:
+<!--
+@morphbox-panel
+id: (will be generated)
+name: {name}
+description: {description}
+version: 1.0.0
+-->
+
+<div class="custom-panel">
+  <div class="panel-header">
+    <h2>{name}</h2>
+  </div>
+  <div class="panel-content">
+    <!-- Panel content here -->
+  </div>
+</div>
+
+<style>
+  /* Panel styles using CSS variables */
+</style>
+
+<script>
+  // Panel logic here
+  // Available: panelId, data, websocketUrl
+  // Use vanilla JS, no frameworks
+</script>
+
+Make it fully functional and production-ready. Use modern JavaScript features.`
     }
   };
   
@@ -632,12 +689,26 @@
         
         <div class="setting-row">
           <label>
-            <input 
-              type="checkbox" 
+            <input
+              type="checkbox"
               bind:checked={settings.panels.showPanelBorders}
             />
             Show Panel Borders
           </label>
+        </div>
+
+        <h4 style="margin-top: 2rem;">Custom Panel System Prompt</h4>
+        <p style="font-size: 0.9em; color: var(--text-secondary); margin-bottom: 0.5rem;">
+          This prompt is used by Claude to generate custom panels. You can customize it to change how panels are created.
+          Use <code>{name}</code> and <code>{description}</code> as placeholders.
+        </p>
+        <div class="setting-row">
+          <textarea
+            bind:value={settings.customPanels.systemPrompt}
+            rows="15"
+            style="width: 100%; font-family: monospace; font-size: 0.85em; padding: 0.5rem; background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px; resize: vertical;"
+            placeholder="Enter custom system prompt for panel generation..."
+          />
         </div>
       </section>
     {/if}

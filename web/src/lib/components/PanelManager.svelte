@@ -304,6 +304,9 @@
             {/if}
           </div>
         </div>
+        <p class="prompt-info">
+          💡 Panels are generated using your custom system prompt. Edit it in <strong>Settings → Panels</strong> to customize generation behavior.
+        </p>
         <div class="panel-list">
           {#if $customPanels.length === 0}
             <p class="empty-message">No custom panels yet. Create your first panel!</p>
@@ -647,6 +650,21 @@
     color: #858585;
     font-size: 13px;
     margin: 20px 0;
+  }
+
+  .prompt-info {
+    font-size: 12px;
+    color: var(--text-secondary, #858585);
+    margin: 8px 12px;
+    padding: 8px 12px;
+    background: rgba(14, 99, 156, 0.1);
+    border-left: 3px solid var(--accent-color, #0e639c);
+    border-radius: 4px;
+    line-height: 1.4;
+  }
+
+  .prompt-info strong {
+    color: var(--text-primary, #cccccc);
   }
   
   .manager-footer {

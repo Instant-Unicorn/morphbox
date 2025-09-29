@@ -1,9 +1,10 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { fade } from 'svelte/transition';
-  
+  import { settings } from '$lib/panels/Settings/settings-store';
+
   const dispatch = createEventDispatcher();
-  
+
   let panelName = '';
   let panelDescription = '';
   let isCreating = false;
@@ -27,6 +28,14 @@
     loadingMessage = 'Generating panel with Claude...';
     
     try {
+      // Get custom prompt from settings
+      let customPrompt = undefined;
+      settings.subscribe(s => {
+        if (s.customPanels?.systemPrompt) {
+          customPrompt = s.customPanels.systemPrompt;
+        }
+      })();
+
       const response = await fetch('/api/custom-panels/create', {
         method: 'POST',
         headers: {
@@ -34,7 +43,8 @@
         },
         body: JSON.stringify({
           name: panelName.trim(),
-          description: panelDescription.trim()
+          description: panelDescription.trim(),
+          customPrompt
         })
       });
       

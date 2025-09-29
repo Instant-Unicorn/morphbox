@@ -528,21 +528,49 @@
           // Allow single panels to resize freely between 10% and 100%
           updates.widthPercent = Math.max(10, Math.min(100, newWidth));
         } else {
-          // For multiple panels, ensure we don't exceed 100% total width in the row
-          const otherPanelsWidth = row.panels
-            .filter(p => p.id !== panelId)
-            .reduce((sum, p) => sum + (p.widthPercent || 0), 0);
+          // For multiple panels, implement proper boundary dragging
+          const panelIndex = row.panels.findIndex(p => p.id === panelId);
 
-          // Constrain new width so total doesn't exceed 100%
-          const maxAllowedWidth = 100 - otherPanelsWidth;
-          const constrainedWidth = Math.min(newWidth, maxAllowedWidth);
+          if (!isLeftResize && panelIndex < row.panels.length - 1) {
+            // Right resize - adjust this panel and the next panel
+            const nextPanel = row.panels[panelIndex + 1];
+            const currentWidth = panel.widthPercent || 25;
+            const nextWidth = nextPanel.widthPercent || 25;
+            const totalWidth = currentWidth + nextWidth;
 
-          updates.widthPercent = constrainedWidth;
+            // Calculate new widths
+            const newCurrentWidth = Math.max(10, Math.min(totalWidth - 10, newWidth));
+            const newNextWidth = totalWidth - newCurrentWidth;
 
-          // For left resize, we need to redistribute space
-          if (isLeftResize && row.panels.length > 1) {
-            // Simple approach: just resize this panel, let CSS handle the layout
-            // The flex layout will automatically adjust other panels
+            updates.widthPercent = newCurrentWidth;
+
+            // Update the next panel's width
+            panelStore.updatePanel(nextPanel.id, { widthPercent: newNextWidth });
+          } else if (isLeftResize && panelIndex > 0) {
+            // Left resize - adjust this panel and the previous panel
+            const prevPanel = row.panels[panelIndex - 1];
+            const currentWidth = panel.widthPercent || 25;
+            const prevWidth = prevPanel.widthPercent || 25;
+            const totalWidth = currentWidth + prevWidth;
+
+            // Calculate new widths
+            const newCurrentWidth = Math.max(10, Math.min(totalWidth - 10, newWidth));
+            const newPrevWidth = totalWidth - newCurrentWidth;
+
+            updates.widthPercent = newCurrentWidth;
+
+            // Update the previous panel's width
+            panelStore.updatePanel(prevPanel.id, { widthPercent: newPrevWidth });
+          } else {
+            // Edge panels or single panel - just constrain the width
+            const otherPanelsWidth = row.panels
+              .filter(p => p.id !== panelId)
+              .reduce((sum, p) => sum + (p.widthPercent || 0), 0);
+
+            const maxAllowedWidth = 100 - otherPanelsWidth;
+            const constrainedWidth = Math.min(newWidth, maxAllowedWidth);
+
+            updates.widthPercent = constrainedWidth;
           }
         }
       } else {
@@ -871,9 +899,9 @@
         {:else}
           {#each row.panels as panel (panel.id)}
             {#if panelComponentMap[panel.id]}
-              <div 
+              <div
                 class="panel-container"
-                style="flex: 1 1 {panel.widthPercent || 25}%;"
+                style="{row.panels.length === 1 ? `width: ${panel.widthPercent || 100}%; flex: none;` : `flex: 1 1 ${panel.widthPercent || 25}%;`}"
                 data-panel-id={panel.id}
               >
                 {#key panel.id}
@@ -988,6 +1016,7 @@
     overflow: visible; /* Changed to visible to allow resize handles to extend beyond */
     flex-wrap: nowrap;
     transition: margin 0.3s ease;
+    background-color: var(--bg-primary, #1e1e1e); /* Add background to show empty space */
     /* Remove padding to maximize panel width */
     padding: 0 4px; /* Small padding for edge visibility */
   }

@@ -158,11 +158,11 @@ version: 1.0.0
   /* Panel styles using CSS variables */
 </style>
 
-<script>
+<` + `script>
   // Panel logic here
   // Available: panelId, data, websocketUrl
   // Use vanilla JS, no frameworks
-</script>
+</` + `script>
 
 Make it fully functional and production-ready. Use modern JavaScript features.`
     }

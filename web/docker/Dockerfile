@@ -1,4 +1,5 @@
-# MorphBox Docker Container - Based on official Claude-Code devcontainer
+# MorphBox Docker Container - Multi-AI CLI Development Environment
+# Includes Claude, Gemini, and Codex CLI tools
 FROM node:20
 
 # Install minimal required packages (matching Claude-Code devcontainer)
@@ -22,12 +23,14 @@ RUN useradd -m -s /bin/bash morphbox && \
     # Set empty password for morphbox user (for SSH)
     passwd -d morphbox
 
-# Give morphbox user ownership of npm directories for Claude updates
+# Give morphbox user ownership of npm directories for AI CLI updates
 RUN chown -R morphbox:morphbox /usr/local/lib/node_modules /usr/local/bin /usr/local/share
 
-# Install Claude CLI as morphbox user to enable auto-updates
+# Install AI CLI tools as morphbox user to enable auto-updates
 USER morphbox
-RUN npm install -g @anthropic-ai/claude-code
+RUN npm install -g @anthropic-ai/claude-code && \
+    npm install -g @google/gemini-cli && \
+    npm install -g @openai/codex
 USER root
 
 # Setup SSH for container access - passwordless for local container
@@ -53,11 +56,16 @@ WORKDIR /workspace
 # Switch to morphbox user for security
 USER morphbox
 
-# Create directories for Claude configuration and set terminal in profile
+# Create directories for AI tools configuration and set terminal in profile
 RUN mkdir -p ~/.config/claude-code && \
+    mkdir -p ~/.config/gemini-cli && \
+    mkdir -p ~/.config/codex && \
     echo 'export TERM=xterm-256color' >> ~/.bashrc && \
     echo 'export COLORTERM=truecolor' >> ~/.bashrc && \
-    echo 'alias claude-update="npm update -g @anthropic-ai/claude-code && echo \"Claude updated to version \$(claude --version)\""' >> ~/.bashrc
+    echo 'alias claude-update="npm update -g @anthropic-ai/claude-code && echo \"Claude updated to version \$(claude --version)\""' >> ~/.bashrc && \
+    echo 'alias gemini-update="npm update -g @google/gemini-cli && echo \"Gemini updated to version \$(gemini --version)\""' >> ~/.bashrc && \
+    echo 'alias codex-update="npm update -g @openai/codex && echo \"Codex updated to version \$(codex --version)\""' >> ~/.bashrc && \
+    echo 'alias ai-update="claude-update && gemini-update && codex-update"' >> ~/.bashrc
 
 # Switch back to root for SSH daemon
 USER root

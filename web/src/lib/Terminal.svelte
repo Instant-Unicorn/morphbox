@@ -979,6 +979,7 @@
       
       // Update theme based on settings and custom colors
       if (backgroundColor || textColor || boldTextColor) {
+        console.log('[Terminal] Applying custom colors:', { backgroundColor, textColor, boldTextColor });
         // Use custom colors passed from panel
         terminal.options.theme = {
           background: backgroundColor || '#1e1e1e',
@@ -1067,6 +1068,9 @@
       if (fitAddon) {
         fitAddon.fit();
       }
+
+      // Force refresh to apply theme changes
+      terminal.refresh(0, terminal.rows - 1);
     }
   }
   
@@ -1340,6 +1344,36 @@
     try {
       // Create terminal instance with settings
       console.log('[Terminal] Creating terminal with options:', termOptions);
+
+      // Prepare initial theme with custom colors if provided
+      let initialTheme = undefined;
+      if (backgroundColor || textColor || boldTextColor) {
+        console.log('[Terminal] Setting initial theme with custom colors:', { backgroundColor, textColor, boldTextColor });
+        initialTheme = {
+          background: backgroundColor || '#1e1e1e',
+          foreground: textColor || '#d4d4d4',
+          cursor: textColor || '#d4d4d4',
+          cursorAccent: backgroundColor || '#1e1e1e',
+          selectionBackground: '#264f78',
+          black: '#000000',
+          red: '#cd3131',
+          green: '#0dbc79',
+          yellow: '#e5e510',
+          blue: '#2472c8',
+          brightBlack: '#808080',
+          brightRed: '#f14c4c',
+          brightGreen: '#23d18b',
+          brightYellow: '#f5f543',
+          brightBlue: '#3b8eea',
+          brightMagenta: boldTextColor || '#d670d6',
+          brightCyan: boldTextColor || '#29b8db',
+          brightWhite: boldTextColor || '#e5e5e5',
+          cyan: '#11a8cd',
+          magenta: '#bc3fbc',
+          white: textColor || '#cccccc'
+        };
+      }
+
       terminal = new Terminal({
         fontSize: termOptions.fontSize,
         fontFamily: termOptions.fontFamily,
@@ -1351,6 +1385,7 @@
         cursorStyle: termOptions.cursorStyle,
         allowTransparency: false,
         tabStopWidth: 8,
+        theme: initialTheme,
         screenReaderMode: false,
         // Ensure proper terminal type for arrow keys
         convertEol: true,

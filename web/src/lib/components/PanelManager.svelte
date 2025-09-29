@@ -108,9 +108,22 @@
   }
   
   // Handle panel morphed
-  function handlePanelMorphed() {
+  function handlePanelMorphed(event: CustomEvent) {
+    const { panelId, shouldReload } = event.detail;
+
+    console.log('[PanelManager] Panel morphed:', { panelId, shouldReload });
+
+    // Dispatch reload event to parent layout
+    if (shouldReload) {
+      window.dispatchEvent(new CustomEvent('reload-panel', {
+        detail: { panelId, timestamp: Date.now() }
+      }));
+    }
+
     editingPanel = null;
-    // Optionally refresh the panel list or show a success message
+
+    // Refresh custom panels list to show updated metadata
+    loadCustomPanelsMetadata();
   }
   
   // Delete a custom panel

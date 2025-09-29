@@ -2,7 +2,7 @@
   import { createEventDispatcher, onMount } from 'svelte';
   import type { Panel } from '$lib/stores/panels';
   import { panelStore } from '$lib/stores/panels';
-  import { X, GripVertical, Palette, Keyboard, CornerDownLeft } from 'lucide-svelte';
+  import { X, GripVertical, Palette, Keyboard, CornerDownLeft, Pencil } from 'lucide-svelte';
   
   // Global terminal instances declaration
   declare global {
@@ -215,6 +215,11 @@
       textColor: undefined,
       boldTextColor: undefined
     });
+  }
+
+  // Edit custom panel
+  function handleEditPanel() {
+    dispatch('edit-panel', { panelId: panel.id, panelType: panel.type });
   }
   
   // Keyboard emulation functions
@@ -675,9 +680,20 @@
     <h3 class="panel-title">{panel.title}</h3>
     
     <div class="panel-controls">
+      <!-- Edit button for custom panels -->
+      {#if panel.type.startsWith('panel-')}
+        <button
+          class="control-btn edit-panel-btn"
+          on:click={handleEditPanel}
+          title="Edit custom panel"
+        >
+          <Pencil size={16} />
+        </button>
+      {/if}
+
       <!-- Color palette button -->
       <div class="color-palette-container">
-        <button 
+        <button
           class="control-btn color-palette-btn {showColorPopup ? 'active' : ''}"
           on:click={toggleColorPopup}
           title="Change panel colors"
@@ -1117,7 +1133,17 @@
     background-color: rgba(255, 255, 255, 0.2);
     color: white;
   }
-  
+
+  /* Edit panel button */
+  .edit-panel-btn {
+    margin-right: 4px;
+  }
+
+  .edit-panel-btn:hover {
+    background-color: rgba(59, 130, 246, 0.2);
+    color: rgb(96, 165, 250);
+  }
+
   .color-popup {
     position: absolute;
     top: 100%;

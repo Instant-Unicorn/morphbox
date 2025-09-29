@@ -112,11 +112,20 @@
       // Clear the input
       morphDescription = '';
       
-      // Dispatch success event
-      dispatch('morphed', { panelId, metadata: result.metadata });
-      
+      // Dispatch success event with reload flag
+      dispatch('morphed', {
+        panelId,
+        metadata: result.metadata,
+        shouldReload: true
+      });
+
       // Show success message
       error = '';
+
+      // Close modal after brief delay to show success
+      setTimeout(() => {
+        dispatch('close');
+      }, 500);
     } catch (err) {
       error = err instanceof Error ? err.message : 'An error occurred';
       console.error('Failed to morph panel:', err);

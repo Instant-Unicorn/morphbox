@@ -8,9 +8,9 @@
   export let panel: Panel;
   export let component: any;
   export let websocketUrl: string = '';
-  
+
   const dispatch = createEventDispatcher();
-  
+
   let isDragging = false;
   let dragHandle: HTMLElement;
   let showColorPicker = false;
@@ -18,6 +18,16 @@
   let backgroundColorInput: HTMLInputElement;
   let borderColorInput: HTMLInputElement;
   let activeColorPicker: 'header' | 'background' | 'border' | null = null;
+
+  // Title editing state
+  let isEditingTitle = false;
+  let editedTitle = panel.title;
+  let titleInput: HTMLInputElement;
+
+  // Update editedTitle when panel.title changes externally
+  $: if (!isEditingTitle) {
+    editedTitle = panel.title;
+  }
   
   function handleMove(direction: string) {
     dispatch('move', { panelId: panel.id, direction });
@@ -106,6 +116,40 @@
   function handleOpen(event: CustomEvent) {
     dispatch('open', event.detail);
   }
+
+  // Title editing functions
+  function startEditingTitle() {
+    isEditingTitle = true;
+    editedTitle = panel.title;
+    setTimeout(() => {
+      if (titleInput) {
+        titleInput.focus();
+        titleInput.select();
+      }
+    }, 0);
+  }
+
+  function saveTitle() {
+    if (editedTitle.trim()) {
+      panelStore.updatePanel(panel.id, { title: editedTitle.trim() });
+    } else {
+      editedTitle = panel.title; // Revert if empty
+    }
+    isEditingTitle = false;
+  }
+
+  function cancelEditTitle() {
+    editedTitle = panel.title;
+    isEditingTitle = false;
+  }
+
+  function handleTitleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter') {
+      saveTitle();
+    } else if (e.key === 'Escape') {
+      cancelEditTitle();
+    }
+  }
 </script>
 
 <div 
@@ -128,7 +172,27 @@
       <GripVertical size={16} />
     </div>
     
-    <h3 class="panel-title">{panel.title}</h3>
+    {#if isEditingTitle}
+      <input
+        bind:this={titleInput}
+        bind:value={editedTitle}
+        class="panel-title-input"
+        type="text"
+        on:blur={saveTitle}
+        on:keydown={handleTitleKeydown}
+      />
+    {:else}
+      <h3
+        class="panel-title"
+        on:click={startEditingTitle}
+        on:keydown={(e) => e.key === 'Enter' && startEditingTitle()}
+        role="button"
+        tabindex="0"
+        title="Click to rename"
+      >
+        {panel.title}
+      </h3>
+    {/if}
     <div class="panel-controls">
       <!-- Color pickers -->
       <div class="color-picker-group">
@@ -359,6 +423,37 @@
     overflow: hidden;
     text-overflow: ellipsis;
     flex: 1;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+  }
+
+  .panel-title:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .panel-title:focus {
+    outline: 1px solid var(--accent-color, #0e639c);
+    outline-offset: -1px;
+  }
+
+  .panel-title-input {
+    flex: 1;
+    margin: 0;
+    padding: 2px 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--panel-title-color, rgb(210, 210, 210));
+    background-color: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--accent-color, #0e639c);
+    border-radius: 3px;
+    outline: none;
+    font-family: inherit;
+  }
+
+  .panel-title-input:focus {
+    box-shadow: 0 0 3px var(--accent-color, #0e639c);
   }
   
   .panel-controls {

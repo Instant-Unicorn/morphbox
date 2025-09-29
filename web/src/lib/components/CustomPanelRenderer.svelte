@@ -11,62 +11,61 @@
   let showSource = false;
   let panelSource = '';
   let iframeElement: HTMLIFrameElement;
-  
+
   // Use panelType if provided, otherwise use panelId
   const actualPanelType = panelType || panelId;
-  
-  // Listen for messages from iframe
-  const handleMessage = (event: MessageEvent) => {
-    if (event.data && typeof event.data === 'object') {
-      if (event.data.type === 'panel-script-start') {
-        console.log('[CustomPanelRenderer] Panel script started:', event.data.panelId);
-      } else if (event.data.type === 'panel-script-success') {
-        console.log('[CustomPanelRenderer] Panel script executed successfully:', event.data.panelId);
-      } else if (event.data.type === 'panel-script-error') {
-        console.error('[CustomPanelRenderer] Panel script error:', event.data.panelId, event.data.error);
-      }
-    }
-  };
-  
-  onMount(async () => {
-    // Add message listener
-    window.addEventListener('message', handleMessage);
-    
+
+  // Extract reload timestamp for cache busting
+  let currentReloadTimestamp = data?._reloadTimestamp || Date.now();
+
+  // Watch for data changes to trigger reload
+  $: if (data?._reloadTimestamp && data._reloadTimestamp !== currentReloadTimestamp) {
+    console.log('[CustomPanelRenderer] Detected reload timestamp change, reloading panel');
+    currentReloadTimestamp = data._reloadTimestamp;
+    // Force component remount by setting loading state
+    loading = true;
+    error = '';
+    // Re-trigger onMount logic
+    loadPanel();
+  }
+
+  async function loadPanel() {
     try {
       console.log('[CustomPanelRenderer] Loading panel:', {
         panelId,
         panelType,
-        actualPanelType
+        actualPanelType,
+        reloadTimestamp: currentReloadTimestamp
       });
-      
+
       // Check if this is an old panel ID format
       if (actualPanelType.startsWith('panel-') && actualPanelType.match(/panel-\d+-[a-z0-9]+/)) {
         throw new Error('This panel was created before the custom panels fix. Please close this panel and re-open it from the Panel Manager.');
       }
-      
-      // Load the panel source using the new code endpoint
-      const response = await fetch(`/api/custom-panels/code/${actualPanelType}`);
-      
+
+      // Load the panel source using the new code endpoint with cache-busting
+      const response = await fetch(`/api/custom-panels/code/${actualPanelType}?t=${currentReloadTimestamp}`);
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('[CustomPanelRenderer] Load failed:', response.status, errorText);
-        
+
         if (response.status === 404) {
           throw new Error(`Custom panel file not found: ${actualPanelType}.svelte. Please ensure the panel exists in ~/morphbox/panels/`);
         }
         throw new Error(`Failed to load panel: ${response.status} ${errorText}`);
       }
-      
+
       panelSource = await response.text();
-      
+
       // Extract metadata
       const metadataMatch = panelSource.match(/<!--\s*@morphbox-panel\s*([\s\S]*?)-->/);
       const componentContent = metadataMatch ? panelSource.replace(metadataMatch[0], '').trim() : panelSource;
-      
+
       // Extract script, style, and template parts
       const scriptMatch = componentContent.match(/<script(?:\s+lang="ts")?>([\s\S]*?)<\/script>/);
       const styleMatch = componentContent.match(/<style>([\s\S]*?)<\/style>/);
-      
+
       // Extract template by removing script and style tags
       let template = componentContent;
       if (scriptMatch) {
@@ -76,14 +75,14 @@
         template = template.replace(styleMatch[0], '');
       }
       template = template.trim();
-      
+
       const script = scriptMatch ? scriptMatch[1].trim() : '';
       const style = styleMatch ? styleMatch[1].trim() : '';
-      
+
       if (!template) {
         template = '<div>No template defined</div>';
       }
-      
+
       console.log('[CustomPanelRenderer] Extracted content:', {
         scriptLength: script.length,
         styleLength: style.length,
@@ -92,10 +91,10 @@
         hasStyle: !!styleMatch,
         hasTemplate: template.length > 0
       });
-      
+
       // Check if this is a Svelte component (has Svelte syntax)
       const isSvelteComponent = template.includes('{#if') || template.includes('{#each') || template.includes('{$') || template.includes('{@') || (script.includes('import') && script.includes('from'));
-      
+
       if (isSvelteComponent) {
         console.log('[CustomPanelRenderer] Detected Svelte syntax in panel');
         // For now, show a message that Svelte panels need to be converted
@@ -114,13 +113,34 @@
         // Create an iframe to isolate the custom panel
         createIframePanel(script, template, style);
       }
-      
+
       loading = false;
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load custom panel';
       console.error('[CustomPanelRenderer] Error:', err);
       loading = false;
     }
+  }
+
+  // Listen for messages from iframe
+  const handleMessage = (event: MessageEvent) => {
+    if (event.data && typeof event.data === 'object') {
+      if (event.data.type === 'panel-script-start') {
+        console.log('[CustomPanelRenderer] Panel script started:', event.data.panelId);
+      } else if (event.data.type === 'panel-script-success') {
+        console.log('[CustomPanelRenderer] Panel script executed successfully:', event.data.panelId);
+      } else if (event.data.type === 'panel-script-error') {
+        console.error('[CustomPanelRenderer] Panel script error:', event.data.panelId, event.data.error);
+      }
+    }
+  };
+  
+  onMount(async () => {
+    // Add message listener
+    window.addEventListener('message', handleMessage);
+
+    // Load panel initially
+    await loadPanel();
   });
   
   function createIframePanel(script: string, template: string, style: string) {

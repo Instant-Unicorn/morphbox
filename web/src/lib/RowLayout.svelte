@@ -609,6 +609,15 @@
     organizePanelsIntoRows();
     saveLayoutToServer();
   }
+
+  // Handle edit custom panel
+  function handleEditPanel(event: CustomEvent) {
+    const { panelType } = event.detail;
+    // Dispatch event to parent (MorphBoxLayout) to open edit modal
+    window.dispatchEvent(new CustomEvent('edit-custom-panel', {
+      detail: { panelType }
+    }));
+  }
   
   // Add new panel
   function handlePanelAction(event: CustomEvent) {
@@ -856,6 +865,47 @@
   $: if ($panels) {
     loadPanelComponents();
   }
+
+  // Listen for panel reload events (from panel morphing)
+  onMount(() => {
+    const handleReloadPanel = (event: CustomEvent) => {
+      const { panelId, timestamp } = event.detail;
+      console.log('[RowLayout] Reload panel request:', { panelId, timestamp });
+
+      // Find the panel type for this ID
+      const panel = $panels.find(p => p.id === panelId || p.type === panelId);
+      if (panel) {
+        console.log('[RowLayout] Invalidating cached component for:', panel.type);
+
+        // Remove from cache to force reload
+        if (panelComponentMap[panel.id]) {
+          delete panelComponentMap[panel.id];
+        }
+
+        // Also clear from loadedComponents cache
+        if (loadedComponents[panel.type]) {
+          delete loadedComponents[panel.type];
+        }
+
+        // Force component reload
+        loadPanelComponents();
+
+        // Add timestamp to force re-render by updating panel data
+        panelStore.updatePanel(panel.id, {
+          content: {
+            ...panel.content,
+            _reloadTimestamp: timestamp
+          }
+        });
+      }
+    };
+
+    window.addEventListener('reload-panel', handleReloadPanel as EventListener);
+
+    return () => {
+      window.removeEventListener('reload-panel', handleReloadPanel as EventListener);
+    };
+  });
 </script>
 
 <div class="layout-container responsive-container" class:compact-mode={isCompactMode} class:stacked-layout={stackedLayout}>
@@ -905,7 +955,7 @@
                 data-panel-id={panel.id}
               >
                 {#key panel.id}
-                  <RowPanel 
+                  <RowPanel
                     {panel}
                     component={panelComponentMap[panel.id]}
                     {websocketUrl}
@@ -918,6 +968,7 @@
                     on:resize={handlePanelResize}
                     on:open={handleFileOpen}
                     on:close={handlePanelClose}
+                    on:edit-panel={handleEditPanel}
                   />
                 {/key}
               </div>

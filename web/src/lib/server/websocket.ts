@@ -18,6 +18,35 @@ interface WebSocketContext {
   sessionManager?: PersistentSessionManager;
 }
 
+// Context tracking state
+let lastContextData: { used: number; max: number } | null = null;
+
+function parseContextData(text: string): { used?: number; max?: number } | null {
+  const result: { used?: number; max?: number } = {};
+
+  // Parse <budget:token_budget>200000</budget:token_budget>
+  const budgetMatch = text.match(/<budget:token_budget>(\d+)<\/budget:token_budget>/);
+  if (budgetMatch) {
+    result.max = parseInt(budgetMatch[1], 10);
+  }
+
+  // Parse token usage like "Token usage: 56234/200000; 143766 remaining"
+  const usageMatch = text.match(/Token usage:\s*(\d+)\/(\d+)/i);
+  if (usageMatch) {
+    result.used = parseInt(usageMatch[1], 10);
+    result.max = parseInt(usageMatch[2], 10);
+  }
+
+  // Parse "X/Y remaining" format
+  const remainingMatch = text.match(/(\d+)\/(\d+)[;\s]+(\d+)\s+remaining/i);
+  if (remainingMatch) {
+    result.used = parseInt(remainingMatch[1], 10);
+    result.max = parseInt(remainingMatch[2], 10);
+  }
+
+  return Object.keys(result).length > 0 ? result : null;
+}
+
 export function handleWebSocketConnection(
   ws: WebSocket,
   request: IncomingMessage,
@@ -218,6 +247,8 @@ export function handleWebSocketConnection(
           // If WebSocket is connected, send directly
           if (ws.readyState === 1) {
             send('OUTPUT', { data: data.data });
+            // Parse for context data
+            parseAndBroadcastContextData(data.data);
           } else {
             // Otherwise, buffer the output for later
             sessionStore.addOutput(sessionId, data.data);
@@ -319,6 +350,9 @@ export function handleWebSocketConnection(
         const handleOutput = (data: { agentId: string; data: string }) => {
           if (data.agentId === currentAgentId) {
             send('OUTPUT', { data: data.data });
+
+            // Parse for context budget information from Claude Code output
+            parseAndBroadcastContextData(data.data);
           }
         };
 
@@ -448,6 +482,40 @@ export function handleWebSocketConnection(
     send('ERROR', { message });
   }
 
+  function parseAndBroadcastContextData(text: string) {
+    const contextData = parseContextData(text);
+
+    if (contextData) {
+      // Update last known values
+      if (contextData.max !== undefined) {
+        if (!lastContextData) {
+          lastContextData = { used: 0, max: contextData.max };
+        } else {
+          lastContextData.max = contextData.max;
+        }
+      }
+
+      if (contextData.used !== undefined) {
+        if (!lastContextData) {
+          lastContextData = { used: contextData.used, max: 200000 }; // Default max
+        } else {
+          lastContextData.used = contextData.used;
+        }
+      }
+
+      // Broadcast context update to this connection
+      if (lastContextData) {
+        console.log('[Context Tracking] Broadcasting context data:', lastContextData);
+        send('context_update', {
+          tokens: {
+            used: lastContextData.used,
+            max: lastContextData.max
+          }
+        });
+      }
+    }
+  }
+
   async function sendCurrentState() {
     try {
       const state = await stateManager.getCurrentState();
@@ -501,6 +569,8 @@ export function handleWebSocketConnection(
           // If WebSocket is connected, send directly
           if (ws.readyState === 1) {
             send('OUTPUT', { data: data.data });
+            // Parse for context data
+            parseAndBroadcastContextData(data.data);
           } else {
             // Otherwise, buffer the output for later
             sessionStore.addOutput(sessionId, data.data);
@@ -567,6 +637,8 @@ export function handleWebSocketConnection(
           const handleOutput = (data: { agentId: string; data: string }) => {
             if (data.agentId === currentAgentId) {
               send('OUTPUT', { data: data.data });
+              // Parse for context data
+              parseAndBroadcastContextData(data.data);
             }
           };
 

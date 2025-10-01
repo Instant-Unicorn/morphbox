@@ -207,39 +207,30 @@ export function handleWebSocketConnection(
           // Create new session
           currentSessionId = await stateManager.createSession(process.cwd(), 'claude');
           send('SESSION_CREATED', { sessionId: currentSessionId });
-          
-          // Get VM connection info from environment
-          const vmHost = process.env.MORPHBOX_VM_HOST || '127.0.0.1';
-          const vmPort = parseInt(process.env.MORPHBOX_VM_PORT || '22');
-          const vmUser = process.env.MORPHBOX_VM_USER || 'morphbox';
-          
-          // Launch SSH connection to VM
-          console.log('Launching SSH agent with config:', { vmHost, vmPort, vmUser });
-          currentAgentId = await agentManager.launchAgent('ssh', {
+
+          // Launch bash agent with Claude command
+          console.log('Launching bash agent with Claude');
+          currentAgentId = await agentManager.launchAgent('bash', {
             sessionId: currentSessionId,
-            terminalSessionId: sessionId,
-            vmHost,
-            vmPort,
-            vmUser
+            workspacePath: process.cwd()
           });
-          console.log('SSH agent launched with ID:', currentAgentId);
-          
+
           // Store session info
           sessionStore.createSession(sessionId, currentAgentId, {
             terminalSize: { cols: 80, rows: 24 },
             workingDirectory: process.cwd()
           });
-          
-          // Send initial prompt after a short delay to ensure terminal is ready
+
+          // After the bash agent is ready, launch Claude
           setTimeout(() => {
-            send('OUTPUT', { data: '\r\nmorphbox@morphbox-vm:/workspace$ ' });
-          }, 500);
+            const agent = agentManager.getAgent(currentAgentId);
+            if (agent && agent.status === 'running') {
+              // Send the Claude command
+              console.log('Sending Claude command to bash agent');
+              agent.sendInput('claude\n');
+            }
+          }, 1000);
         }
-        
-        // Get VM connection info for potential restarts
-        const vmHost = process.env.MORPHBOX_VM_HOST || '127.0.0.1';
-        const vmPort = parseInt(process.env.MORPHBOX_VM_PORT || '22');
-        const vmUser = process.env.MORPHBOX_VM_USER || 'morphbox';
 
         // Set up agent event listeners
         const handleOutput = (data: { agentId: string; data: string }) => {

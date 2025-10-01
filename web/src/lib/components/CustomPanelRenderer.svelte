@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   
   export let panelId: string;
   export let panelType: string = '';
@@ -95,6 +95,12 @@
       // Check if this is a Svelte component (has Svelte syntax)
       const isSvelteComponent = template.includes('{#if') || template.includes('{#each') || template.includes('{$') || template.includes('{@') || (script.includes('import') && script.includes('from'));
 
+      // Set loading to false first to render the iframe element
+      loading = false;
+
+      // Wait for next tick to ensure iframe element is rendered
+      await tick();
+
       if (isSvelteComponent) {
         console.log('[CustomPanelRenderer] Detected Svelte syntax in panel');
         // For now, show a message that Svelte panels need to be converted
@@ -113,8 +119,6 @@
         // Create an iframe to isolate the custom panel
         createIframePanel(script, template, style);
       }
-
-      loading = false;
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load custom panel';
       console.error('[CustomPanelRenderer] Error:', err);
@@ -310,21 +314,17 @@
     console.log('[createIframePanel] Generated HTML:', iframeContent.substring(0, 500) + '...');
     
     // Set iframe content using srcdoc which properly executes scripts
-    const setIframeContent = () => {
-      if (iframeElement) {
-        console.log('[createIframePanel] Setting iframe srcdoc');
-        iframeElement.srcdoc = iframeContent;
-        
-        iframeElement.onload = () => {
-          console.log('[createIframePanel] Iframe loaded successfully');
-        };
-      } else {
-        console.log('[createIframePanel] Iframe element not ready, retrying...');
-        setTimeout(setIframeContent, 100);
-      }
+    if (!iframeElement) {
+      console.error('[createIframePanel] Iframe element not available');
+      return;
+    }
+
+    console.log('[createIframePanel] Setting iframe srcdoc');
+    iframeElement.srcdoc = iframeContent;
+
+    iframeElement.onload = () => {
+      console.log('[createIframePanel] Iframe loaded successfully');
     };
-    
-    setIframeContent();
   }
   
   onDestroy(() => {

@@ -1,5 +1,45 @@
 # MorphBox Changelog
 
+## 2025-10-01 - v0.10.3 (Critical Fixes & UX Improvements)
+
+### Critical Fixes
+- **Fixed**: Claude panel now correctly launches Claude instead of SSH agent
+- **Fixed**: Vite HMR port configuration conflict causing connection errors on port 8010
+- **Fixed**: CustomPanelRenderer iframe element spam with proper DOM synchronization
+- **Fixed**: Custom panel deletion now handles new .morph file format correctly
+
+### UX Improvements
+- **Changed**: Default startup panels now show only Claude and Prompt Queue
+- **Changed**: All default panels are now closeable (not persistent)
+- **Added**: Terminal panel removed from default startup but still accessible via Panel Manager
+
+### Technical Enhancements
+- **Added**: MorphBox Global API for centralized data access in custom panels
+- **Added**: `/api/custom-panels/update-code` endpoint for panel editing functionality
+- **Created**: `dev-test.sh` script for streamlined development testing
+
+## 2025-09-30 - v0.10.2 (Development Workflow Improvements)
+
+### Custom Panel Enhancements
+- **Fixed**: Custom panel deletion now works correctly without panels reappearing
+- **Added**: Edit button (pencil icon) in custom panel headers for easy editing
+- **Added**: Click-to-rename functionality for custom panel titles
+- **Fixed**: WebSocket connection issues in custom panels (Context Manager)
+- **Created**: MorphBox Global API for centralized data access across panels
+
+### Development Workflow Streamlining
+- **Added**: Direct development mode without Docker requirement
+- **Added**: Hot-reload support for Svelte component changes
+- **Created**: `dev-test.sh` script for rapid development testing
+- **Improved**: Development servers now run directly on host machine (ports 8008-8010)
+- **Fixed**: Port conflict handling for multiple server instances
+
+### Technical Improvements
+- **Enhanced**: BasePanel component now supports custom panel editing features
+- **Fixed**: Event routing for custom panel edit actions
+- **Added**: Panel type detection for distinguishing custom vs built-in panels
+- **Improved**: WebSocket URL detection with multiple fallback options
+
 ## 2025-09-09 - v0.9.6
 
 ### Container Configuration System

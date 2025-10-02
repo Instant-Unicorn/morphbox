@@ -173,34 +173,10 @@ export function handleWebSocketConnection(
             
             // Send current state to ensure terminal is ready
             await sendCurrentState();
-            
-            // Send a single carriage return after a delay to wake up Claude
-            // but only if we haven't received any output recently
-            const agent = agentManager.getAgent(currentAgentId);
-            if (agent && agent.status === 'running') {
-              let hasReceivedOutput = false;
-              
-              // Listen for any output for a short period
-              const outputHandler = (data: { agentId: string; data: string }) => {
-                if (data.agentId === currentAgentId) {
-                  hasReceivedOutput = true;
-                }
-              };
-              
-              agentManager.on('agent_output', outputHandler);
-              
-              // After a delay, send a single CR if no output was received
-              setTimeout(() => {
-                agentManager.off('agent_output', outputHandler);
-                
-                if (!hasReceivedOutput) {
-                  console.log('No output received, sending single CR to wake Claude');
-                  agent.sendInput('\r');
-                } else {
-                  console.log('Output received, skipping automatic input');
-                }
-              }, 2000);
-            }
+
+            // NOTE: Removed wake-up CR logic that was causing Claude UI to redraw
+            // The agent is already active and buffered output has been sent
+            console.log('Reconnection complete, agent is active');
           }
         }
         

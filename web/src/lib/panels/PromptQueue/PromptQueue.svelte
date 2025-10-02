@@ -977,8 +977,12 @@
         <span class="modes-label">Prompt Modes</span>
         <div class="modes-actions">
           <button
+            type="button"
             class="manage-modes-btn"
-            on:click={() => isManageModesOpen = true}
+            on:click|stopPropagation={() => {
+              console.log('Manage modes button clicked!');
+              isManageModesOpen = true;
+            }}
             title="Manage all modes"
           >
             <Sliders size={14} />

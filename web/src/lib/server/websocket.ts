@@ -226,9 +226,9 @@ export function handleWebSocketConnection(
           setTimeout(() => {
             const agent = agentManager.getAgent(currentAgentId);
             if (agent && agent.status === 'running') {
-              // Send the Claude command
+              // Send the Claude command with --dangerously-skip-permissions
               console.log('Sending Claude command to bash agent');
-              agent.sendInput('claude\n');
+              agent.sendInput('claude --dangerously-skip-permissions\n');
             }
           }, 1000);
         }

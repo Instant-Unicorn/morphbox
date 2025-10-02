@@ -1,23 +1,58 @@
 import { writable, derived, get } from 'svelte/store';
 
+export interface PromptMode {
+  id: string;
+  name: string;
+  instruction: string;
+  emoji: string;
+  color: string;
+  isGlobal: boolean;
+  enabled: boolean; // For global modes - whether they're currently active
+}
+
 export interface PromptItem {
   id: string;
   text: string;
   status: 'pending' | 'active' | 'completed';
   createdAt: Date;
+  modeIds?: string[]; // IDs of modes applied to this specific prompt
 }
 
 interface PromptQueueState {
   items: PromptItem[];
   isRunning: boolean;
   currentPromptId: string | null;
+  modes: PromptMode[]; // All available modes (global and custom)
 }
+
+// Default modes
+const DEFAULT_MODES: PromptMode[] = [
+  {
+    id: 'brutal-honesty',
+    name: 'Brutal Honesty',
+    instruction: 'Be brutally honest.',
+    emoji: '💯',
+    color: '#ff6b6b',
+    isGlobal: true,
+    enabled: false
+  },
+  {
+    id: 'brainstorm',
+    name: 'Brainstorm',
+    instruction: 'Be extra creative as if in a brainstorming session.',
+    emoji: '💡',
+    color: '#4ecdc4',
+    isGlobal: true,
+    enabled: false
+  }
+];
 
 function createPromptQueueStore() {
   const { subscribe, set, update } = writable<PromptQueueState>({
     items: [],
     isRunning: false,
-    currentPromptId: null
+    currentPromptId: null,
+    modes: [...DEFAULT_MODES]
   });
 
   // Load from localStorage on initialization
@@ -27,12 +62,13 @@ function createPromptQueueStore() {
       try {
         const parsed = JSON.parse(saved);
         set({
-          items: parsed.items.map((item: any) => ({
+          items: parsed.items?.map((item: any) => ({
             ...item,
             createdAt: new Date(item.createdAt)
-          })),
+          })) || [],
           isRunning: false, // Always start stopped
-          currentPromptId: null
+          currentPromptId: null,
+          modes: parsed.modes || [...DEFAULT_MODES]
         });
       } catch (e) {
         console.error('Failed to load prompt queue:', e);
@@ -47,7 +83,8 @@ function createPromptQueueStore() {
         items: state.items.map(item => ({
           ...item,
           createdAt: item.createdAt.toISOString()
-        }))
+        })),
+        modes: state.modes
       }));
     }
   });
@@ -145,6 +182,66 @@ function createPromptQueueStore() {
           items
         };
       });
+    },
+
+    // Mode management methods
+    addMode(mode: Omit<PromptMode, 'id'>) {
+      update(state => ({
+        ...state,
+        modes: [...state.modes, {
+          ...mode,
+          id: `mode-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        }]
+      }));
+    },
+
+    updateMode(id: string, updates: Partial<PromptMode>) {
+      update(state => ({
+        ...state,
+        modes: state.modes.map(mode =>
+          mode.id === id ? { ...mode, ...updates } : mode
+        )
+      }));
+    },
+
+    deleteMode(id: string) {
+      update(state => ({
+        ...state,
+        modes: state.modes.filter(mode => mode.id !== id),
+        // Remove this mode from all prompts
+        items: state.items.map(item => ({
+          ...item,
+          modeIds: item.modeIds?.filter(modeId => modeId !== id)
+        }))
+      }));
+    },
+
+    toggleGlobalMode(id: string) {
+      update(state => ({
+        ...state,
+        modes: state.modes.map(mode =>
+          mode.id === id ? { ...mode, enabled: !mode.enabled } : mode
+        )
+      }));
+    },
+
+    togglePromptMode(promptId: string, modeId: string) {
+      update(state => ({
+        ...state,
+        items: state.items.map(item => {
+          if (item.id !== promptId) return item;
+
+          const modeIds = item.modeIds || [];
+          const hasMode = modeIds.includes(modeId);
+
+          return {
+            ...item,
+            modeIds: hasMode
+              ? modeIds.filter(id => id !== modeId)
+              : [...modeIds, modeId]
+          };
+        })
+      }));
     }
   };
 }

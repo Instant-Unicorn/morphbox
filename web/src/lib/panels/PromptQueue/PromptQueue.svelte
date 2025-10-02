@@ -1,17 +1,18 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { get } from 'svelte/store';
-  import { promptQueueStore, type PromptItem } from './prompt-queue-store';
+  import { promptQueueStore, type PromptItem, type PromptMode } from './prompt-queue-store';
   import EditPromptModal from './EditPromptModal.svelte';
+  import PromptModeEditor from './PromptModeEditor.svelte';
   import { Play, Pause, Trash2, Edit, AlertCircle, Plus, GripVertical, SkipForward } from 'lucide-svelte';
   import { allPanels } from '$lib/stores/panels';
-  
+
   // Accept panelId prop (required by panel system, passed from GridPanel component)
   export let panelId: string | undefined = undefined;
 
   // Use panelId to satisfy the compiler (it's needed for the panel system)
   $: panelId;
-  
+
   let inputValue = '';
   let editingPrompt: PromptItem | null = null;
   let isEditModalOpen = false;
@@ -20,9 +21,15 @@
   let lastTerminalOutput = '';
   let draggedItem: PromptItem | null = null;
   let draggedOverIndex: number | null = null;
-  
+
+  // Mode editor state
+  let editingMode: Partial<PromptMode> | null = null;
+  let isModeEditorOpen = false;
+
   $: queueItems = $promptQueueStore.items;
   $: isRunning = $promptQueueStore.isRunning;
+  $: availableModes = $promptQueueStore.modes;
+  $: globalModes = availableModes.filter(mode => mode.isGlobal);
 
   let queueCompletedMessage = '';
   let lastCompletedCount = 0;
@@ -317,7 +324,44 @@
     return false;
   }
   
-  
+
+  // Build final prompt with mode instructions
+  function buildPromptWithModes(prompt: PromptItem): string {
+    let finalPrompt = prompt.text;
+    const state = get(promptQueueStore);
+
+    // Collect all active modes for this prompt
+    const activeModes: PromptMode[] = [];
+
+    // Add global enabled modes
+    state.modes.forEach(mode => {
+      if (mode.isGlobal && mode.enabled) {
+        activeModes.push(mode);
+      }
+    });
+
+    // Add prompt-specific modes (if not already in global)
+    if (prompt.modeIds) {
+      prompt.modeIds.forEach(modeId => {
+        const mode = state.modes.find(m => m.id === modeId);
+        if (mode && !activeModes.find(m => m.id === mode.id)) {
+          activeModes.push(mode);
+        }
+      });
+    }
+
+    // Append mode instructions
+    if (activeModes.length > 0) {
+      finalPrompt += '\n\n';
+      activeModes.forEach(mode => {
+        finalPrompt += mode.instruction + ' ';
+      });
+      finalPrompt = finalPrompt.trim();
+    }
+
+    return finalPrompt;
+  }
+
   function processNextPrompt() {
     console.log('[PromptQueue] Processing next prompt...');
     const nextPrompt = promptQueueStore.getNextPending();
@@ -341,10 +385,17 @@
     console.log('[PromptQueue] Marking prompt as active:', nextPrompt.id);
     promptQueueStore.setPromptStatus(nextPrompt.id, 'active');
 
+    // Build final prompt with mode instructions
+    const finalPrompt = buildPromptWithModes(nextPrompt);
+
     // Send the prompt
-    console.log('[PromptQueue] Sending prompt to Claude:', nextPrompt.text.substring(0, 50) + '...');
+    console.log('[PromptQueue] Sending prompt to Claude:', finalPrompt.substring(0, 50) + '...');
+    if (finalPrompt !== nextPrompt.text) {
+      console.log('[PromptQueue] Applied modes to prompt');
+    }
+
     // First send the text
-    claudeTerminal.sendInput(nextPrompt.text);
+    claudeTerminal.sendInput(finalPrompt);
     // Then send Enter key separately after a small delay to ensure text is processed
     setTimeout(() => {
       console.log('[PromptQueue] Sending Enter key to submit prompt');
@@ -379,8 +430,11 @@
     console.log('[PromptQueue] Sending first prompt immediately:', nextPrompt.text);
     promptQueueStore.setPromptStatus(nextPrompt.id, 'active');
 
+    // Build final prompt with mode instructions
+    const finalPrompt = buildPromptWithModes(nextPrompt);
+
     // Send the prompt right away
-    claudeTerminal.sendInput(nextPrompt.text);
+    claudeTerminal.sendInput(finalPrompt);
     setTimeout(() => {
       claudeTerminal.sendInput('\r');
     }, 100);
@@ -764,7 +818,46 @@
   function cancelDelete() {
     deleteConfirmId = null;
   }
-  
+
+  // Mode management handlers
+  function handleCreateMode() {
+    editingMode = {
+      name: '',
+      instruction: '',
+      emoji: '💡',
+      color: '#4ecdc4',
+      isGlobal: true,
+      enabled: false
+    };
+    isModeEditorOpen = true;
+  }
+
+  function handleEditMode(mode: PromptMode) {
+    editingMode = { ...mode };
+    isModeEditorOpen = true;
+  }
+
+  function handleModeSave(e: CustomEvent<{ mode: Omit<PromptMode, 'id'>; id?: string }>) {
+    const { mode, id } = e.detail;
+
+    if (id) {
+      // Update existing mode
+      promptQueueStore.updateMode(id, mode);
+    } else {
+      // Create new mode
+      promptQueueStore.addMode(mode);
+    }
+
+    isModeEditorOpen = false;
+    editingMode = null;
+  }
+
+  function handleDeleteMode(id: string) {
+    if (confirm('Are you sure you want to delete this mode? It will be removed from all prompts.')) {
+      promptQueueStore.deleteMode(id);
+    }
+  }
+
   function getStatusClass(status: PromptItem['status']) {
     switch (status) {
       case 'active': return 'status-active';
@@ -874,7 +967,49 @@
       <Plus size={18} />
     </button>
   </div>
-  
+
+  <!-- Global Modes Section -->
+  {#if globalModes.length > 0}
+    <div class="global-modes-section">
+      <div class="modes-header">
+        <span class="modes-label">Prompt Modes</span>
+        <button
+          class="add-mode-btn"
+          on:click={handleCreateMode}
+          title="Create new prompt mode"
+        >
+          <Plus size={14} />
+        </button>
+      </div>
+      <div class="modes-list">
+        {#each globalModes as mode (mode.id)}
+          <button
+            class="mode-badge"
+            class:enabled={mode.enabled}
+            style="background-color: {mode.enabled ? mode.color : 'transparent'}; border-color: {mode.color};"
+            on:click={() => promptQueueStore.toggleGlobalMode(mode.id)}
+            on:contextmenu|preventDefault={() => handleEditMode(mode)}
+            title="{mode.instruction}\n\nClick to toggle • Right-click to edit"
+          >
+            <span class="mode-emoji">{mode.emoji}</span>
+            <span class="mode-name">{mode.name}</span>
+            {#if mode.enabled}
+              <span class="mode-check">✓</span>
+            {/if}
+          </button>
+        {/each}
+      </div>
+    </div>
+  {:else}
+    <div class="no-modes-section">
+      <p class="no-modes-text">No prompt modes configured</p>
+      <button class="create-first-mode-btn" on:click={handleCreateMode}>
+        <Plus size={16} />
+        Create Your First Mode
+      </button>
+    </div>
+  {/if}
+
   {#if queueCompletedMessage}
     <div class="completion-message">
       {queueCompletedMessage}
@@ -907,6 +1042,27 @@
           {/if}
           <div class="item-content">
             <div class="item-text">{item.text}</div>
+
+            <!-- Per-prompt modes -->
+            {#if availableModes.length > 0 && item.status === 'pending'}
+              <div class="prompt-modes">
+                {#each availableModes as mode (mode.id)}
+                  {@const isActive = item.modeIds?.includes(mode.id) || (mode.isGlobal && mode.enabled)}
+                  <button
+                    class="prompt-mode-badge"
+                    class:active={isActive}
+                    style="border-color: {mode.color}; {isActive ? `background-color: ${mode.color};` : ''}"
+                    on:click={() => promptQueueStore.togglePromptMode(item.id, mode.id)}
+                    title="{mode.instruction}{mode.isGlobal && mode.enabled ? ' (Auto-applied from global)' : ''}"
+                    disabled={mode.isGlobal && mode.enabled}
+                  >
+                    <span class="prompt-mode-emoji">{mode.emoji}</span>
+                    <span class="prompt-mode-name">{mode.name}</span>
+                  </button>
+                {/each}
+              </div>
+            {/if}
+
             <div class="item-status">{item.status}</div>
           </div>
           <div class="item-actions">
@@ -956,6 +1112,16 @@
   on:close={() => {
     isEditModalOpen = false;
     editingPrompt = null;
+  }}
+/>
+
+<PromptModeEditor
+  mode={editingMode}
+  isOpen={isModeEditorOpen}
+  on:save={handleModeSave}
+  on:close={() => {
+    isModeEditorOpen = false;
+    editingMode = null;
   }}
 />
 
@@ -1238,5 +1404,168 @@
   
   .button-danger:hover {
     background-color: #c82333;
+  }
+
+  /* Global Modes Styles */
+  .global-modes-section {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color, #3e3e42);
+    background: var(--bg-secondary, #252526);
+  }
+
+  .modes-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .modes-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary, #858585);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .add-mode-btn {
+    background: transparent;
+    border: 1px solid var(--border-color, #3e3e42);
+    color: var(--text-secondary, #858585);
+    border-radius: 4px;
+    padding: 4px 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    transition: all 0.2s;
+  }
+
+  .add-mode-btn:hover {
+    background: var(--hover-bg, rgba(255, 255, 255, 0.1));
+    border-color: var(--accent-color, #0e639c);
+    color: var(--accent-color, #0e639c);
+  }
+
+  .modes-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .mode-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 2px solid;
+    color: var(--text-secondary, #858585);
+  }
+
+  .mode-badge.enabled {
+    color: white;
+  }
+
+  .mode-badge:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  .mode-emoji {
+    font-size: 16px;
+  }
+
+  .mode-name {
+    font-size: 12px;
+  }
+
+  .mode-check {
+    font-size: 14px;
+    font-weight: bold;
+  }
+
+  .no-modes-section {
+    padding: 24px 16px;
+    text-align: center;
+    border-bottom: 1px solid var(--border-color, #3e3e42);
+    background: var(--bg-secondary, #252526);
+  }
+
+  .no-modes-text {
+    margin: 0 0 12px 0;
+    font-size: 13px;
+    color: var(--text-secondary, #858585);
+  }
+
+  .create-first-mode-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--accent-color, #0e639c);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .create-first-mode-btn:hover {
+    background: var(--accent-color-hover, #0d5a8a);
+    transform: translateY(-1px);
+  }
+
+  /* Per-prompt modes styles */
+  .prompt-modes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+  }
+
+  .prompt-mode-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1.5px solid;
+    background: transparent;
+    color: var(--text-secondary, #858585);
+  }
+
+  .prompt-mode-badge:disabled {
+    cursor: default;
+    opacity: 0.7;
+  }
+
+  .prompt-mode-badge.active {
+    color: white;
+  }
+
+  .prompt-mode-badge:not(:disabled):hover {
+    transform: scale(1.05);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  }
+
+  .prompt-mode-emoji {
+    font-size: 13px;
+  }
+
+  .prompt-mode-name {
+    font-size: 11px;
   }
 </style>

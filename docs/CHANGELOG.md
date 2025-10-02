@@ -1,5 +1,47 @@
 # MorphBox Changelog
 
+## 2025-10-02 - v0.11.1 (Prompt Queue & Terminal Stability)
+
+### Major Bug Fixes
+- **Fixed**: Manage modes button in prompt queue now properly opens modal
+  - Changed icon from Settings to Sliders to avoid namespace conflicts
+  - Added proper modal backdrop CSS for visibility
+- **Fixed**: Edit button visibility on custom panels only
+  - Built-in panels no longer incorrectly show edit buttons
+  - Edit button now properly opens panel editor with window events
+- **Fixed**: Panel title editing functionality restored for both Grid and Row layouts
+  - Implemented complete title editing with proper state management
+  - Fixed icon display and edit mode toggling
+- **Fixed**: Terminal preservation during drag operations
+  - Added {#key panel.id} blocks to preserve component instances
+  - Prevents terminal resets and process termination when dragging panels
+- **Fixed**: Duplicate terminal ID generation causing app crashes
+  - Rewrote ID generation logic with explicit built-in type list
+  - Added migration logic to fix duplicate IDs on load
+- **Fixed**: Terminal message display issues
+  - Centralized all message decisions in shouldShowSystemMessage()
+  - Fixed Claude terminals showing blank or reconnecting to wrong agents
+  - Eliminated recurring welcome messages after reload/drag
+
+### New Features
+- **Added**: Hide mode functionality for prompt modes
+  - X button now hides modes instead of deleting them
+  - Delete functionality moved to manage modes modal
+- **Added**: Compact mode toggle for prompt modes display
+  - Option to show only emoji and color border without text
+  - Toggle available in manage modes modal
+
+### Technical Improvements
+- **Changed**: Per-panel WebSocket sessions instead of global
+  - Each panel maintains its own session storage
+  - Prevents cross-panel session contamination
+- **Changed**: Improved localStorage key namespacing
+  - Terminal sessions use panel-specific keys
+  - WebSocket sessions properly isolated per panel
+- **Changed**: Better component lifecycle management
+  - Added isReconnectingToExistingSession state tracking
+  - All system messages server-driven (no mount-time messages)
+
 ## 2025-10-02 - v0.10.3 (Claude Banner Fix)
 
 ### Critical Fixes

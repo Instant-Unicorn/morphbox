@@ -55,6 +55,23 @@ export class BashAgent extends EventEmitter implements Agent {
       this.pty.onData((data) => {
         console.log(`Bash agent ${this.id} output:`, data);
         this.emit('output', data);
+
+        // Parse Claude Code token usage from output
+        const tokenMatch = data.match(/Token usage: (\d+)\/(\d+); (\d+) remaining/);
+        if (tokenMatch) {
+          const used = parseInt(tokenMatch[1]);
+          const total = parseInt(tokenMatch[2]);
+          const remaining = parseInt(tokenMatch[3]);
+
+          console.log(`[BashAgent] Parsed token usage: ${used}/${total} (${remaining} remaining)`);
+
+          this.emit('context-usage', {
+            used,
+            total,
+            remaining,
+            percentage: Math.round((used / total) * 100)
+          });
+        }
       });
 
       // Handle PTY exit
@@ -65,7 +82,17 @@ export class BashAgent extends EventEmitter implements Agent {
       });
 
       this.status = 'running';
-      
+
+      // Disable echo to prevent double text in terminal
+      // Wait a small moment for the shell to be ready
+      setTimeout(() => {
+        if (this.pty && this.status === 'running') {
+          // Use a more robust approach: send the command with control characters
+          // to minimize visibility
+          this.pty.write(' stty -echo 2>/dev/null; clear\n');
+        }
+      }, 100);
+
       console.log(`Bash agent ${this.id} initialized successfully`);
     } catch (error) {
       this.status = 'error';

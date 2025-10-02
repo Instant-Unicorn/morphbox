@@ -4,37 +4,45 @@
 
 set -e
 
-# Function to check and update an AI CLI tool
+# Function to check and install/update an AI CLI tool
 check_and_update_cli() {
     local CLI_NAME=$1
     local PACKAGE_NAME=$2
     local VERSION_CMD=$3
 
-    echo "🔄 Checking for $CLI_NAME updates..."
+    echo "🔄 Checking for $CLI_NAME..."
 
-    # Get current version if CLI is installed
+    # Check if CLI is installed
     if command -v $CLI_NAME >/dev/null 2>&1; then
         CURRENT_VERSION=$($VERSION_CMD 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "0.0.0")
         echo "📌 Current $CLI_NAME version: $CURRENT_VERSION"
-    else
-        echo "⚠️  $CLI_NAME not found, installing..."
-        CURRENT_VERSION="0.0.0"
-    fi
 
-    # Try to update CLI as morphbox user
-    echo "🚀 Updating $CLI_NAME to latest version..."
-    sudo -u morphbox npm update -g $PACKAGE_NAME 2>&1 | sudo -u morphbox tee /tmp/$CLI_NAME-update.log
+        # Try to update
+        echo "🚀 Checking for $CLI_NAME updates..."
+        sudo -u morphbox npm update -g $PACKAGE_NAME 2>&1 | sudo -u morphbox tee /tmp/$CLI_NAME-update.log
 
-    # Check if update was successful
-    if [ $? -eq 0 ]; then
-        NEW_VERSION=$($VERSION_CMD 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown")
-        if [ "$NEW_VERSION" != "$CURRENT_VERSION" ] && [ "$NEW_VERSION" != "unknown" ]; then
-            echo "✅ $CLI_NAME updated from $CURRENT_VERSION to $NEW_VERSION"
-        else
-            echo "✅ $CLI_NAME is already up to date (version: $NEW_VERSION)"
+        if [ $? -eq 0 ]; then
+            NEW_VERSION=$($VERSION_CMD 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown")
+            if [ "$NEW_VERSION" != "$CURRENT_VERSION" ] && [ "$NEW_VERSION" != "unknown" ]; then
+                echo "✅ $CLI_NAME updated from $CURRENT_VERSION to $NEW_VERSION"
+            else
+                echo "✅ $CLI_NAME is already up to date (version: $NEW_VERSION)"
+            fi
         fi
     else
-        echo "⚠️  $CLI_NAME update failed. Check /tmp/$CLI_NAME-update.log for details"
+        # Not installed - try to install it
+        echo "⚠️  $CLI_NAME not found, attempting to install..."
+
+        # Try to install the package
+        sudo -u morphbox npm install -g $PACKAGE_NAME 2>&1 | sudo -u morphbox tee /tmp/$CLI_NAME-install.log
+
+        if [ $? -eq 0 ]; then
+            NEW_VERSION=$($VERSION_CMD 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown")
+            echo "✅ $CLI_NAME installed successfully (version: $NEW_VERSION)"
+        else
+            echo "⚠️  $CLI_NAME installation failed (package may not exist yet)"
+            echo "   This is expected for placeholder packages - they will be available when published"
+        fi
     fi
 }
 

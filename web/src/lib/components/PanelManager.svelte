@@ -26,6 +26,15 @@
   
   // Debug: log panels on mount and setup viewport check
   onMount(async () => {
+    // Listen for open-panel-editor events from panel headers
+    const handleOpenPanelEditor = (event: CustomEvent) => {
+      const { panelId, panelName } = event.detail;
+      console.log('Open panel editor event received:', panelId, panelName);
+      showManager = true;  // Open the panel manager
+      editingPanel = { id: panelId, name: panelName };  // Set the panel to edit
+    };
+    window.addEventListener('open-panel-editor', handleOpenPanelEditor);
+
     // Load custom panels from filesystem
     await loadCustomPanelsMetadata();
     
@@ -134,16 +143,16 @@
   // Handle delete confirmation
   async function handleDeleteConfirm() {
     if (!deletingPanel) return;
-    
+
     const panelId = deletingPanel.id;
     deletingPanel = null; // Close modal immediately
-    
+
     // Show loading state (you could add a loading indicator per panel)
     const success = await deleteGeneratedPanel(panelId);
-    
+
     if (success) {
-      // Reload custom panels to reflect the deletion
-      await loadCustomPanelsMetadata();
+      // Don't reload panels - the deleteGeneratedPanel function already handles registry updates
+      // await loadCustomPanelsMetadata(); // REMOVED - this was causing the panel to reappear
       console.log(`[PanelManager] Panel ${panelId} deleted successfully`);
     } else {
       // Show error message using a better UI in the future

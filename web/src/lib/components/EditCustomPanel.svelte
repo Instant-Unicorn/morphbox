@@ -28,9 +28,15 @@
   let showHistory = true;
   let loading = true;
   let morphingMessage = '';
+  let activeTab: 'morph' | 'code' = 'morph';
+  let panelCode = '';
+  let editableCode = '';
+  let codeLoading = false;
+  let codeSaving = false;
   
   onMount(async () => {
     await loadMetadata();
+    await loadPanelCode();
   });
   
   async function loadMetadata() {
@@ -75,6 +81,66 @@
   
   function close() {
     dispatch('close');
+  }
+
+  async function loadPanelCode() {
+    try {
+      codeLoading = true;
+      const response = await fetch(`/api/custom-panels/code/${panelId}`);
+      if (response.ok) {
+        const code = await response.text();
+        panelCode = code || '';
+        editableCode = panelCode;
+      }
+    } catch (err) {
+      console.error('Failed to load panel code:', err);
+    } finally {
+      codeLoading = false;
+    }
+  }
+
+  async function saveCode() {
+    if (!editableCode.trim() || editableCode === panelCode) {
+      return;
+    }
+
+    codeSaving = true;
+    error = '';
+
+    try {
+      const response = await fetch('/api/custom-panels/update-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          panelId,
+          code: editableCode
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save code');
+      }
+
+      panelCode = editableCode;
+
+      // Dispatch reload event to refresh the panel
+      dispatch('morphed', {
+        panelId,
+        shouldReload: true
+      });
+
+      // Show success briefly then close
+      error = '';
+      setTimeout(() => {
+        dispatch('close');
+      }, 500);
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Failed to save code';
+    } finally {
+      codeSaving = false;
+    }
   }
   
   async function morphPanel() {
@@ -160,10 +226,26 @@
       <button class="close-button" on:click={close} aria-label="Close">×</button>
     </div>
     
+    <div class="modal-tabs">
+      <button
+        class="tab {activeTab === 'morph' ? 'active' : ''}"
+        on:click={() => activeTab = 'morph'}
+      >
+        Morph Panel
+      </button>
+      <button
+        class="tab {activeTab === 'code' ? 'active' : ''}"
+        on:click={() => activeTab = 'code'}
+      >
+        View/Edit Code
+      </button>
+    </div>
+
     <div class="modal-body">
-      {#if loading}
-        <div class="loading">Loading panel history...</div>
-      {:else if metadata}
+      {#if activeTab === 'morph'}
+        {#if loading}
+          <div class="loading">Loading panel history...</div>
+        {:else if metadata}
         <div class="version-info">
           <span class="version">Version {metadata.version}</span>
           <span class="updated">Last updated: {formatDate(metadata.updatedAt)}</span>
@@ -229,25 +311,55 @@
           </div>
           {/if}
         </div>
-      {:else}
-        <div class="no-metadata">
-          <p>No metadata found for this panel.</p>
-          <p>This might be an older panel created before the metadata system was added.</p>
+        {:else}
+          <div class="no-metadata">
+            <p>No metadata found for this panel.</p>
+            <p>This might be an older panel created before the metadata system was added.</p>
+          </div>
+        {/if}
+      {:else if activeTab === 'code'}
+        <div class="code-section">
+          {#if codeLoading}
+            <div class="loading">Loading panel code...</div>
+          {:else}
+            <div class="code-editor-container">
+              <textarea
+                class="code-editor"
+                bind:value={editableCode}
+                placeholder="Panel code will appear here..."
+                spellcheck="false"
+                disabled={codeSaving}
+              ></textarea>
+            </div>
+            {#if editableCode !== panelCode}
+              <div class="code-changes-notice">
+                You have unsaved changes to the code.
+              </div>
+            {/if}
+          {/if}
         </div>
       {/if}
     </div>
     
     <div class="modal-footer">
-      <button class="btn-secondary" on:click={close} disabled={isMorphing}>
+      <button class="btn-secondary" on:click={close} disabled={isMorphing || codeSaving}>
         Close
       </button>
-      {#if metadata}
-        <button 
-          class="btn-primary" 
+      {#if activeTab === 'morph' && metadata}
+        <button
+          class="btn-primary"
           on:click={morphPanel}
           disabled={isMorphing || !morphDescription.trim()}
         >
           {isMorphing ? 'Morphing...' : 'Morph Panel'}
+        </button>
+      {:else if activeTab === 'code'}
+        <button
+          class="btn-primary"
+          on:click={saveCode}
+          disabled={codeSaving || editableCode === panelCode || !editableCode.trim()}
+        >
+          {codeSaving ? 'Saving...' : 'Save Code'}
         </button>
       {/if}
     </div>
@@ -255,6 +367,88 @@
 </div>
 
 <style>
+  .modal-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 0 24px;
+    background-color: #1e1e1e;
+    border-bottom: 1px solid #3e3e42;
+  }
+
+  .tab {
+    padding: 12px 24px;
+    background: transparent;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    position: relative;
+    transition: color 0.2s;
+  }
+
+  .tab:hover {
+    color: #d4d4d4;
+  }
+
+  .tab.active {
+    color: #ffffff;
+  }
+
+  .tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #007acc;
+  }
+
+  .code-section {
+    padding: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .code-editor-container {
+    flex: 1;
+    min-height: 400px;
+    position: relative;
+  }
+
+  .code-editor {
+    width: 100%;
+    height: 100%;
+    min-height: 400px;
+    padding: 16px;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    resize: vertical;
+    white-space: pre;
+    overflow: auto;
+  }
+
+  .code-editor:focus {
+    outline: none;
+    border-color: #007acc;
+  }
+
+  .code-changes-notice {
+    padding: 8px 16px;
+    background: #3e3e42;
+    color: #ffa500;
+    font-size: 12px;
+    margin-top: 8px;
+    border-radius: 4px;
+  }
+
   .modal-overlay {
     position: fixed;
     top: 0;

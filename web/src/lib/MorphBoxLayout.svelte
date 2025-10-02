@@ -15,6 +15,7 @@
   import { fade } from 'svelte/transition';
   import { initializeCustomPanels, loadedCustomPanels } from '$lib/panels/custom-loader';
   import CustomPanelWrapper from '$lib/panels/CustomPanelWrapper.svelte';
+  import { morphboxAPI } from '$lib/morphbox-api';
   
   let terminal: Terminal;
   let mounted = false;
@@ -51,18 +52,33 @@
   onMount(() => {
     mounted = true;
     console.log('MorphBoxLayout mounted');
-    
+
     // Hide loading overlay after a short delay
     setTimeout(() => {
       showLoadingOverlay = false;
     }, 1500);
-    
+
     // Load settings and apply theme
     settings.load();
     const unsubscribe = settings.subscribe($settings => {
       applyTheme($settings.theme, $settings.customTheme);
     });
-    
+
+    // Listen for edit-custom-panel events from panel headers
+    const handleEditCustomPanel = (event: CustomEvent) => {
+      const { panelType } = event.detail;
+      console.log('Edit custom panel event received:', panelType);
+
+      // Open PanelManager and trigger edit
+      // The PanelManager component needs to be accessible
+      // For now, dispatch a custom event that PanelManager can listen to
+      const editEvent = new CustomEvent('open-panel-editor', {
+        detail: { panelId: panelType, panelName: panelType }
+      });
+      window.dispatchEvent(editEvent);
+    };
+    window.addEventListener('edit-custom-panel', handleEditCustomPanel);
+
     // Initialize custom panels system
     initializeCustomPanels();
     
@@ -226,6 +242,8 @@
                     isMinimized: panel.minimized || false,
                     isMaximized: panel.maximized || false
                   }}
+                  panelType={panel.type}
+                  panelId={panel.id}
                   onClose={() => panelStore.removePanel(panel.id)}
                   onMinimize={() => panelStore.updatePanel(panel.id, { minimized: true })}
                   onMaximize={() => panelStore.updatePanel(panel.id, { maximized: true })}
@@ -233,6 +251,7 @@
                   onFocus={() => panelStore.setActivePanel(panel.id)}
                   onMove={(x, y) => panelStore.updatePanel(panel.id, { position: { x, y } })}
                   onResize={(width, height) => panelStore.updatePanel(panel.id, { size: { width, height } })}
+                  onTitleUpdate={(title) => panelStore.updatePanel(panel.id, { title })}
                 >
                   {#if panelComponents[panel.type]}
                     <svelte:component this={panelComponents[panel.type]} {...panel.content} />
@@ -297,6 +316,8 @@
                 isMinimized: panel.minimized || false,
                 isMaximized: panel.maximized || false
               }}
+              panelType={panel.type}
+              panelId={panel.id}
               onClose={() => panelStore.removePanel(panel.id)}
               onMinimize={() => panelStore.updatePanel(panel.id, { minimized: true })}
               onMaximize={() => panelStore.updatePanel(panel.id, { maximized: true })}
@@ -304,6 +325,7 @@
               onFocus={() => panelStore.setActivePanel(panel.id)}
               onMove={(x, y) => panelStore.updatePanel(panel.id, { position: { x, y } })}
               onResize={(width, height) => panelStore.updatePanel(panel.id, { size: { width, height } })}
+              onTitleUpdate={(title) => panelStore.updatePanel(panel.id, { title })}
             >
               {#if panelComponents[panel.type]}
                 <svelte:component this={panelComponents[panel.type]} {...panel.content} />

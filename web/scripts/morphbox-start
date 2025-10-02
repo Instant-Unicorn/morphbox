@@ -385,15 +385,26 @@ fi
 
 if [[ "$NEED_CREATE" == "true" ]]; then
     info "Creating MorphBox VM container with workspace: $USER_DIR"
-    
+
+    # Check if morphbox:latest image exists
+    if docker image inspect morphbox:latest >/dev/null 2>&1; then
+        info "Using existing morphbox:latest image"
+        IMAGE_EXISTS=true
+    else
+        warn "morphbox:latest image not found - will build it now"
+        warn "This may take a few minutes on first run..."
+        IMAGE_EXISTS=false
+    fi
+
     # Create a temporary docker-compose file with absolute paths
     TEMP_COMPOSE="/tmp/morphbox-compose-$$.yml"
-    cat > "$TEMP_COMPOSE" << EOF
+
+    if [[ "$IMAGE_EXISTS" == "true" ]]; then
+        # Use the pre-built image
+        cat > "$TEMP_COMPOSE" << EOF
 services:
   morphbox-vm:
-    build:
-      context: $SCRIPT_DIR/docker
-      dockerfile: Dockerfile
+    image: morphbox:latest
     container_name: $CONTAINER_NAME
     hostname: $CONTAINER_NAME
     ports:
@@ -407,7 +418,7 @@ services:
       - $SCRIPT_DIR:/workspace/morphbox
       # Persist bash history and other user data (shared across instances)
       - claude-home:/home/morphbox
-      # Persist Claude updates (prevents re-downloads)
+      # Persist AI tools and updates
       - claude-npm-cache:/usr/local/lib/node_modules
       - claude-npm-bin:/usr/local/bin
     environment:
@@ -417,6 +428,44 @@ services:
     restart: unless-stopped
     networks:
       - morphbox-network
+EOF
+    else
+        # Build the image for first-time users
+        cat > "$TEMP_COMPOSE" << EOF
+services:
+  morphbox-vm:
+    build:
+      context: $SCRIPT_DIR/docker
+      dockerfile: Dockerfile
+    image: morphbox:latest
+    container_name: $CONTAINER_NAME
+    hostname: $CONTAINER_NAME
+    ports:
+      - "$SSH_PORT:22"  # SSH port mapping (unique per instance)
+    volumes:
+      # Persist Claude authentication data (shared across instances)
+      - claude-config:/home/morphbox/.config/claude-code
+      # Mount USER'S CURRENT DIRECTORY as workspace (absolute path)
+      - $USER_DIR:/workspace
+      # Mount morphbox package directory for access to project files
+      - $SCRIPT_DIR:/workspace/morphbox
+      # Persist bash history and other user data (shared across instances)
+      - claude-home:/home/morphbox
+      # Persist AI tools and updates
+      - claude-npm-cache:/usr/local/lib/node_modules
+      - claude-npm-bin:/usr/local/bin
+    environment:
+      - TERM=xterm-256color
+      - COLORTERM=truecolor
+      - ANTHROPIC_API_KEY=\${ANTHROPIC_API_KEY:-}
+    restart: unless-stopped
+    networks:
+      - morphbox-network
+EOF
+    fi
+
+    # Add the volumes and networks sections (same for both)
+    cat >> "$TEMP_COMPOSE" << EOF
 
 networks:
   morphbox-network:
@@ -432,13 +481,23 @@ volumes:
   claude-npm-bin:
     driver: local
 EOF
-    
+
     # Use the temporary compose file to create container
+    if [[ "$IMAGE_EXISTS" == "false" ]]; then
+        # Build the image using Docker's caching mechanism
+        # Only rebuild layers that have changed
+        info "Building Docker image (this may take a few minutes on first run)..."
+        info "Using Docker layer caching to speed up subsequent builds..."
+        docker compose -f "$TEMP_COMPOSE" build morphbox-vm
+        info "Docker image built successfully"
+    fi
+
+    # Start the container
     docker compose -f "$TEMP_COMPOSE" up -d
-    
+
     # Clean up temp file
     rm -f "$TEMP_COMPOSE"
-    
+
     sleep 2
 fi
 

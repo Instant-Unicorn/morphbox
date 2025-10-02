@@ -1,5 +1,24 @@
 # MorphBox Changelog
 
+## 2025-10-01 - v0.10.2 (Terminal Echo & Context Window Tracking)
+
+### Fixed
+- **Fixed**: Claude and Terminal panels showing double text due to PTY echo
+  - Added `stty -echo` command to bash-agent.ts and ssh-agent.ts
+
+### Context Window Tracking
+- **NEW**: Context Monitor now tracks REAL Claude context window usage
+  - Parses token usage from Claude Code output (`Token usage: X/Y; Z remaining`)
+  - Displays tokens used, total budget, and remaining tokens
+  - Battery visualization shows context usage percentage (green=low, yellow=medium, red=high)
+  - Updated to v4.0.0 with complete rewrite for token tracking
+
+### Technical Implementation
+- **Added**: `context-usage` event in ssh-agent.ts that parses token information
+- **Added**: `CONTEXT_USAGE` WebSocket message type for broadcasting token data
+- **Added**: Event handler in agent-manager.ts to forward context usage events
+- **Added**: WebSocket handler to broadcast context updates to all connected clients
+
 ## 2025-10-01 - v0.10.3 (Critical Fixes & UX Improvements)
 
 ### Critical Fixes

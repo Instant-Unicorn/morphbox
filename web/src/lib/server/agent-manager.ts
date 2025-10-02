@@ -77,6 +77,10 @@ export class AgentManager extends EventEmitter {
         this.emit('agent_sessionId', { agentId, sessionId });
       });
 
+      agent.on('context-usage', (usage: any) => {
+        this.emit('context_usage', { agentId, usage });
+      });
+
       return agentId;
     } catch (error) {
       console.error(`Failed to launch ${type} agent:`, error);
@@ -119,6 +123,20 @@ export class AgentManager extends EventEmitter {
       status: agent.status,
       startTime: agent.startTime
     }));
+  }
+
+  // Get all agents as an object for monitoring purposes
+  getAllAgents(): Record<string, any> {
+    const result: Record<string, any> = {};
+    for (const [id, agent] of this.agents.entries()) {
+      result[id] = {
+        type: agent.type,
+        status: agent.status,
+        startTime: agent.startTime,
+        sessionId: (agent as any).sessionId || 'unknown'
+      };
+    }
+    return result;
   }
 
   getAgent(agentId: string): Agent | undefined {

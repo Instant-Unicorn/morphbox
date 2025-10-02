@@ -1,8 +1,6 @@
 services:
   morphbox-vm:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: morphbox:latest
     container_name: morphbox-vm
     hostname: morphbox-vm
     ports:

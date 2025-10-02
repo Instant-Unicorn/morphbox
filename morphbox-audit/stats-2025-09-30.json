@@ -1,0 +1,11 @@
+{
+  "total_commands": 1,
+  "total_auth_attempts": 0,
+  "failed_auth_attempts": 0,
+  "high_risk_commands": 0,
+  "unique_ips": [],
+  "unique_sessions": [
+    "bb97f161558fa24b4f1a5db1"
+  ],
+  "last_updated": "2025-09-30T22:27:30.795Z"
+}

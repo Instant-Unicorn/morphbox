@@ -47,6 +47,7 @@
   let connectionStatus: 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
   export let terminalSessionId: string | null = null;
   let sessionId: string | null = null;
+  let agentId: string | null = null; // Track this terminal's agent ID for filtering OUTPUT messages
   let isInitializing = true;
   let hideLogoTimeout: number | null = null;
   
@@ -397,15 +398,18 @@
             dispatch('session', { sessionId: message.payload?.sessionId });
             break;
           case 'AGENT_LAUNCHED':
+            // Store agent ID for filtering OUTPUT messages
+            agentId = message.payload?.agentId || null;
+            console.log('[Terminal] Agent launched:', agentId);
+
             // Hide loading overlay immediately when agent is launched
-            console.log('[Terminal] Agent launched, hiding loading overlay');
             isInitializing = false;
             if (hideLogoTimeout) {
               clearTimeout(hideLogoTimeout);
               hideLogoTimeout = null;
             }
-            dispatch('agent', { 
-              status: 'Active', 
+            dispatch('agent', {
+              status: 'Active',
               agentId: message.payload?.agentId 
             });
             break;
@@ -437,7 +441,8 @@
             dispatch('agent', { status: 'No agent' });
             break;
           case 'OUTPUT':
-            if (message.payload?.data) {
+            // Filter: Only display output from this terminal's agent
+            if (message.payload?.data && message.payload?.agentId === agentId) {
               // Immediately hide loading overlay on first output
               if (isInitializing) {
                 console.log('[Terminal] First output received, hiding loading overlay');
@@ -1387,8 +1392,8 @@
         tabStopWidth: 8,
         theme: initialTheme,
         screenReaderMode: false,
-        // Ensure proper terminal type for arrow keys
-        convertEol: true,
+        // Let PTY handle EOL conversion - convertEol breaks ANSI cursor positioning
+        convertEol: false,
         termName: 'xterm-256color',
         // Start with standard terminal dimensions
         cols: 80,

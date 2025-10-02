@@ -172,6 +172,7 @@ Make it fully functional and production-ready. Use modern JavaScript features.`
   let settings: Settings = { ...defaultSettings };
   let activeTab: 'appearance' | 'editor' | 'explorer' | 'panels' | 'layout' | 'shortcuts' | 'security' = 'appearance';
   let importInput: HTMLInputElement;
+  let version = '0.10.1'; // MorphBox version
   
   // Load settings from localStorage
   onMount(() => {
@@ -819,6 +820,7 @@ Make it fully functional and production-ready. Use modern JavaScript features.`
   
   <footer class="settings-footer">
     <div class="footer-left">
+      <span class="version-info">MorphBox v{version}</span>
       <button class="btn btn-secondary" on:click={resetSettings}>Reset to Defaults</button>
     </div>
     <div class="footer-right">
@@ -1067,8 +1069,16 @@ Make it fully functional and production-ready. Use modern JavaScript features.`
   .footer-right {
     display: flex;
     gap: 8px;
+    align-items: center;
   }
-  
+
+  .version-info {
+    font-size: 12px;
+    color: var(--text-secondary, #999);
+    margin-right: 12px;
+    font-weight: 500;
+  }
+
   .btn {
     padding: 6px 16px;
     border-radius: 4px;

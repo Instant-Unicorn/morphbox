@@ -97,6 +97,22 @@ export class SSHAgent extends EventEmitter implements Agent {
       // Handle output from PTY
       this.ptyProcess.onData((data: string) => {
         this.emit('output', data);
+
+        // Parse Claude Code token usage from output
+        // Format: "Token usage: 99798/200000; 100202 remaining"
+        const tokenMatch = data.match(/Token usage: (\d+)\/(\d+); (\d+) remaining/);
+        if (tokenMatch) {
+          const used = parseInt(tokenMatch[1]);
+          const total = parseInt(tokenMatch[2]);
+          const remaining = parseInt(tokenMatch[3]);
+
+          this.emit('context-usage', {
+            used,
+            total,
+            remaining,
+            percentage: Math.round((used / total) * 100)
+          });
+        }
       });
 
       // Handle process exit
@@ -107,6 +123,16 @@ export class SSHAgent extends EventEmitter implements Agent {
       });
 
       this.status = 'running';
+
+      // Disable echo to prevent double text in terminal
+      // Wait a small moment for Claude to be ready
+      setTimeout(() => {
+        if (this.ptyProcess && this.status === 'running') {
+          // Use a more robust approach: send the command with control characters
+          // to minimize visibility
+          this.ptyProcess.write(' stty -echo 2>/dev/null\n');
+        }
+      }, 300);
 
       // Capture the actual Claude PID inside the container
       this.captureClaudePid();

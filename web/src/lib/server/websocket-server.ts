@@ -36,9 +36,27 @@ async function startWebSocketServer() {
     // Create WebSocket server
     const wss = new WebSocketServer({ server });
 
+    // Global broadcast: Listen to agent output and broadcast to ALL clients
+    agentManager.on('agent_output', (data: { agentId: string; data: string }) => {
+      const message = JSON.stringify({
+        type: 'OUTPUT',
+        payload: {
+          data: data.data,
+          agentId: data.agentId
+        }
+      });
+
+      // Broadcast to ALL connected clients
+      wss.clients.forEach((client: any) => {
+        if (client.readyState === 1) { // WebSocket.OPEN
+          client.send(message);
+        }
+      });
+    });
+
     wss.on('connection', (ws, request) => {
       console.log('New WebSocket connection from:', request.headers.host);
-      handleWebSocketConnection(ws, request, { agentManager, stateManager });
+      handleWebSocketConnection(ws, request, { agentManager, stateManager, wss });
     });
 
     // Start listening

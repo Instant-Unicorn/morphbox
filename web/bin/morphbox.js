@@ -64,6 +64,7 @@ Options:
   --dev         Skip security warnings (development mode)
   --config      Generate example morphbox.yml configuration file
   --list        List all running MorphBox instances
+  --reset       Complete reset - removes all MorphBox data and caches
   --version     Show version information
   --help        Show this help message
 
@@ -74,6 +75,7 @@ Examples:
   morphbox --vpn              # Bind to VPN interface only
   morphbox --config           # Generate morphbox.yml in current directory
   morphbox --list             # Show all running instances
+  morphbox --reset            # Nuclear reset - removes everything
   morphbox --version          # Display current version
 
 For more information, visit: https://github.com/instant-unicorn/morphbox
@@ -104,6 +106,73 @@ function listInstances() {
     log.error('Failed to list instances: ' + e.message);
     process.exit(1);
   }
+}
+
+// Perform a complete reset of MorphBox
+function performReset() {
+  const resetScript = join(getInstallationDir(), 'morphbox-reset.sh');
+
+  if (!fs.existsSync(resetScript)) {
+    // If packaged version doesn't have the script, use the embedded version
+    log.warn('Reset script not found in package, using embedded version...');
+
+    const resetCommands = `
+#!/bin/bash
+set -e
+
+echo "🔥🔥🔥 MORPHBOX NUCLEAR RESET 🔥🔥🔥"
+echo "This will completely remove all MorphBox data and caches."
+echo ""
+read -p "Type 'YES' to confirm: " -r CONFIRM
+if [[ "$CONFIRM" != "YES" ]]; then
+  echo "Reset cancelled."
+  exit 0
+fi
+
+echo "Stopping all MorphBox processes..."
+pkill -f morphbox 2>/dev/null || true
+pkill -f "node.*server-packaged" 2>/dev/null || true
+pkill -f "node.*websocket-proxy" 2>/dev/null || true
+
+echo "Removing Docker containers..."
+docker stop $(docker ps -q -f name=morphbox) 2>/dev/null || true
+docker rm -f $(docker ps -aq -f name=morphbox) 2>/dev/null || true
+
+echo "Removing Docker images..."
+docker rmi -f morphbox:latest morphbox-vm:latest 2>/dev/null || true
+
+echo "Removing Docker volumes..."
+docker volume rm $(docker volume ls -q | grep -E "claude|morphbox") 2>/dev/null || true
+
+echo "Clearing npm cache..."
+npm cache clean --force 2>/dev/null || true
+
+echo "Uninstalling global morphbox..."
+npm uninstall -g morphbox 2>/dev/null || true
+
+echo ""
+echo "✅ RESET COMPLETE!"
+echo "Please also clear your browser cache (Ctrl+Shift+R)"
+echo ""
+echo "To reinstall: cd to morphbox source and run ./prepare-package.sh"
+`;
+
+    try {
+      execSync(resetCommands, { stdio: 'inherit', shell: '/bin/bash' });
+    } catch (e) {
+      log.error('Reset failed: ' + e.message);
+      process.exit(1);
+    }
+  } else {
+    try {
+      execSync(`bash "${resetScript}"`, { stdio: 'inherit' });
+    } catch (e) {
+      log.error('Reset failed: ' + e.message);
+      process.exit(1);
+    }
+  }
+
+  process.exit(0);
 }
 
 // Generate example configuration file
@@ -299,7 +368,13 @@ async function main() {
 
   // Check for list flag
   if (args.includes('--list')) {
-    await showInstances();
+    listInstances();
+    process.exit(0);
+  }
+
+  // Check for reset flag
+  if (args.includes('--reset')) {
+    performReset();
     process.exit(0);
   }
 

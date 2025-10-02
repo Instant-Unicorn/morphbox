@@ -2,7 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import type { Panel } from '$lib/stores/panels';
   import { panelStore } from '$lib/stores/panels';
-  import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, X, GripVertical, Palette } from 'lucide-svelte';
+  import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, X, GripVertical, Palette, Pencil } from 'lucide-svelte';
   import ResizeHandle from './ResizeHandle.svelte';
   
   export let panel: Panel;
@@ -117,6 +117,11 @@
     dispatch('open', event.detail);
   }
 
+  // Edit custom panel
+  function handleEditPanel() {
+    dispatch('edit-panel', { panelId: panel.id, panelType: panel.type });
+  }
+
   // Title editing functions
   function startEditingTitle() {
     isEditingTitle = true;
@@ -194,6 +199,17 @@
       </h3>
     {/if}
     <div class="panel-controls">
+      <!-- Edit button for custom panels -->
+      {#if (panel.type.match(/^[a-z]/) || panel.type.includes('-')) && !['terminal', 'claude', 'fileExplorer', 'codeEditor', 'gitPanel', 'webBrowser', 'settings', 'taskRunner', 'promptQueue'].includes(panel.type)}
+        <button
+          class="control-btn edit-panel-btn"
+          on:click={handleEditPanel}
+          title="Edit custom panel"
+        >
+          <Pencil size={16} />
+        </button>
+      {/if}
+
       <!-- Color pickers -->
       <div class="color-picker-group">
         <button 
@@ -299,10 +315,11 @@
           {...panel.content}
         />
       {:else}
-        <svelte:component 
-          this={component} 
+        <svelte:component
+          this={component}
           panelId={panel.id}
           panelType={panel.type}
+          {websocketUrl}
           {...panel.content}
         />
       {/if}
@@ -491,7 +508,17 @@
     background-color: var(--panel-close-hover-bg, #f14c4c);
     color: white;
   }
-  
+
+  /* Edit panel button */
+  .edit-panel-btn {
+    margin-right: 4px;
+  }
+
+  .edit-panel-btn:hover {
+    background-color: rgba(59, 130, 246, 0.2);
+    color: rgb(96, 165, 250);
+  }
+
   .color-picker-group {
     display: flex;
     gap: 2px;

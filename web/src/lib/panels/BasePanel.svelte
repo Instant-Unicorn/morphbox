@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { PanelProps } from './types';
   import { createEventDispatcher, onMount } from 'svelte';
-  
+
   export let config: PanelProps['config'];
   export let state: PanelProps['state'];
   export let onClose: PanelProps['onClose'] = undefined;
@@ -11,8 +11,26 @@
   export let onFocus: PanelProps['onFocus'] = undefined;
   export let onResize: PanelProps['onResize'] = undefined;
   export let onMove: PanelProps['onMove'] = undefined;
-  
+  export let panelType: string | undefined = undefined; // To detect if it's a custom panel
+  export let panelId: string | undefined = undefined;
+  export let onTitleUpdate: ((title: string) => void) | undefined = undefined;
+
   const dispatch = createEventDispatcher();
+
+  // Title editing state
+  let isEditingTitle = false;
+  let editedTitle = config.title;
+  let titleInput: HTMLInputElement;
+
+  // Update editedTitle when config.title changes externally
+  $: if (!isEditingTitle) {
+    editedTitle = config.title;
+  }
+
+  // Check if this is a custom panel
+  $: isCustomPanel = panelType &&
+    (panelType.match(/^[a-z]/) || panelType.includes('-')) &&
+    !['terminal', 'claude', 'fileExplorer', 'codeEditor', 'gitPanel', 'webBrowser', 'settings', 'taskRunner', 'promptQueue'].includes(panelType);
   
   let panelElement: HTMLDivElement;
   let isDragging = false;
@@ -120,11 +138,59 @@
       dispatch('maximize');
     }
   }
-  
+
+  // Title editing functions
+  function startEditingTitle() {
+    if (!isCustomPanel && !onTitleUpdate) return; // Only allow for custom panels or when handler provided
+    isEditingTitle = true;
+    editedTitle = config.title;
+    setTimeout(() => {
+      if (titleInput) {
+        titleInput.focus();
+        titleInput.select();
+      }
+    }, 0);
+  }
+
+  function saveTitle() {
+    if (editedTitle.trim()) {
+      const newTitle = editedTitle.trim();
+      if (onTitleUpdate) {
+        onTitleUpdate(newTitle);
+      }
+      dispatch('titleupdate', { title: newTitle });
+    } else {
+      editedTitle = config.title; // Revert if empty
+    }
+    isEditingTitle = false;
+  }
+
+  function cancelEditTitle() {
+    editedTitle = config.title;
+    isEditingTitle = false;
+  }
+
+  function handleTitleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter') {
+      saveTitle();
+    } else if (e.key === 'Escape') {
+      cancelEditTitle();
+    }
+  }
+
+  // Handle edit panel for custom panels
+  function handleEditPanel() {
+    console.log('Edit panel clicked for:', panelType);
+    // Dispatch event that will bubble up to MorphBoxLayout
+    window.dispatchEvent(new CustomEvent('edit-custom-panel', {
+      detail: { panelType, panelId }
+    }));
+  }
+
   onMount(() => {
     console.log('BasePanel mounted:', config.title);
     console.log('Panel dimensions:', state.width, 'x', state.height);
-    
+
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
@@ -151,8 +217,42 @@
     {#if config.icon}
       <span class="panel-icon">{config.icon}</span>
     {/if}
-    <h3 class="panel-title">{config.title}</h3>
+    {#if isEditingTitle}
+      <input
+        bind:this={titleInput}
+        bind:value={editedTitle}
+        class="panel-title-input"
+        type="text"
+        on:blur={saveTitle}
+        on:keydown={handleTitleKeydown}
+      />
+    {:else}
+      <h3
+        class="panel-title"
+        class:editable={isCustomPanel || onTitleUpdate}
+        on:click={startEditingTitle}
+        on:keydown={(e) => e.key === 'Enter' && startEditingTitle()}
+        role={isCustomPanel || onTitleUpdate ? 'button' : undefined}
+        tabindex={isCustomPanel || onTitleUpdate ? 0 : undefined}
+        title={isCustomPanel || onTitleUpdate ? 'Click to rename' : undefined}
+      >
+        {config.title}
+      </h3>
+    {/if}
     <div class="panel-controls">
+      {#if isCustomPanel}
+        <button
+          class="panel-control-btn edit-panel-btn"
+          on:click={handleEditPanel}
+          aria-label="Edit custom panel"
+          title="Edit custom panel"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12">
+            <path d="M10.5 1.5L10.5 1.5L8.5 3.5L3 9L2 10L2 10L4 9.5L9.5 4L10.5 1.5Z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <line x1="7" y1="3" x2="9" y2="5" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+        </button>
+      {/if}
       {#if config.minimizable}
         <button
           class="panel-control-btn minimize-btn"
@@ -262,11 +362,54 @@
     font-weight: 600;
     color: var(--panel-title-color, #333333);
   }
-  
+
+  .panel-title.editable {
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+  }
+
+  .panel-title.editable:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .panel-title.editable:focus {
+    outline: 1px solid var(--accent-color, #0e639c);
+    outline-offset: -1px;
+  }
+
+  .panel-title-input {
+    flex: 1;
+    margin: 0;
+    padding: 2px 4px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--panel-title-color, #333333);
+    background-color: rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--accent-color, #0e639c);
+    border-radius: 3px;
+    outline: none;
+    font-family: inherit;
+  }
+
+  .panel-title-input:focus {
+    box-shadow: 0 0 3px var(--accent-color, #0e639c);
+  }
+
   .panel-controls {
     display: flex;
     gap: 4px;
     margin-left: auto;
+  }
+
+  .edit-panel-btn {
+    margin-right: 4px;
+  }
+
+  .edit-panel-btn:hover {
+    background-color: rgba(59, 130, 246, 0.2);
+    color: rgb(96, 165, 250);
   }
   
   .panel-control-btn {

@@ -16,6 +16,7 @@ interface WebSocketContext {
   agentManager: AgentManager;
   stateManager: StateManager;
   sessionManager?: PersistentSessionManager;
+  wss?: any; // WebSocketServer instance for broadcasting
 }
 
 // Context tracking state
@@ -52,7 +53,7 @@ export function handleWebSocketConnection(
   request: IncomingMessage,
   context: WebSocketContext
 ) {
-  const { agentManager, stateManager } = context;
+  const { agentManager, stateManager, wss } = context;
   let currentSessionId: string | null = null;
   let currentAgentId: string | null = null;
   let terminalSessionId: string | null = null;
@@ -234,18 +235,16 @@ export function handleWebSocketConnection(
 
         // Set up agent event listeners
         const handleOutput = (data: { agentId: string; data: string }) => {
-        if (data.agentId === currentAgentId) {
-          // If WebSocket is connected, send directly
-          if (ws.readyState === 1) {
-            send('OUTPUT', { data: data.data });
-            // Parse for context data
+          if (data.agentId === currentAgentId) {
+            // Parse for context data (OUTPUT is broadcast globally from websocket-server.ts)
             parseAndBroadcastContextData(data.data);
-          } else {
-            // Otherwise, buffer the output for later
-            sessionStore.addOutput(sessionId, data.data);
+
+            // Buffer output if disconnected
+            if (ws.readyState !== 1) {
+              sessionStore.addOutput(sessionId, data.data);
+            }
           }
-        }
-      };
+        };
 
       const handleError = (data: { agentId: string; error: string }) => {
         if (data.agentId === currentAgentId) {
@@ -306,6 +305,14 @@ export function handleWebSocketConnection(
       agentManager.on('agent_exit', handleExit);
       agentManager.on('agent_sessionId', handleSessionId);
 
+      // Handle context usage updates
+      const handleContextUsage = ({ agentId, usage }: { agentId: string; usage: any }) => {
+        if (agentId === currentAgentId) {
+          send('CONTEXT_USAGE', usage);
+        }
+      };
+      agentManager.on('context_usage', handleContextUsage);
+
       if (!isReconnection) {
         send('AGENT_LAUNCHED', { agentId: currentAgentId });
         await sendCurrentState();
@@ -340,9 +347,8 @@ export function handleWebSocketConnection(
         // Set up agent event listeners
         const handleOutput = (data: { agentId: string; data: string }) => {
           if (data.agentId === currentAgentId) {
-            send('OUTPUT', { data: data.data });
-
             // Parse for context budget information from Claude Code output
+            // (OUTPUT is broadcast globally from websocket-server.ts)
             parseAndBroadcastContextData(data.data);
           }
         };
@@ -411,7 +417,21 @@ export function handleWebSocketConnection(
         case 'RESIZE':
           await handleResize(message.payload);
           break;
-          
+
+        case 'GET_ALL_AGENTS':
+          // Return all active agents across all sessions for monitoring panels
+          const allAgents = agentManager.getAllAgents();
+          const agentInfo: Record<string, any> = {};
+          for (const [id, agent] of Object.entries(allAgents)) {
+            agentInfo[id] = {
+              type: agent.type,
+              status: agent.status,
+              sessionId: agent.sessionId || 'unknown'
+            };
+          }
+          send('ALL_AGENTS_STATE', { agents: agentInfo });
+          break;
+
         default:
           sendError(`Unknown message type: ${message.type}`);
       }
@@ -467,6 +487,32 @@ export function handleWebSocketConnection(
     } else {
       console.log('Cannot send message, WebSocket not open. State:', ws.readyState);
     }
+  }
+
+  function broadcast(type: string, payload?: any, includeAgentId?: string) {
+    if (!wss) {
+      console.log('[broadcast] wss is undefined, cannot broadcast');
+      return;
+    }
+
+    const message = JSON.stringify({
+      type,
+      payload: {
+        ...payload,
+        agentId: includeAgentId // Include agent ID so panels can filter
+      }
+    });
+
+    // Broadcast to all connected clients EXCEPT the current one (it gets direct messages)
+    let broadcastCount = 0;
+    wss.clients.forEach((client: any) => {
+      if (client !== ws && client.readyState === 1) { // Skip current WebSocket, only broadcast to others
+        client.send(message);
+        broadcastCount++;
+      }
+    });
+
+    console.log(`[broadcast] Broadcast ${type} to ${broadcastCount} other clients (excluding current), agentId: ${includeAgentId}`);
   }
 
   function sendError(message: string) {
@@ -557,13 +603,11 @@ export function handleWebSocketConnection(
       // Set up agent event listeners
       const handleOutput = (data: { agentId: string; data: string }) => {
         if (data.agentId === currentAgentId) {
-          // If WebSocket is connected, send directly
-          if (ws.readyState === 1) {
-            send('OUTPUT', { data: data.data });
-            // Parse for context data
-            parseAndBroadcastContextData(data.data);
-          } else {
-            // Otherwise, buffer the output for later
+          // Parse for context data (OUTPUT is broadcast globally from websocket-server.ts)
+          parseAndBroadcastContextData(data.data);
+
+          // Buffer output if disconnected
+          if (ws.readyState !== 1) {
             sessionStore.addOutput(sessionId, data.data);
           }
         }
@@ -627,8 +671,7 @@ export function handleWebSocketConnection(
           // Set up agent event listeners
           const handleOutput = (data: { agentId: string; data: string }) => {
             if (data.agentId === currentAgentId) {
-              send('OUTPUT', { data: data.data });
-              // Parse for context data
+              // Parse for context data (OUTPUT is broadcast globally from websocket-server.ts)
               parseAndBroadcastContextData(data.data);
             }
           };

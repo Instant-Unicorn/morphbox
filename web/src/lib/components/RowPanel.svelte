@@ -681,7 +681,7 @@
     
     <div class="panel-controls">
       <!-- Edit button for custom panels -->
-      {#if panel.type.startsWith('panel-')}
+      {#if (panel.type.match(/^[a-z]/) || panel.type.includes('-')) && !['terminal', 'claude', 'fileExplorer', 'codeEditor', 'gitPanel', 'webBrowser', 'settings', 'taskRunner', 'promptQueue'].includes(panel.type)}
         <button
           class="control-btn edit-panel-btn"
           on:click={handleEditPanel}
@@ -900,19 +900,21 @@
           on:open={handleOpen}
         />
       {:else if component.name === 'CustomPanelRenderer' || panel.type.startsWith('panel-')}
-        <!-- Custom panels need the panelType prop -->
-        <svelte:component 
-          this={component} 
+        <!-- Custom panels need the panelType and websocketUrl props -->
+        <svelte:component
+          this={component}
           bind:this={componentInstance}
           panelId={panel.id}
           panelType={panel.type}
+          {websocketUrl}
           {...panel.content}
         />
       {:else}
-        <svelte:component 
-          this={component} 
+        <svelte:component
+          this={component}
           bind:this={componentInstance}
           panelId={panel.id}
+          {websocketUrl}
           {...panel.content}
         />
       {/if}

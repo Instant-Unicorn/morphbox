@@ -2,7 +2,7 @@
 # Includes Claude, Gemini, and Codex CLI tools
 FROM node:20
 
-# Install minimal required packages (matching Claude-Code devcontainer)
+# Cache-optimized layer: System packages (rarely changes)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     sudo \
@@ -26,11 +26,16 @@ RUN useradd -m -s /bin/bash morphbox && \
 # Give morphbox user ownership of npm directories for AI CLI updates
 RUN chown -R morphbox:morphbox /usr/local/lib/node_modules /usr/local/bin /usr/local/share
 
-# Install AI CLI tools as morphbox user to enable auto-updates
+# AI CLI tools layer - install placeholder for first-run installation
+# Tools will be installed/updated on container start via entrypoint
 USER morphbox
-RUN npm install -g @anthropic-ai/claude-code && \
-    npm install -g @google/gemini-cli && \
-    npm install -g @openai/codex
+WORKDIR /home/morphbox
+
+# Note: Tools may not exist yet, container will auto-install on first run
+RUN echo "Preparing environment for AI CLI tools..." && \
+    npm install -g npm@latest 2>/dev/null || true && \
+    echo "NPM updated to latest version"
+
 USER root
 
 # Setup SSH for container access - passwordless for local container

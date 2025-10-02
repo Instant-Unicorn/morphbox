@@ -1,5 +1,20 @@
 # MorphBox Changelog
 
+## 2025-10-02 - v0.10.3 (Claude Banner Fix)
+
+### Critical Fixes
+- **Fixed**: Duplicate Claude Code startup banners appearing in terminal
+  - Changed `convertEol: false` in Terminal.svelte to allow proper ANSI cursor positioning
+  - Claude Code's startup animation now displays correctly without repetition
+  - ANSI cursor movement sequences (`\u001b[1A`) now work as intended
+
+### Technical Details
+- The issue was caused by `convertEol: true` in xterm.js configuration
+- This setting interfered with ANSI escape sequences used for cursor positioning
+- Claude Code animates its startup banner by redrawing it progressively using cursor up commands
+- With `convertEol` enabled, these positioning commands were broken, causing each frame to appear on a new line
+- Solution: Let the PTY handle EOL conversion by setting `convertEol: false`
+
 ## 2025-10-01 - v0.10.2 (Terminal Echo & Context Window Tracking)
 
 ### Fixed

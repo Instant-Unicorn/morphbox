@@ -4,7 +4,7 @@
   import { promptQueueStore, type PromptItem, type PromptMode } from './prompt-queue-store';
   import EditPromptModal from './EditPromptModal.svelte';
   import PromptModeEditor from './PromptModeEditor.svelte';
-  import { Play, Pause, Trash2, Edit, AlertCircle, Plus, GripVertical, SkipForward, Settings, Eye, EyeOff, X } from 'lucide-svelte';
+  import { Play, Pause, Trash2, Edit, AlertCircle, Plus, GripVertical, SkipForward, Settings2, Eye, EyeOff, X } from 'lucide-svelte';
   import { allPanels } from '$lib/stores/panels';
 
   // Accept panelId prop (required by panel system, passed from GridPanel component)
@@ -981,7 +981,7 @@
             on:click={() => isManageModesOpen = true}
             title="Manage all modes"
           >
-            <Settings size={14} />
+            <Settings2 size={14} />
           </button>
           <button
             class="add-mode-btn"

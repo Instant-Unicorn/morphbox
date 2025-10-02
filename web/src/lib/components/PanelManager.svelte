@@ -112,8 +112,11 @@
   
   // Edit a custom panel
   function editPanel(panelId: string, panelName: string) {
-    editingPanel = { id: panelId, name: panelName };
     showManager = false;
+    // Use setTimeout to ensure modal shows after manager closes
+    setTimeout(() => {
+      editingPanel = { id: panelId, name: panelName };
+    }, 50);
   }
   
   // Handle panel morphed

@@ -757,19 +757,19 @@
         "
       >
         {#if panelComponentMap[panel.id]}
-          <div 
-            class="panel-wrapper" 
+          <div
+            class="panel-wrapper"
             class:resizing={resizingPanelId === panel.id}
             data-panel-id={panel.id}
-            style={tempResizeStyles[panel.id] ? 
-              `width: ${tempResizeStyles[panel.id].width || 'auto'}; 
+            style={tempResizeStyles[panel.id] ?
+              `width: ${tempResizeStyles[panel.id].width || 'auto'};
                height: ${tempResizeStyles[panel.id].height || 'auto'};
                ${tempResizeStyles[panel.id].left ? `left: ${tempResizeStyles[panel.id].left};` : ''}
                ${tempResizeStyles[panel.id].top ? `top: ${tempResizeStyles[panel.id].top};` : ''}
-               ${tempResizeStyles[panel.id].left || tempResizeStyles[panel.id].top ? 'position: relative;' : ''}` : 
+               ${tempResizeStyles[panel.id].left || tempResizeStyles[panel.id].top ? 'position: relative;' : ''}` :
               ''}
           >
-            <GridPanel 
+            <GridPanel
               {panel}
               component={panelComponentMap[panel.id]}
               {websocketUrl}

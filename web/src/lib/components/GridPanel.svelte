@@ -295,36 +295,38 @@
   
   <div class="panel-content">
     {#if component}
-      {#if panel.type === 'terminal' || panel.type === 'claude'}
-        <svelte:component 
-          this={component} 
-          {websocketUrl}
-          panelId={panel.id}
-          {...panel.content}
-        />
-      {:else if panel.type === 'fileExplorer' || panel.type === 'file-explorer'}
-        <svelte:component 
-          this={component} 
-          panelId={panel.id}
-          {...panel.content}
-          on:open={handleOpen}
-        />
-      {:else if panel.type === 'codeEditor' || panel.type === 'code-editor'}
-        <svelte:component 
-          this={component} 
-          panelId={panel.id}
-          panelConfig={panel.content}
-          {...panel.content}
-        />
-      {:else}
-        <svelte:component
-          this={component}
-          panelId={panel.id}
-          panelType={panel.type}
-          {websocketUrl}
-          {...panel.content}
-        />
-      {/if}
+      {#key panel.id}
+        {#if panel.type === 'terminal' || panel.type === 'claude'}
+          <svelte:component
+            this={component}
+            {websocketUrl}
+            panelId={panel.id}
+            {...panel.content}
+          />
+        {:else if panel.type === 'fileExplorer' || panel.type === 'file-explorer'}
+          <svelte:component
+            this={component}
+            panelId={panel.id}
+            {...panel.content}
+            on:open={handleOpen}
+          />
+        {:else if panel.type === 'codeEditor' || panel.type === 'code-editor'}
+          <svelte:component
+            this={component}
+            panelId={panel.id}
+            panelConfig={panel.content}
+            {...panel.content}
+          />
+        {:else}
+          <svelte:component
+            this={component}
+            panelId={panel.id}
+            panelType={panel.type}
+            {websocketUrl}
+            {...panel.content}
+          />
+        {/if}
+      {/key}
     {/if}
   </div>
   

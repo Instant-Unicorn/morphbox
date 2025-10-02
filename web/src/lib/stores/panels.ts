@@ -170,24 +170,45 @@ function saveStateToSessionStorage(state: PanelState): void {
 
 function loadStateFromSessionStorage(): PanelState | null {
   if (!browser) return null;
-  
+
   try {
     const savedState = sessionStorage.getItem(SESSION_STORAGE_KEY);
     if (!savedState) return null;
-    
+
     const state = JSON.parse(savedState) as PanelState;
-    
+
     // Check if this is a hot reload recovery
     const hotReloadMarker = sessionStorage.getItem(HOT_RELOAD_MARKER);
     const isHotReload = hotReloadMarker ? (Date.now() - parseInt(hotReloadMarker)) < 5000 : false; // 5 second window
-    
+
+    // Migration: Fix duplicate IDs for built-in panels
+    const builtInTypes = ['terminal', 'claude', 'fileExplorer', 'editor', 'codeEditor', 'preview', 'settings'];
+    const seenIds = new Set<string>();
+    const generateId = () => `panel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    const migratedPanels = state.panels.map(panel => {
+      // If this is a built-in panel and its ID is the same as its type, or it's a duplicate ID
+      if (builtInTypes.includes(panel.type) && (panel.id === panel.type || seenIds.has(panel.id))) {
+        const newId = generateId();
+        console.log(`[Migration] Fixing duplicate ID for ${panel.type}: ${panel.id} -> ${newId}`);
+        seenIds.add(newId);
+        return {
+          ...panel,
+          id: newId,
+          websocketConnections: new Map()
+        };
+      }
+      seenIds.add(panel.id);
+      return {
+        ...panel,
+        websocketConnections: new Map()
+      };
+    });
+
     return {
       ...state,
       hotReloadRecovery: isHotReload,
-      panels: state.panels.map(panel => ({
-        ...panel,
-        websocketConnections: new Map() // Initialize empty websocket connections map
-      }))
+      panels: migratedPanels
     };
   } catch (error) {
     console.warn('Failed to load panel state from sessionStorage:', error);
@@ -371,10 +392,13 @@ function createPanelStore() {
     addPanel: (type: string, config?: Partial<Panel>) => {
       update(state => {
         const defaultConfig = defaultPanelConfigs[type] || {};
-        
-        // For custom panels (those starting with a lowercase letter or containing dashes),
-        // use the type as the ID to match the filename
-        const isCustomPanel = type.match(/^[a-z]/) || type.includes('-');
+
+        // Built-in panel types that need unique IDs
+        const builtInTypes = ['terminal', 'claude', 'fileExplorer', 'editor', 'codeEditor', 'preview', 'settings'];
+
+        // For custom panels, use the type as the ID to match the filename
+        // For built-in panels, always generate a unique ID
+        const isCustomPanel = !builtInTypes.includes(type);
         const id = isCustomPanel ? type : generateId();
         
         const position = config?.position || getNextPosition(state.panels);

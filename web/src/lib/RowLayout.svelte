@@ -947,9 +947,11 @@
             <div class="drop-hint">Drop panel here</div>
           </div>
         {:else}
+          {@const panelIds = row.panels.map(p => p.id)}
+          {@const hasDuplicates = panelIds.length !== new Set(panelIds).size}
+          {@debug panelIds, hasDuplicates}
           {#each row.panels as panel (panel.id)}
             {#if panelComponentMap[panel.id]}
-              <!-- Debug: panel.id = {panel.id}, panel.type = {panel.type} -->
               <div
                 class="panel-container"
                 style="{row.panels.length === 1 ? `width: ${panel.widthPercent || 100}%; flex: none;` : `flex: 1 1 ${panel.widthPercent || 25}%;`}"

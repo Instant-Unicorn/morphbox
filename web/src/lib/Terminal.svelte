@@ -50,6 +50,7 @@
   let agentId: string | null = null; // Track this terminal's agent ID for filtering OUTPUT messages
   let isInitializing = true;
   let hideLogoTimeout: number | null = null;
+  let isReconnectingToExistingSession = false; // Track if we're reconnecting vs new session
   
   // Drag and drop state
   let isDraggingOver = false;
@@ -187,6 +188,38 @@
   let flushTimeout: number | null = null;
   let earlyMessages: string[] = [];
   const BUFFER_FLUSH_DELAY = 16; // ~60fps
+
+  // Centralized decision function for what messages to show
+  function shouldShowSystemMessage(messageType: string): boolean {
+    // Claude terminals NEVER show system messages
+    if (autoLaunchClaude) {
+      return false;
+    }
+
+    // For regular terminals, decide based on message type and reconnection state
+    switch (messageType) {
+      case 'WELCOME':
+        // Only show welcome on brand new sessions
+        return !isReconnectingToExistingSession;
+      case 'CONNECTED':
+        // Only show connection message on new sessions
+        return !isReconnectingToExistingSession;
+      case 'TERMINAL_SESSION_NEW':
+        // Always show new session creation
+        return true;
+      case 'TERMINAL_SESSION_RESTORED':
+        // Only show on reconnection
+        return isReconnectingToExistingSession;
+      case 'RECONNECTED':
+        // Always show reconnection messages for regular terminals
+        return true;
+      case 'CTRL_L':
+        // Only send Ctrl+L to regular terminals on reconnection
+        return isReconnectingToExistingSession;
+      default:
+        return false;
+    }
+  }
   
   function flushBuffer() {
     if (outputBuffer.length > 0 && terminal) {
@@ -248,8 +281,8 @@
   
   export function clearSession() {
     terminalSessionId = null;
-    if (browser) {
-      localStorage.removeItem('morphbox-terminal-session');
+    if (browser && panelId) {
+      localStorage.removeItem(`morphbox-terminal-session-${panelId}`);
     }
     writeln('\r\n🔄 Session cleared. Next connection will start fresh.');
   }
@@ -352,21 +385,20 @@
         connectionStatus = 'connected';
         reconnectAttempts = 0;
         isReconnecting = false;
-        // Don't immediately hide - wait for agent launch or output
-        
-        if (terminalSessionId) {
-          writeln('\r\n🔄 Reconnecting to existing session...');
-        } else {
-          writeln('\r\n✅ Connected to server');
-        }
-        
+
+        // ALL messages are now handled by the server responses and centralized logic
+        // No messages written here to avoid duplication
+
         dispatch('connection', { connected: true });
-        
-        // Hide splash screen after connection
-        setTimeout(() => {
-          console.log('[Terminal] Hiding loading overlay after connection');
-          isInitializing = false;
-        }, 750);
+
+        // Hide splash screen after connection for Claude panels only
+        // Regular terminals will hide after first output
+        if (autoLaunchClaude) {
+          setTimeout(() => {
+            console.log('[Terminal] Hiding loading overlay after connection (Claude panel)');
+            isInitializing = false;
+          }, 750);
+        }
       };
       
       ws.onmessage = (event) => {
@@ -382,15 +414,27 @@
         
         switch (message.type) {
           case 'CONNECTED':
-            writeln(`\r\n${message.payload?.message || 'Connected'}`);
             // Store session ID if provided
             if (message.payload?.sessionId) {
               sessionId = message.payload.sessionId;
               if (browser && sessionId) {
                 localStorage.setItem('morphbox-websocket-session', sessionId);
               }
-              if (message.payload.isReconnection && sessionId) {
+            }
+
+            // Show appropriate messages based on context
+            if (message.payload?.isReconnection && sessionId) {
+              // This is a WebSocket reconnection
+              if (shouldShowSystemMessage('RECONNECTED')) {
                 writeln(`\r\n🔄 Reconnected to session: ${sessionId.substring(0, 8)}...`);
+              }
+            } else {
+              // New connection
+              if (shouldShowSystemMessage('CONNECTED')) {
+                writeln('\r\nMorphBox Terminal v2.0.0');
+                writeln('');
+                writeln('Welcome to MorphBox Terminal');
+                writeln(`\r\n${message.payload?.message || '✅ Connected to server'}`);
               }
             }
             break;
@@ -418,21 +462,48 @@
               const isNewSession = terminalSessionId !== message.payload.sessionId;
               terminalSessionId = message.payload.sessionId;
               // Store in localStorage for persistence across browser restarts
-              if (browser && terminalSessionId) {
-                localStorage.setItem('morphbox-terminal-session', terminalSessionId);
+              if (browser && terminalSessionId && panelId) {
+                localStorage.setItem(`morphbox-terminal-session-${panelId}`, terminalSessionId);
               }
-              if (isNewSession && terminalSessionId) {
-                writeln(`\r\n✨ New terminal session created: ${terminalSessionId.substring(0, 8)}...`);
-              } else if (terminalSessionId) {
-                writeln(`\r\n✅ Terminal session restored: ${terminalSessionId.substring(0, 8)}...`);
+
+              // Show appropriate message based on whether this is new or restored
+              if (isNewSession) {
+                if (shouldShowSystemMessage('TERMINAL_SESSION_NEW')) {
+                  writeln(`\r\n✨ New terminal session created: ${terminalSessionId.substring(0, 8)}...`);
+                }
+              } else {
+                if (shouldShowSystemMessage('TERMINAL_SESSION_RESTORED')) {
+                  writeln(`\r\n✅ Terminal session restored: ${terminalSessionId.substring(0, 8)}...`);
+                }
               }
             }
             break;
           case 'RECONNECTED':
-            writeln(`\r\n✅ Reconnected to agent: ${message.payload?.agentId}`);
-            dispatch('agent', { 
-              status: 'Active', 
-              agentId: message.payload?.agentId 
+            // IMPORTANT: Set agentId so OUTPUT messages are not filtered
+            agentId = message.payload?.agentId || null;
+            console.log('[Terminal] Agent reconnected:', agentId);
+
+            // Show reconnection message if appropriate
+            if (shouldShowSystemMessage('RECONNECTED')) {
+              writeln(`\r\n✅ Reconnected to agent: ${agentId}`);
+            }
+
+            // Send Ctrl+L to refresh regular terminals on reconnection
+            if (shouldShowSystemMessage('CTRL_L')) {
+              setTimeout(() => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                  console.log('[Terminal] Sending Ctrl+L to refresh reconnected terminal');
+                  ws.send(JSON.stringify({
+                    type: 'SEND_INPUT',
+                    payload: { input: '\x0C' } // Ctrl+L
+                  }));
+                }
+              }, 500);
+            }
+
+            dispatch('agent', {
+              status: 'Active',
+              agentId: message.payload?.agentId
             });
             // Agent is already running, hide loading overlay
             isInitializing = false;
@@ -1318,11 +1389,14 @@
       } : null
     });
     
-    // Load terminal session ID from localStorage if available
-    const savedSessionId = localStorage.getItem('morphbox-terminal-session');
-    if (savedSessionId) {
-      terminalSessionId = savedSessionId;
-      console.log('Restored terminal session ID:', terminalSessionId);
+    // Load terminal session ID from localStorage if available (per-panel)
+    if (panelId) {
+      const savedSessionId = localStorage.getItem(`morphbox-terminal-session-${panelId}`);
+      if (savedSessionId) {
+        terminalSessionId = savedSessionId;
+        isReconnectingToExistingSession = true; // We're reconnecting, not starting fresh
+        console.log(`[Terminal ${panelId}] Restored terminal session ID:`, terminalSessionId);
+      }
     }
     
     // Wait for modules to load
@@ -1795,12 +1869,9 @@
     
     // Connect to WebSocket
     connectWebSocket();
-    
-    // Initial message
-    writeln('MorphBox Terminal v2.0.0');
-    if (autoLaunchClaude) {
-      writeln('Launching Claude...');
-    }
+
+    // Don't write any messages here - let the server responses handle it
+    // The component remounts on every drag/reload due to {#key} blocks
     
     // Add timeout to prevent infinite loading on mobile
     setTimeout(() => {

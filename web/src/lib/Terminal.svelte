@@ -348,9 +348,9 @@
       // For session persistence, try to use existing session ID
       if (sessionId) {
         urlObj.searchParams.set('sessionId', sessionId);
-      } else if (browser) {
-        // Try to get session ID from localStorage
-        const storedSessionId = localStorage.getItem('morphbox-websocket-session');
+      } else if (browser && panelId) {
+        // Try to get session ID from localStorage (per-panel to avoid mixing agent types)
+        const storedSessionId = localStorage.getItem(`morphbox-websocket-session-${panelId}`);
         if (storedSessionId) {
           sessionId = storedSessionId;
           urlObj.searchParams.set('sessionId', sessionId);
@@ -414,11 +414,11 @@
         
         switch (message.type) {
           case 'CONNECTED':
-            // Store session ID if provided
+            // Store session ID if provided (per-panel to avoid mixing agent types)
             if (message.payload?.sessionId) {
               sessionId = message.payload.sessionId;
-              if (browser && sessionId) {
-                localStorage.setItem('morphbox-websocket-session', sessionId);
+              if (browser && sessionId && panelId) {
+                localStorage.setItem(`morphbox-websocket-session-${panelId}`, sessionId);
               }
             }
 

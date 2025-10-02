@@ -746,8 +746,8 @@
     {/if}
     
     <div class="panel-controls">
-      <!-- Edit button for custom panels -->
-      {#if (panel.type.match(/^[a-z]/) || panel.type.includes('-')) && !['terminal', 'claude', 'fileExplorer', 'codeEditor', 'gitPanel', 'webBrowser', 'settings', 'taskRunner', 'promptQueue'].includes(panel.type)}
+      <!-- Edit button for custom panels only -->
+      {#if !['terminal', 'claude', 'fileExplorer', 'codeEditor', 'gitPanel', 'webBrowser', 'settings', 'taskRunner', 'promptQueue'].includes(panel.type)}
         <button
           class="control-btn edit-panel-btn"
           on:click={handleEditPanel}

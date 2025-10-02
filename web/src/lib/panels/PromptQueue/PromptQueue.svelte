@@ -4,7 +4,7 @@
   import { promptQueueStore, type PromptItem, type PromptMode } from './prompt-queue-store';
   import EditPromptModal from './EditPromptModal.svelte';
   import PromptModeEditor from './PromptModeEditor.svelte';
-  import { Play, Pause, Trash2, Edit, AlertCircle, Plus, GripVertical, SkipForward } from 'lucide-svelte';
+  import { Play, Pause, Trash2, Edit, AlertCircle, Plus, GripVertical, SkipForward, Settings, Eye, EyeOff, X } from 'lucide-svelte';
   import { allPanels } from '$lib/stores/panels';
 
   // Accept panelId prop (required by panel system, passed from GridPanel component)
@@ -25,10 +25,12 @@
   // Mode editor state
   let editingMode: Partial<PromptMode> | null = null;
   let isModeEditorOpen = false;
+  let isManageModesOpen = false;
 
   $: queueItems = $promptQueueStore.items;
   $: isRunning = $promptQueueStore.isRunning;
-  $: availableModes = $promptQueueStore.modes;
+  $: availableModes = $promptQueueStore.modes.filter(mode => !mode.hidden);
+  $: allModes = $promptQueueStore.modes; // All modes including hidden
   $: globalModes = availableModes.filter(mode => mode.isGlobal);
 
   let queueCompletedMessage = '';
@@ -973,30 +975,48 @@
     <div class="global-modes-section">
       <div class="modes-header">
         <span class="modes-label">Prompt Modes</span>
-        <button
-          class="add-mode-btn"
-          on:click={handleCreateMode}
-          title="Create new prompt mode"
-        >
-          <Plus size={14} />
-        </button>
+        <div class="modes-actions">
+          <button
+            class="manage-modes-btn"
+            on:click={() => isManageModesOpen = true}
+            title="Manage all modes"
+          >
+            <Settings size={14} />
+          </button>
+          <button
+            class="add-mode-btn"
+            on:click={handleCreateMode}
+            title="Create new prompt mode"
+          >
+            <Plus size={14} />
+          </button>
+        </div>
       </div>
       <div class="modes-list">
         {#each globalModes as mode (mode.id)}
-          <button
-            class="mode-badge"
-            class:enabled={mode.enabled}
-            style="background-color: {mode.enabled ? mode.color : 'transparent'}; border-color: {mode.color};"
-            on:click={() => promptQueueStore.toggleGlobalMode(mode.id)}
-            on:contextmenu|preventDefault={() => handleEditMode(mode)}
-            title="{mode.instruction}\n\nClick to toggle • Right-click to edit"
-          >
-            <span class="mode-emoji">{mode.emoji}</span>
-            <span class="mode-name">{mode.name}</span>
-            {#if mode.enabled}
-              <span class="mode-check">✓</span>
-            {/if}
-          </button>
+          <div class="mode-wrapper">
+            <button
+              class="mode-badge"
+              class:enabled={mode.enabled}
+              style="background-color: {mode.enabled ? mode.color : 'transparent'}; border-color: {mode.color};"
+              on:click={() => promptQueueStore.toggleGlobalMode(mode.id)}
+              on:contextmenu|preventDefault={() => handleEditMode(mode)}
+              title="{mode.instruction}\n\nClick to toggle • Right-click to edit"
+            >
+              <span class="mode-emoji">{mode.emoji}</span>
+              <span class="mode-name">{mode.name}</span>
+              {#if mode.enabled}
+                <span class="mode-check">✓</span>
+              {/if}
+            </button>
+            <button
+              class="mode-delete-btn"
+              on:click|stopPropagation={() => promptQueueStore.deleteMode(mode.id)}
+              title="Delete mode"
+            >
+              <X size={12} />
+            </button>
+          </div>
         {/each}
       </div>
     </div>
@@ -1124,6 +1144,61 @@
     editingMode = null;
   }}
 />
+
+<!-- Manage Modes Modal -->
+{#if isManageModesOpen}
+  <div class="modal-backdrop" on:click={() => isManageModesOpen = false}>
+    <div class="manage-modes-modal" on:click|stopPropagation>
+      <div class="manage-modes-header">
+        <h3>Manage Prompt Modes</h3>
+        <button
+          class="modal-close-btn"
+          on:click={() => isManageModesOpen = false}
+          title="Close"
+        >
+          <X size={20} />
+        </button>
+      </div>
+      <div class="manage-modes-content">
+        {#if allModes.length === 0}
+          <p class="no-modes-message">No modes created yet.</p>
+        {:else}
+          <div class="modes-management-list">
+            {#each allModes as mode (mode.id)}
+              <div class="manage-mode-item">
+                <button
+                  class="mode-visibility-toggle"
+                  on:click={() => promptQueueStore.toggleModeVisibility(mode.id)}
+                  title={mode.hidden ? "Show mode" : "Hide mode"}
+                >
+                  {#if mode.hidden}
+                    <EyeOff size={16} />
+                  {:else}
+                    <Eye size={16} />
+                  {/if}
+                </button>
+                <div class="mode-info" style="border-color: {mode.color};">
+                  <span class="mode-emoji">{mode.emoji}</span>
+                  <div class="mode-details">
+                    <span class="mode-name" class:hidden={mode.hidden}>{mode.name}</span>
+                    <span class="mode-instruction">{mode.instruction}</span>
+                  </div>
+                </div>
+                <button
+                  class="manage-mode-delete"
+                  on:click={() => promptQueueStore.deleteMode(mode.id)}
+                  title="Delete mode permanently"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    </div>
+  </div>
+{/if}
 
 <style>
   .prompt-queue-container {
@@ -1567,5 +1642,216 @@
 
   .prompt-mode-name {
     font-size: 11px;
+  }
+
+  /* Mode wrapper and delete button */
+  .mode-wrapper {
+    position: relative;
+    display: inline-block;
+  }
+
+  .mode-delete-btn {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    display: none;
+    background: #ef4444;
+    border: 1px solid #dc2626;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    cursor: pointer;
+    color: white;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .mode-wrapper:hover .mode-delete-btn {
+    display: flex;
+  }
+
+  .mode-delete-btn:hover {
+    background: #dc2626;
+    transform: scale(1.1);
+  }
+
+  /* Mode actions buttons */
+  .modes-actions {
+    display: flex;
+    gap: 4px;
+  }
+
+  .manage-modes-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    padding: 4px 6px;
+    cursor: pointer;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .manage-modes-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #e2e8f0;
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+
+  /* Manage Modes Modal */
+  .manage-modes-modal {
+    background: #1e293b;
+    border-radius: 8px;
+    width: 500px;
+    max-width: 90vw;
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  }
+
+  .manage-modes-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .manage-modes-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #e2e8f0;
+  }
+
+  .modal-close-btn {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+
+  .modal-close-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+  }
+
+  .manage-modes-content {
+    padding: 16px;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .no-modes-message {
+    text-align: center;
+    color: #64748b;
+    padding: 20px;
+  }
+
+  .modes-management-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .manage-mode-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+
+  .manage-mode-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .mode-visibility-toggle {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    padding: 8px;
+    cursor: pointer;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .mode-visibility-toggle:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #e2e8f0;
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+
+  .mode-info {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-left: 3px solid;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 4px;
+  }
+
+  .mode-info .mode-emoji {
+    font-size: 20px;
+  }
+
+  .mode-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+  }
+
+  .mode-details .mode-name {
+    font-weight: 500;
+    color: #e2e8f0;
+  }
+
+  .mode-details .mode-name.hidden {
+    opacity: 0.5;
+    text-decoration: line-through;
+  }
+
+  .mode-instruction {
+    font-size: 12px;
+    color: #94a3b8;
+  }
+
+  .manage-mode-delete {
+    background: transparent;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 4px;
+    padding: 8px;
+    cursor: pointer;
+    color: #ef4444;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .manage-mode-delete:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: #ef4444;
   }
 </style>

@@ -8,6 +8,7 @@ export interface PromptMode {
   color: string;
   isGlobal: boolean;
   enabled: boolean; // For global modes - whether they're currently active
+  hidden?: boolean; // Whether the mode is hidden from the UI
 }
 
 export interface PromptItem {
@@ -241,6 +242,15 @@ function createPromptQueueStore() {
               : [...modeIds, modeId]
           };
         })
+      }));
+    },
+
+    toggleModeVisibility(id: string) {
+      update(state => ({
+        ...state,
+        modes: state.modes.map(mode =>
+          mode.id === id ? { ...mode, hidden: !mode.hidden } : mode
+        )
       }));
     }
   };

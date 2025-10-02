@@ -95,14 +95,17 @@ export class BashAgent extends EventEmitter implements Agent {
       this.status = 'running';
 
       // Disable echo to prevent double text in terminal
+      // BUT: Don't do this for non-root users (like morphbox) because Claude needs echo
       // Wait a small moment for the shell to be ready
-      setTimeout(() => {
-        if (this.pty && this.status === 'running') {
-          // Use a more robust approach: send the command with control characters
-          // to minimize visibility
-          this.pty.write(' stty -echo 2>/dev/null; clear\n');
-        }
-      }, 100);
+      if (!this.options.vmUser) {
+        setTimeout(() => {
+          if (this.pty && this.status === 'running') {
+            // Use a more robust approach: send the command with control characters
+            // to minimize visibility
+            this.pty.write(' stty -echo 2>/dev/null; clear\n');
+          }
+        }, 100);
+      }
 
       console.log(`Bash agent ${this.id} initialized successfully`);
     } catch (error) {

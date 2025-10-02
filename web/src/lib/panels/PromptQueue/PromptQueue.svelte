@@ -1707,6 +1707,20 @@
   }
 
   /* Manage Modes Modal */
+  .modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    backdrop-filter: blur(2px);
+  }
+
   .manage-modes-modal {
     background: #1e293b;
     border-radius: 8px;
@@ -1716,6 +1730,8 @@
     display: flex;
     flex-direction: column;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    position: relative;
+    z-index: 10001;
   }
 
   .manage-modes-header {

@@ -29,14 +29,25 @@ export class BashAgent extends EventEmitter implements Agent {
       // SECURITY: Use Docker container for isolation
       // The workspace is mounted at /workspace in the container
       const workDir = '/workspace';
-      const dockerArgs = [
-        'exec',
-        '-it',
-        '-w', workDir,  // Set working directory in container
-        'morphbox-vm',
-        '/bin/bash',
-        '-i'
-      ];
+
+      // If vmUser is specified, run as that user (needed for Claude with --dangerously-skip-permissions)
+      // Claude Code won't allow --dangerously-skip-permissions when running as root
+      const dockerArgs = this.options.vmUser
+        ? [
+            'exec',
+            '-it',
+            'morphbox-vm',
+            'su', '-', this.options.vmUser, '-c',
+            `cd ${workDir} && /bin/bash -i`
+          ]
+        : [
+            'exec',
+            '-it',
+            '-w', workDir,  // Set working directory in container
+            'morphbox-vm',
+            '/bin/bash',
+            '-i'
+          ];
       
       console.log('Spawning containerized bash with args:', dockerArgs);
       

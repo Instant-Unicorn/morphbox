@@ -210,10 +210,12 @@ export function handleWebSocketConnection(
           send('SESSION_CREATED', { sessionId: currentSessionId });
 
           // Launch bash agent with Claude command
+          // Use morphbox user instead of root so --dangerously-skip-permissions works
           console.log('Launching bash agent with Claude');
           currentAgentId = await agentManager.launchAgent('bash', {
             sessionId: currentSessionId,
-            workspacePath: process.cwd()
+            workspacePath: process.cwd(),
+            vmUser: 'morphbox'
           });
 
           // Store session info

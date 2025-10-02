@@ -954,23 +954,21 @@
                 style="{row.panels.length === 1 ? `width: ${panel.widthPercent || 100}%; flex: none;` : `flex: 1 1 ${panel.widthPercent || 25}%;`}"
                 data-panel-id={panel.id}
               >
-                {#key panel.id}
-                  <RowPanel
-                    {panel}
-                    component={panelComponentMap[panel.id]}
-                    {websocketUrl}
-                    isDragging={draggedPanelId === panel.id}
-                    isActive={$activePanel?.id === panel.id}
-                    on:dragstart={handleDragStart}
-                    on:click={() => panelStore.setActivePanel(panel.id)}
-                    on:dragend={handleDragEnd}
-                    on:drop={handlePanelDrop}
-                    on:resize={handlePanelResize}
-                    on:open={handleFileOpen}
-                    on:close={handlePanelClose}
-                    on:edit-panel={handleEditPanel}
-                  />
-                {/key}
+                <RowPanel
+                  {panel}
+                  component={panelComponentMap[panel.id]}
+                  {websocketUrl}
+                  isDragging={draggedPanelId === panel.id}
+                  isActive={$activePanel?.id === panel.id}
+                  on:dragstart={handleDragStart}
+                  on:click={() => panelStore.setActivePanel(panel.id)}
+                  on:dragend={handleDragEnd}
+                  on:drop={handlePanelDrop}
+                  on:resize={handlePanelResize}
+                  on:open={handleFileOpen}
+                  on:close={handlePanelClose}
+                  on:edit-panel={handleEditPanel}
+                />
               </div>
             {/if}
           {/each}

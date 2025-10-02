@@ -938,52 +938,54 @@
   
   <div class="panel-content">
     {#if component}
-      {#if panel.type === 'terminal' || panel.type === 'claude'}
-        <svelte:component
-          this={component}
-          bind:this={componentInstance}
-          {websocketUrl}
-          panelId={panel.id}
-          autoLaunchClaude={panel.type === 'claude'}
-          backgroundColor={panel.backgroundColor}
-          textColor={panel.textColor}
-          boldTextColor={panel.boldTextColor}
-          on:ready={handleTerminalReady}
-          on:claude-idle={() => {
-            console.log('🔄🔄🔄 [RowPanel] Claude idle event received from panel:', panel.id, '🔄🔄🔄');
-            // Dispatch a global event that PromptQueue can listen to
-            window.dispatchEvent(new CustomEvent('claude-idle', {
-              detail: { panelId: panel.id }
-            }));
-          }}
-        />
-      {:else if panel.type === 'fileExplorer' || panel.type === 'file-explorer'}
-        <svelte:component 
-          this={component} 
-          bind:this={componentInstance}
-          panelId={panel.id}
-          {...panel.content}
-          on:open={handleOpen}
-        />
-      {:else if component.name === 'CustomPanelRenderer' || panel.type.startsWith('panel-')}
-        <!-- Custom panels need the panelType and websocketUrl props -->
-        <svelte:component
-          this={component}
-          bind:this={componentInstance}
-          panelId={panel.id}
-          panelType={panel.type}
-          {websocketUrl}
-          {...panel.content}
-        />
-      {:else}
-        <svelte:component
-          this={component}
-          bind:this={componentInstance}
-          panelId={panel.id}
-          {websocketUrl}
-          {...panel.content}
-        />
-      {/if}
+      {#key panel.id}
+        {#if panel.type === 'terminal' || panel.type === 'claude'}
+          <svelte:component
+            this={component}
+            bind:this={componentInstance}
+            {websocketUrl}
+            panelId={panel.id}
+            autoLaunchClaude={panel.type === 'claude'}
+            backgroundColor={panel.backgroundColor}
+            textColor={panel.textColor}
+            boldTextColor={panel.boldTextColor}
+            on:ready={handleTerminalReady}
+            on:claude-idle={() => {
+              console.log('🔄🔄🔄 [RowPanel] Claude idle event received from panel:', panel.id, '🔄🔄🔄');
+              // Dispatch a global event that PromptQueue can listen to
+              window.dispatchEvent(new CustomEvent('claude-idle', {
+                detail: { panelId: panel.id }
+              }));
+            }}
+          />
+        {:else if panel.type === 'fileExplorer' || panel.type === 'file-explorer'}
+          <svelte:component
+            this={component}
+            bind:this={componentInstance}
+            panelId={panel.id}
+            {...panel.content}
+            on:open={handleOpen}
+          />
+        {:else if component.name === 'CustomPanelRenderer' || panel.type.startsWith('panel-')}
+          <!-- Custom panels need the panelType and websocketUrl props -->
+          <svelte:component
+            this={component}
+            bind:this={componentInstance}
+            panelId={panel.id}
+            panelType={panel.type}
+            {websocketUrl}
+            {...panel.content}
+          />
+        {:else}
+          <svelte:component
+            this={component}
+            bind:this={componentInstance}
+            panelId={panel.id}
+            {websocketUrl}
+            {...panel.content}
+          />
+        {/if}
+      {/key}
     {/if}
   </div>
   

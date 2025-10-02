@@ -1638,13 +1638,16 @@
           }
         });
         
-        // Send the resize message to the websocket
-        if (ws && ws.readyState === WebSocket.OPEN) {
+        // Send the resize message to the websocket only if dimensions changed
+        const dimensionsChanged = cols !== beforeTerminalSize.cols || rows !== beforeTerminalSize.rows;
+        if (dimensionsChanged && ws && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({
             type: 'RESIZE',
             payload: { cols, rows }
           }));
-          console.log('[Terminal.handleResize] Sent resize to websocket:', { cols, rows });
+          console.log('[Terminal.handleResize] Sent resize to websocket:', { cols, rows, changed: dimensionsChanged });
+        } else if (!dimensionsChanged) {
+          console.log('[Terminal.handleResize] Skipping resize - dimensions unchanged:', { cols, rows });
         }
       } catch (err) {
         const errorDetails = {

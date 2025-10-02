@@ -2212,11 +2212,14 @@
   :global(.xterm-helper-textarea) {
     /* Prevent zoom on mobile when focusing input */
     font-size: 16px !important;
+    /* Fix text visibility - use terminal foreground color */
+    color: var(--xterm-foreground-color, #d4d4d4) !important;
   }
-  
+
   /* Prevent zoom on input focus for iOS */
   :global(.xterm-helper-textarea) {
     font-size: 16px !important;
+    color: var(--xterm-foreground-color, #d4d4d4) !important;
   }
   
   /* Compact Claude output styling */

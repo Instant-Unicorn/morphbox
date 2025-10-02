@@ -219,7 +219,9 @@
 
   // Edit custom panel
   function handleEditPanel() {
-    dispatch('edit-panel', { panelId: panel.id, panelType: panel.type });
+    window.dispatchEvent(new CustomEvent('open-panel-editor', {
+      detail: { panelId: panel.id, panelName: panel.title }
+    }));
   }
   
   // Keyboard emulation functions

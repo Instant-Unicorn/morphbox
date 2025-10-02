@@ -119,7 +119,9 @@
 
   // Edit custom panel
   function handleEditPanel() {
-    dispatch('edit-panel', { panelId: panel.id, panelType: panel.type });
+    window.dispatchEvent(new CustomEvent('open-panel-editor', {
+      detail: { panelId: panel.id, panelName: panel.title }
+    }));
   }
 
   // Title editing functions
@@ -199,8 +201,8 @@
       </h3>
     {/if}
     <div class="panel-controls">
-      <!-- Edit button for custom panels -->
-      {#if (panel.type.match(/^[a-z]/) || panel.type.includes('-')) && !['terminal', 'claude', 'fileExplorer', 'codeEditor', 'gitPanel', 'webBrowser', 'settings', 'taskRunner', 'promptQueue'].includes(panel.type)}
+      <!-- Edit button for custom panels only (not built-ins) -->
+      {#if panel.type.includes('-') && !['terminal', 'claude', 'file-explorer', 'code-editor', 'git-panel', 'web-browser', 'settings', 'task-runner', 'prompt-queue', 'fileExplorer', 'codeEditor', 'gitPanel', 'webBrowser', 'taskRunner', 'promptQueue'].includes(panel.type)}
         <button
           class="control-btn edit-panel-btn"
           on:click={handleEditPanel}

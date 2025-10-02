@@ -949,6 +949,7 @@
         {:else}
           {#each row.panels as panel (panel.id)}
             {#if panelComponentMap[panel.id]}
+              <!-- Debug: panel.id = {panel.id}, panel.type = {panel.type} -->
               <div
                 class="panel-container"
                 style="{row.panels.length === 1 ? `width: ${panel.widthPercent || 100}%; flex: none;` : `flex: 1 1 ${panel.widthPercent || 25}%;`}"

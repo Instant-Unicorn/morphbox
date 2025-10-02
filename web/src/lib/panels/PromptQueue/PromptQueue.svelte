@@ -1015,8 +1015,8 @@
             </button>
             <button
               class="mode-delete-btn"
-              on:click|stopPropagation={() => promptQueueStore.deleteMode(mode.id)}
-              title="Delete mode"
+              on:click|stopPropagation={() => promptQueueStore.toggleModeVisibility(mode.id)}
+              title="Hide mode (delete in settings to remove permanently)"
             >
               <X size={12} />
             </button>

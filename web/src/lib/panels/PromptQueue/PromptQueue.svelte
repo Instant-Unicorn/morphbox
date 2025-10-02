@@ -26,6 +26,7 @@
   let editingMode: Partial<PromptMode> | null = null;
   let isModeEditorOpen = false;
   let isManageModesOpen = false;
+  let compactModeDisplay = false; // Toggle for compact mode display in main view
 
   $: queueItems = $promptQueueStore.items;
   $: isRunning = $promptQueueStore.isRunning;
@@ -1002,13 +1003,16 @@
             <button
               class="mode-badge"
               class:enabled={mode.enabled}
+              class:compact={compactModeDisplay}
               style="background-color: {mode.enabled ? mode.color : 'transparent'}; border-color: {mode.color};"
               on:click={() => promptQueueStore.toggleGlobalMode(mode.id)}
               on:contextmenu|preventDefault={() => handleEditMode(mode)}
               title="{mode.instruction}\n\nClick to toggle • Right-click to edit"
             >
               <span class="mode-emoji">{mode.emoji}</span>
-              <span class="mode-name">{mode.name}</span>
+              {#if !compactModeDisplay}
+                <span class="mode-name">{mode.name}</span>
+              {/if}
               {#if mode.enabled}
                 <span class="mode-check">✓</span>
               {/if}
@@ -1155,13 +1159,24 @@
     <div class="manage-modes-modal" on:click|stopPropagation>
       <div class="manage-modes-header">
         <h3>Manage Prompt Modes</h3>
-        <button
-          class="modal-close-btn"
-          on:click={() => isManageModesOpen = false}
-          title="Close"
-        >
-          <X size={20} />
-        </button>
+        <div class="header-actions">
+          <button
+            type="button"
+            class="compact-toggle-btn"
+            class:active={compactModeDisplay}
+            on:click={() => compactModeDisplay = !compactModeDisplay}
+            title={compactModeDisplay ? "Show full mode names" : "Show compact mode (emoji only)"}
+          >
+            {compactModeDisplay ? 'Full' : 'Compact'}
+          </button>
+          <button
+            class="modal-close-btn"
+            on:click={() => isManageModesOpen = false}
+            title="Close"
+          >
+            <X size={20} />
+          </button>
+        </div>
       </div>
       <div class="manage-modes-content">
         {#if allModes.length === 0}
@@ -1556,6 +1571,12 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   }
 
+  .mode-badge.compact {
+    padding: 6px 8px;
+    min-width: 32px;
+    justify-content: center;
+  }
+
   .mode-emoji {
     font-size: 16px;
   }
@@ -1747,6 +1768,44 @@
     font-size: 16px;
     font-weight: 600;
     color: #e2e8f0;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .compact-toggle-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+
+  .compact-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+
+  .compact-toggle-btn.active {
+    background: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+  }
+
+  .compact-toggle-btn.active:hover {
+    background: #2563eb;
+    border-color: #2563eb;
   }
 
   .modal-close-btn {

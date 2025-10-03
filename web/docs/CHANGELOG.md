@@ -1,5 +1,55 @@
 # Changelog
 
+## 2025-10-03
+
+### Added
+- **Multi-Terminal Prompt Queue Support**
+  - Per-prompt terminal selection via dropdown UI
+  - Auto-numbering for terminals (Terminal 1, Terminal 2, etc.)
+  - Auto-numbering for Claude panels (Claude 1, Claude 2, etc.)
+  - Universal AI CLI detection (Claude, Gemini, Codex, Qwen, Bash)
+  - "esc to interrupt" pattern for ready state detection
+  - Per-CLI-type configurable timeouts (Claude: 4s, Gemini: 3.5s, Codex: 3s)
+  - Event matching ensures correct terminal receives completion events
+  - Icons for different CLI types (🤖 Claude, ✨ Gemini, 💻 Codex, 🧠 Qwen, ⚡ Bash)
+  - "Auto (Any AI)" option for automatic terminal selection
+
+### Fixed
+- **Terminal Session Reconnection**
+  - Fixed critical bug where panel auto-numbering overwrote restored panel titles
+  - Terminals now properly reconnect to their sessions after page refresh
+  - Auto-numbering only applies to NEW panels, not restored ones
+
+### Developer Notes
+**⚠️ CRITICAL: Session Persistence Protection**
+
+When adding new features that modify panel creation or initialization:
+1. **Always check if panel is being restored vs newly created**
+   - Restored panels come with existing config/titles from sessionStorage
+   - New panels have minimal or no config
+2. **Never override properties that affect session reconnection:**
+   - Panel ID (used for localStorage session keys)
+   - Panel title (may be used for identification)
+   - Any custom state that persists across reloads
+3. **Test session reconnection after ANY changes to:**
+   - `panels.ts` (especially `addPanel`)
+   - `Terminal.svelte` (WebSocket connection logic)
+   - `BasePanel.svelte` (lifecycle methods)
+4. **Testing procedure:**
+   - Create a terminal/panel
+   - Execute some commands to establish session
+   - Refresh the page (F5)
+   - Verify the terminal reconnects and shows previous output
+   - Verify no duplicate panels or broken sessions
+
+This recurring issue has been fixed multiple times. The pattern is:
+- New feature modifies panel initialization
+- Breaks restored panel properties
+- Terminal sessions fail to reconnect
+- User has to clear localStorage and lose sessions
+
+**Prevention:** Always preserve restored panel state and only apply defaults/auto-generation for truly new panels.
+
 ## 2025-07-29
 
 ### Fixed

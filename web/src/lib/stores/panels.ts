@@ -316,6 +316,30 @@ export function restorePanelSnapshot(snapshotData: string): PanelState | null {
 let terminalCounter = 0;
 let claudeCounter = 0;
 
+// Initialize counters based on existing panels
+function initializeCounters(panels: Panel[]) {
+  // Find the highest numbered terminal and claude panels
+  let maxTerminal = 0;
+  let maxClaude = 0;
+
+  panels.forEach(panel => {
+    if (panel.type === 'terminal' && panel.title) {
+      const match = panel.title.match(/Terminal (\d+)/);
+      if (match) {
+        maxTerminal = Math.max(maxTerminal, parseInt(match[1]));
+      }
+    } else if (panel.type === 'claude' && panel.title) {
+      const match = panel.title.match(/Claude (\d+)/);
+      if (match) {
+        maxClaude = Math.max(maxClaude, parseInt(match[1]));
+      }
+    }
+  });
+
+  terminalCounter = maxTerminal;
+  claudeCounter = maxClaude;
+}
+
 // Create the main store
 function createPanelStore() {
   // Try to restore state from sessionStorage first
@@ -350,6 +374,12 @@ function createPanelStore() {
     layout: 'grid', // Changed to grid for new layout
     activePanel: null
   };
+
+  // Initialize counters based on existing panels
+  if (initialState.panels.length > 0) {
+    initializeCounters(initialState.panels);
+    console.log('[PanelStore] Initialized counters:', { terminalCounter, claudeCounter });
+  }
 
   const { subscribe, set, update } = writable<PanelState>(initialState);
 

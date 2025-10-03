@@ -328,13 +328,17 @@
   }
   
   function connectWebSocket() {
+    console.log(`[Terminal ${panelId}] connectWebSocket called`);
+    console.log(`[Terminal ${panelId}] Current WS state:`, ws ? ws.readyState : 'no ws', 'Session IDs:', { sessionId, terminalSessionId });
+
     // Prevent multiple simultaneous connections
     if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
-      console.warn('[Terminal] WebSocket already connecting or connected, skipping new connection');
+      console.warn(`[Terminal ${panelId}] WebSocket already connecting or connected, skipping new connection`);
       return;
     }
-    
+
     if (ws) {
+      console.log(`[Terminal ${panelId}] Closing old WebSocket`);
       ws.close();
     }
     
@@ -443,8 +447,10 @@
             break;
           case 'AGENT_LAUNCHED':
             // Store agent ID for filtering OUTPUT messages
+            const previousAgentId = agentId;
             agentId = message.payload?.agentId || null;
-            console.log('[Terminal] Agent launched:', agentId);
+            console.log(`[Terminal ${panelId}] Agent launched:`, agentId);
+            console.log(`[Terminal ${panelId}] Previous agent ID was:`, previousAgentId);
 
             // Hide loading overlay immediately when agent is launched
             isInitializing = false;
@@ -514,9 +520,10 @@
           case 'OUTPUT':
             // Filter: Only display output from this terminal's agent
             if (message.payload?.data && message.payload?.agentId === agentId) {
+              console.log(`[Terminal ${panelId}] OUTPUT from agent ${agentId}, data length:`, message.payload.data.length);
               // Immediately hide loading overlay on first output
               if (isInitializing) {
-                console.log('[Terminal] First output received, hiding loading overlay');
+                console.log(`[Terminal ${panelId}] First output received, hiding loading overlay`);
                 isInitializing = false;
                 if (hideLogoTimeout) {
                   clearTimeout(hideLogoTimeout);

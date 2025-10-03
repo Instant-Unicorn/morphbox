@@ -312,6 +312,10 @@ export function restorePanelSnapshot(snapshotData: string): PanelState | null {
   }
 }
 
+// Session-based counters for terminal numbering
+let terminalCounter = 0;
+let claudeCounter = 0;
+
 // Create the main store
 function createPanelStore() {
   // Try to restore state from sessionStorage first
@@ -411,10 +415,20 @@ function createPanelStore() {
         const currentSettings = get(settingsStore);
         const defaultColors = currentSettings.panels?.defaultPanelColors || {};
         
+        // Auto-generate titles for terminals with sequential numbering
+        let title = 'Untitled';
+        if (type === 'terminal') {
+          terminalCounter++;
+          title = `Terminal ${terminalCounter}`;
+        } else if (type === 'claude') {
+          claudeCounter++;
+          title = `Claude ${claudeCounter}`;
+        }
+
         const newPanel: Panel = {
           id,
           type,
-          title: 'Untitled',
+          title,
           workspaceId: configWithoutId?.workspaceId || state.activeWorkspaceId,
           position,
           size: { width: 400, height: 300 },

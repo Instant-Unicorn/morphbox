@@ -17,6 +17,7 @@ export interface PromptItem {
   status: 'pending' | 'active' | 'completed';
   createdAt: Date;
   modeIds?: string[]; // IDs of modes applied to this specific prompt
+  targetTerminalId?: string; // Panel ID of target terminal (undefined = auto-select AI CLI)
 }
 
 interface PromptQueueState {
@@ -127,11 +128,20 @@ function createPromptQueueStore() {
     setPromptStatus(id: string, status: PromptItem['status']) {
       update(state => ({
         ...state,
-        items: state.items.map(item => 
+        items: state.items.map(item =>
           item.id === id ? { ...item, status } : item
         ),
-        currentPromptId: status === 'active' ? id : 
+        currentPromptId: status === 'active' ? id :
           (state.currentPromptId === id ? null : state.currentPromptId)
+      }));
+    },
+
+    setTargetTerminal(id: string, terminalId: string | undefined) {
+      update(state => ({
+        ...state,
+        items: state.items.map(item =>
+          item.id === id ? { ...item, targetTerminalId: terminalId } : item
+        )
       }));
     },
 

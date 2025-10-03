@@ -34,6 +34,22 @@
   $: allModes = $promptQueueStore.modes; // All modes including hidden
   $: globalModes = availableModes.filter(mode => mode.isGlobal);
 
+  // Get available terminals with their detected CLI types
+  $: availableTerminals = $allPanels
+    .filter(panel => panel.type === 'terminal' || panel.type === 'claude')
+    .map(panel => {
+      const terminal = typeof window !== 'undefined' && window.morphboxTerminals?.[panel.id];
+      const cliType = terminal?.cliType || (panel.type === 'claude' ? 'claude' : 'bash');
+
+      return {
+        id: panel.id,
+        title: panel.title,
+        type: panel.type,
+        cliType: cliType,
+        icon: getCliIcon(cliType)
+      };
+    });
+
   let queueCompletedMessage = '';
   let lastCompletedCount = 0;
 
@@ -52,20 +68,36 @@
     }
   }
   
-  // Event-driven approach: listen for claude-idle events
-  let claudeIdleHandler: ((event: CustomEvent) => void) | null = null;
+  // Get icon for CLI type
+  function getCliIcon(cliType: string): string {
+    switch(cliType) {
+      case 'claude': return '🤖';
+      case 'gemini': return '✨';
+      case 'codex': return '💻';
+      case 'qwen': return '🧠';
+      case 'bash': return '⚡';
+      default: return '💬';
+    }
+  }
+
+  // Event-driven approach: listen for AI CLI idle events (Claude, Gemini, Codex, etc.)
+  let aiCliIdleHandler: ((event: CustomEvent) => void) | null = null;
 
   onMount(() => {
     // Don't auto-start monitoring - wait for user to hit play
     console.log('[PromptQueue] Component mounted');
 
-    // Listen for claude-idle events
-    claudeIdleHandler = (event: CustomEvent) => {
+    // Listen for ANY AI CLI idle events
+    aiCliIdleHandler = (event: CustomEvent) => {
+      const { cliType, panelId, terminalId } = event.detail || {};
+
       console.log('');
       console.log('🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯');
-      console.log('📬 [PromptQueue] RECEIVED CLAUDE-IDLE EVENT! 📬');
+      console.log('📬 [PromptQueue] RECEIVED AI CLI IDLE EVENT! 📬');
       console.log('🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯');
-      console.log('[PromptQueue] Event detail:', event.detail);
+      console.log(`[PromptQueue] CLI Type: ${cliType}`);
+      console.log(`[PromptQueue] Panel ID: ${panelId}`);
+      console.log(`[PromptQueue] Terminal ID: ${terminalId}`);
       console.log('[PromptQueue] Queue is running?', isRunning);
       console.log('🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯');
       console.log('');
@@ -77,9 +109,10 @@
       const currentItems = get(promptQueueStore).items;
       const activePrompt = currentItems.find(item => item.status === 'active');
 
-      if (activePrompt) {
-        // Mark the active prompt as complete since Claude is idle
-        console.log('[PromptQueue] Claude idle, marking active prompt as completed:', activePrompt.id);
+      // Only process if this event is from the terminal we sent to
+      if (activePrompt && activePrompt.targetTerminalId === terminalId) {
+        console.log('✅ Event matches active prompt target, marking complete');
+        console.log(`[PromptQueue] ${cliType} idle, marking active prompt as completed:`, activePrompt.id);
         promptQueueStore.setPromptStatus(activePrompt.id, 'completed');
 
         // Remove and continue
@@ -87,17 +120,23 @@
           promptQueueStore.removePrompt(activePrompt.id);
           processNextPrompt();
         }, 500);
+      } else if (activePrompt) {
+        console.log('⏭️ Event from different terminal, ignoring');
+        console.log(`   Active prompt target: ${activePrompt.targetTerminalId}`);
+        console.log(`   Event from: ${terminalId}`);
       } else {
         // No active prompt, check if we have pending ones
         const hasPendingPrompts = currentItems.some(item => item.status === 'pending');
         if (hasPendingPrompts) {
-          console.log('[PromptQueue] Claude idle, processing next prompt');
+          console.log(`[PromptQueue] ${cliType} idle, processing next prompt`);
           processNextPrompt();
         }
       }
     };
 
-    window.addEventListener('claude-idle', claudeIdleHandler as EventListener);
+    // Listen to both old and new event names for compatibility
+    window.addEventListener('claude-idle', aiCliIdleHandler as EventListener);
+    window.addEventListener('ai-cli-idle', aiCliIdleHandler as EventListener);
   });
 
   onDestroy(() => {
@@ -106,9 +145,10 @@
       clearInterval(claudeCheckInterval);
     }
 
-    // Clean up event listener
-    if (claudeIdleHandler) {
-      window.removeEventListener('claude-idle', claudeIdleHandler as EventListener);
+    // Clean up event listeners
+    if (aiCliIdleHandler) {
+      window.removeEventListener('claude-idle', aiCliIdleHandler as EventListener);
+      window.removeEventListener('ai-cli-idle', aiCliIdleHandler as EventListener);
     }
   });
   
@@ -378,11 +418,42 @@
     }
 
     console.log('[PromptQueue] Found pending prompt:', nextPrompt.text);
-    const claudeTerminal = findClaudeTerminal();
-    if (!claudeTerminal) {
-      console.log('[PromptQueue] No Claude terminal found for sending');
+
+    // Find target terminal based on prompt configuration
+    let targetTerminal, targetPanelId;
+
+    if (nextPrompt.targetTerminalId) {
+      targetTerminal = findTerminalById(nextPrompt.targetTerminalId);
+      targetPanelId = nextPrompt.targetTerminalId;
+
+      if (!targetTerminal) {
+        console.warn(`[PromptQueue] Target terminal ${nextPrompt.targetTerminalId} not found, falling back to AI CLI`);
+        targetTerminal = findAICliTerminal();
+        const panels = get(allPanels);
+        targetPanelId = panels.find(p =>
+          window.morphboxTerminals?.[p.id] === targetTerminal
+        )?.id;
+      }
+    } else {
+      // Default behavior: use any AI CLI terminal
+      targetTerminal = findAICliTerminal();
+      const panels = get(allPanels);
+      targetPanelId = panels.find(p =>
+        window.morphboxTerminals?.[p.id] === targetTerminal
+      )?.id;
+    }
+
+    if (!targetTerminal || !targetPanelId) {
+      console.error('[PromptQueue] No AI CLI terminal available for sending');
       return;
     }
+
+    // Get CLI type for logging
+    const cliType = targetTerminal.cliType || 'unknown';
+    console.log(`[PromptQueue] Target terminal: ${targetPanelId} (${cliType})`);
+
+    // Store which terminal we're sending to for idle event matching
+    promptQueueStore.setTargetTerminal(nextPrompt.id, targetPanelId);
 
     // Mark as active
     console.log('[PromptQueue] Marking prompt as active:', nextPrompt.id);
@@ -392,27 +463,26 @@
     const finalPrompt = buildPromptWithModes(nextPrompt);
 
     // Send the prompt
-    console.log('[PromptQueue] Sending prompt to Claude:', finalPrompt.substring(0, 50) + '...');
+    console.log(`[PromptQueue] Sending prompt to ${cliType}:`, finalPrompt.substring(0, 50) + '...');
     if (finalPrompt !== nextPrompt.text) {
       console.log('[PromptQueue] Applied modes to prompt');
     }
 
     // First send the text
-    claudeTerminal.sendInput(finalPrompt);
+    targetTerminal.sendInput(finalPrompt);
     // Then send Enter key separately after a small delay to ensure text is processed
     setTimeout(() => {
       console.log('[PromptQueue] Sending Enter key to submit prompt');
-      claudeTerminal.sendInput('\r');
+      targetTerminal.sendInput('\r');
     }, 100);
 
-    // With event-driven approach, we just wait for the claude-idle event
-    console.log('[PromptQueue] Prompt sent, waiting for claude-idle event...');
+    // With event-driven approach, we just wait for the ai-cli-idle event
+    console.log(`[PromptQueue] Prompt sent, waiting for ${cliType} idle event...`);
   }
 
   // Process next prompt without ready check (for initial start)
   function processNextPromptDirect() {
     console.log('[PromptQueue] Direct processing (no ready check)...');
-    console.error('[BUILD TEST V5] processNextPromptDirect CALLED - should start monitoring');
     const nextPrompt = promptQueueStore.getNextPending();
     if (!nextPrompt) {
       console.log('[PromptQueue] No pending prompts');
@@ -421,30 +491,54 @@
       return;
     }
 
-    const claudeTerminal = findClaudeTerminal();
-    if (!claudeTerminal) {
-      console.log('[PromptQueue] No Claude terminal found');
+    // Find target terminal (same logic as processNextPrompt)
+    let targetTerminal, targetPanelId;
+
+    if (nextPrompt.targetTerminalId) {
+      targetTerminal = findTerminalById(nextPrompt.targetTerminalId);
+      targetPanelId = nextPrompt.targetTerminalId;
+
+      if (!targetTerminal) {
+        targetTerminal = findAICliTerminal();
+        const panels = get(allPanels);
+        targetPanelId = panels.find(p =>
+          window.morphboxTerminals?.[p.id] === targetTerminal
+        )?.id;
+      }
+    } else {
+      targetTerminal = findAICliTerminal();
+      const panels = get(allPanels);
+      targetPanelId = panels.find(p =>
+        window.morphboxTerminals?.[p.id] === targetTerminal
+      )?.id;
+    }
+
+    if (!targetTerminal || !targetPanelId) {
+      console.log('[PromptQueue] No AI CLI terminal found');
       // Retry in a moment
       setTimeout(() => checkAndProcessQueue(), 1000);
       return;
     }
 
+    const cliType = targetTerminal.cliType || 'unknown';
+
+    // Store which terminal we're sending to
+    promptQueueStore.setTargetTerminal(nextPrompt.id, targetPanelId);
+
     // Mark as active and send immediately
-    console.log('[PromptQueue] Sending first prompt immediately:', nextPrompt.text);
+    console.log(`[PromptQueue] Sending first prompt immediately to ${cliType}:`, nextPrompt.text);
     promptQueueStore.setPromptStatus(nextPrompt.id, 'active');
 
     // Build final prompt with mode instructions
     const finalPrompt = buildPromptWithModes(nextPrompt);
 
     // Send the prompt right away
-    claudeTerminal.sendInput(finalPrompt);
+    targetTerminal.sendInput(finalPrompt);
     setTimeout(() => {
-      claudeTerminal.sendInput('\r');
+      targetTerminal.sendInput('\r');
     }, 100);
 
-    // Start completion monitoring immediately (will poll every 4 seconds)
-    console.log('[PromptQueue] Starting completion monitoring for prompt:', nextPrompt.id);
-    checkPromptCompletion(nextPrompt.id);
+    console.log(`[PromptQueue] First prompt sent, waiting for ${cliType} idle event...`);
   }
   
   // Manual trigger for when automatic detection fails
@@ -743,19 +837,48 @@
     });
   }
   
-  function findClaudeTerminal() {
+  // Find terminal by specific panel ID
+  function findTerminalById(terminalId: string) {
     if (typeof window === 'undefined' || !window.morphboxTerminals) return null;
-    
-    // Get all panels from the store
+
     const panels = get(allPanels);
-    
-    // Look for a Claude panel
-    const claudePanel = panels.find(panel => panel.type === 'claude');
-    if (!claudePanel) return null;
-    
+    const panel = panels.find(p => p.id === terminalId);
+
+    if (!panel) return null;
+
     // Check if this panel has a terminal registered
-    const terminal = window.morphboxTerminals[claudePanel.id];
+    const terminal = window.morphboxTerminals[panel.id];
     return terminal || null;
+  }
+
+  // Find ANY AI CLI terminal (Claude, Gemini, Codex, Qwen, etc.)
+  function findAICliTerminal() {
+    if (typeof window === 'undefined' || !window.morphboxTerminals) return null;
+
+    const panels = get(allPanels);
+
+    // Look for ANY terminal with AI CLI type detected (not bash)
+    const aiPanel = panels.find(panel => {
+      if (panel.type !== 'terminal' && panel.type !== 'claude') return false;
+
+      const terminal = window.morphboxTerminals[panel.id];
+      return terminal && terminal.cliType && terminal.cliType !== 'bash';
+    });
+
+    // Fallback to Claude panel if no AI CLI detected yet
+    if (!aiPanel) {
+      const claudePanel = panels.find(panel => panel.type === 'claude');
+      if (claudePanel) {
+        return window.morphboxTerminals[claudePanel.id] || null;
+      }
+    }
+
+    return aiPanel ? window.morphboxTerminals[aiPanel.id] : null;
+  }
+
+  // Keep for backward compatibility
+  function findClaudeTerminal() {
+    return findAICliTerminal();
   }
   
   function handleAddPrompt() {
@@ -1088,6 +1211,26 @@
                     <span class="prompt-mode-name">{mode.name}</span>
                   </button>
                 {/each}
+              </div>
+            {/if}
+
+            <!-- Terminal selector -->
+            {#if item.status === 'pending' && availableTerminals.length > 0}
+              <div class="terminal-selector">
+                <select
+                  bind:value={item.targetTerminalId}
+                  on:change={() => promptQueueStore.setTargetTerminal(item.id, item.targetTerminalId)}
+                  title="Send to terminal"
+                  class="terminal-select"
+                >
+                  <option value={undefined}>Auto (Any AI)</option>
+                  {#each availableTerminals as terminal}
+                    <option value={terminal.id}>
+                      {terminal.icon} {terminal.title}
+                      {#if terminal.cliType !== 'bash'}({terminal.cliType}){/if}
+                    </option>
+                  {/each}
+                </select>
               </div>
             {/if}
 
@@ -1667,6 +1810,35 @@
 
   .prompt-mode-name {
     font-size: 11px;
+  }
+
+  /* Terminal selector */
+  .terminal-selector {
+    margin-top: 8px;
+    margin-bottom: 4px;
+  }
+
+  .terminal-select {
+    width: 100%;
+    padding: 6px 10px;
+    font-size: 12px;
+    border-radius: 4px;
+    background: var(--bg-secondary, #252526);
+    color: var(--text-primary, #cccccc);
+    border: 1px solid var(--border-color, #3e3e42);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .terminal-select:hover {
+    border-color: var(--accent-color, #007acc);
+    background: var(--bg-hover, #2a2d2e);
+  }
+
+  .terminal-select:focus {
+    outline: none;
+    border-color: var(--accent-color, #007acc);
+    box-shadow: 0 0 0 1px var(--accent-color, #007acc);
   }
 
   /* Mode wrapper and delete button */

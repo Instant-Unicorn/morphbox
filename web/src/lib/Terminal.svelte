@@ -56,7 +56,10 @@
   let isDraggingOver = false;
   let showUploadModal = false;
   let draggedFiles: File[] = [];
-  
+
+  // REPEAT PROBLEM FIX: Track last sent dimensions to prevent duplicate resize messages
+  let lastSentDimensions = { cols: 0, rows: 0 };
+
   // Store references to event handlers and observers for cleanup
   let resizeObserver: ResizeObserver | null = null;
   let mutationObserver: MutationObserver | null = null;
@@ -388,6 +391,10 @@
         console.log('WebSocket connected');
         connectionStatus = 'connected';
         reconnectAttempts = 0;
+
+        // REPEAT PROBLEM FIX: Reset last sent dimensions on reconnect
+        // This ensures resize is sent after reconnection
+        lastSentDimensions = { cols: 0, rows: 0 };
         isReconnecting = false;
 
         // ALL messages are now handled by the server responses and centralized logic
@@ -1721,16 +1728,24 @@
           }
         });
         
-        // Send the resize message to the websocket only if dimensions changed
-        const dimensionsChanged = cols !== beforeTerminalSize.cols || rows !== beforeTerminalSize.rows;
-        if (dimensionsChanged && ws && ws.readyState === WebSocket.OPEN) {
+        // REPEAT PROBLEM FIX: Only send resize if dimensions are different from last sent
+        // This prevents duplicate resize messages even if ResizeObserver fires multiple times
+        const shouldSendResize = (cols !== lastSentDimensions.cols || rows !== lastSentDimensions.rows) &&
+                                  ws && ws.readyState === WebSocket.OPEN;
+
+        if (shouldSendResize) {
           ws.send(JSON.stringify({
             type: 'RESIZE',
             payload: { cols, rows }
           }));
-          console.log('[Terminal.handleResize] Sent resize to websocket:', { cols, rows, changed: dimensionsChanged });
-        } else if (!dimensionsChanged) {
-          console.log('[Terminal.handleResize] Skipping resize - dimensions unchanged:', { cols, rows });
+          lastSentDimensions = { cols, rows };
+          console.log('[Terminal.handleResize] Sent resize to websocket:', { cols, rows, lastSent: lastSentDimensions });
+        } else {
+          console.log('[Terminal.handleResize] Skipping resize - already sent or unchanged:', {
+            cols, rows,
+            lastSent: lastSentDimensions,
+            wsReady: ws && ws.readyState === WebSocket.OPEN
+          });
         }
       } catch (err) {
         const errorDetails = {
@@ -1748,8 +1763,9 @@
       }
     };
     
-    // Debounced resize handler
-    const debouncedResize = debounce(handleResize, 150);
+    // Debounced resize handler - INCREASED TO 300ms TO FIX REPEAT PROBLEM
+    // REPEAT PROBLEM: When terminal is small, ResizeObserver fires rapidly causing repeated output
+    const debouncedResize = debounce(handleResize, 300);
     
     // Use ResizeObserver for container-based responsiveness
     resizeObserver = new ResizeObserver((entries) => {

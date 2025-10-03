@@ -1,5 +1,31 @@
 # Changelog
 
+## 2025-10-03 (REPEAT PROBLEM FIX)
+
+### Fixed: The REPEAT PROBLEM - Terminal output repeating with every keystroke
+
+**Symptoms:** When the terminal window is small, every letter typed creates a new line/repeated output
+
+**Root Cause:**
+- ResizeObserver fires multiple times rapidly when terminal is small
+- Each resize event sends a RESIZE message to the WebSocket
+- The server responds to each RESIZE by re-sending the current line/prompt
+- This creates repeated output for every character typed
+
+**THE FIX (for future reference):**
+1. **Increased debounce delay** from 150ms to 300ms (line 1753 in Terminal.svelte)
+2. **Track last sent dimensions** to prevent duplicate RESIZE messages (added `lastSentDimensions` variable)
+3. **Only send RESIZE if dimensions actually changed** from last sent (not just from last measured)
+4. **Reset dimensions on reconnect** to ensure resize is sent after reconnection
+
+**Code locations:**
+- Line 61: Added `lastSentDimensions` tracking variable
+- Line 1753: Increased debounce from 150ms to 300ms
+- Line 1729-1745: Check against `lastSentDimensions` before sending RESIZE
+- Line 397: Reset `lastSentDimensions` on WebSocket reconnect
+
+**Keywords for searching:** REPEAT PROBLEM, repeated output, terminal small, every keystroke
+
 ## 2025-10-03 (Latest Session Reconnection Fix)
 
 ### Fixed

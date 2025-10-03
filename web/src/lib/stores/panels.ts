@@ -416,13 +416,17 @@ function createPanelStore() {
         const defaultColors = currentSettings.panels?.defaultPanelColors || {};
         
         // Auto-generate titles for terminals with sequential numbering
-        let title = 'Untitled';
-        if (type === 'terminal') {
-          terminalCounter++;
-          title = `Terminal ${terminalCounter}`;
-        } else if (type === 'claude') {
-          claudeCounter++;
-          title = `Claude ${claudeCounter}`;
+        // Only auto-number if no title is provided (i.e., this is a NEW panel, not restored)
+        let title = configWithoutId?.title || 'Untitled';
+
+        if (!configWithoutId?.title) {
+          if (type === 'terminal') {
+            terminalCounter++;
+            title = `Terminal ${terminalCounter}`;
+          } else if (type === 'claude') {
+            claudeCounter++;
+            title = `Claude ${claudeCounter}`;
+          }
         }
 
         const newPanel: Panel = {

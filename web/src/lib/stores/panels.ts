@@ -401,14 +401,16 @@ function createPanelStore() {
         const builtInTypes = ['terminal', 'claude', 'fileExplorer', 'editor', 'codeEditor', 'preview', 'settings'];
 
         // For custom panels, use the type as the ID to match the filename
-        // For built-in panels, always generate a unique ID
+        // For built-in panels, use provided ID (for restoration) or generate a unique ID (for new panels)
         const isCustomPanel = !builtInTypes.includes(type);
-        const id = isCustomPanel ? type : generateId();
-        
+
+        // CRITICAL: Preserve panel ID when restoring from sessionStorage to maintain session reconnection
+        const id = config?.id || (isCustomPanel ? type : generateId());
+
         const position = config?.position || getNextPosition(state.panels);
         const zIndex = getHighestZIndex(state.panels) + 1;
 
-        // Ensure we never use a config-provided id (except for custom panels)
+        // Extract id and other config properties
         const { id: configId, ...configWithoutId } = config || {};
         
         // Get settings for default panel colors
@@ -419,7 +421,7 @@ function createPanelStore() {
         // Only auto-number if no title is provided (i.e., this is a NEW panel, not restored)
         let title = configWithoutId?.title || 'Untitled';
 
-        if (!configWithoutId?.title) {
+        if (!config?.title) {
           if (type === 'terminal') {
             terminalCounter++;
             title = `Terminal ${terminalCounter}`;

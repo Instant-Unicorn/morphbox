@@ -301,7 +301,18 @@
             this={component}
             {websocketUrl}
             panelId={panel.id}
+            autoLaunchClaude={panel.type === 'claude'}
+            backgroundColor={panel.backgroundColor}
+            textColor={panel.textColor}
+            boldTextColor={panel.boldTextColor}
             {...panel.content}
+            on:claude-idle={() => {
+              console.log('🔄 [GridPanel] Claude idle event received from panel:', panel.id);
+              // Dispatch a global event that PromptQueue can listen to
+              window.dispatchEvent(new CustomEvent('claude-idle', {
+                detail: { panelId: panel.id }
+              }));
+            }}
           />
         {:else if panel.type === 'fileExplorer' || panel.type === 'file-explorer'}
           <svelte:component

@@ -71,20 +71,6 @@
   let claudeState: 'idle' | 'responding' = 'idle';
   let accumulatedOutput: string = ''; // Track recent output for pattern detection
 
-  // AI CLI type detection
-  let detectedCliType: 'claude' | 'gemini' | 'codex' | 'qwen' | 'bash' | null = null;
-  let lastCliTypeCheck: number = 0;
-
-  // Configurable ready-check timing per CLI type
-  const CLI_TIMEOUTS: Record<string, number> = {
-    claude: 4000,  // Claude Code: 4 seconds after last data
-    gemini: 3500,  // Gemini: slightly faster, 3.5 seconds
-    codex: 3000,   // Codex: faster responses, 3 seconds
-    qwen: 4000,    // Qwen: similar to Claude, 4 seconds
-    bash: 2000     // Regular bash: quick, 2 seconds
-  };
-  const DEFAULT_CLI_TIMEOUT = 4000; // Default fallback
-
   // React to color changes
   $: if (terminal && (backgroundColor || textColor || boldTextColor)) {
     updateTerminalSettings();
@@ -234,75 +220,7 @@
         return false;
     }
   }
-
-  // Detect what type of AI CLI is running in this terminal
-  function detectAICliType(output: string): 'claude' | 'gemini' | 'codex' | 'qwen' | 'bash' {
-    const lowerOutput = output.toLowerCase();
-
-    // Check for Claude Code
-    if (lowerOutput.includes('claude code') || lowerOutput.includes('anthropic') || lowerOutput.includes('claude.ai')) {
-      return 'claude';
-    }
-
-    // Check for Gemini
-    if (lowerOutput.includes('gemini') || lowerOutput.includes('google ai') || lowerOutput.includes('bard')) {
-      return 'gemini';
-    }
-
-    // Check for Codex
-    if (lowerOutput.includes('codex') || lowerOutput.includes('openai codex')) {
-      return 'codex';
-    }
-
-    // Check for Qwen
-    if (lowerOutput.includes('qwen') || lowerOutput.includes('qwen coder')) {
-      return 'qwen';
-    }
-
-    // Default to bash if no AI CLI detected
-    return 'bash';
-  }
-
-  // Universal AI CLI ready detection (works for all AI CLIs)
-  function isAICliReady(output: string): boolean {
-    const lowerOutput = output.toLowerCase();
-
-    // All AI CLIs show some variation of "esc to interrupt" when working
-    const interruptPatterns = [
-      'esc to interrupt',
-      'esc to cancel',
-      'press esc to stop',
-      'ctrl+c to cancel',
-      'ctrl+c to interrupt'
-    ];
-
-    const isInterruptible = interruptPatterns.some(pattern =>
-      lowerOutput.includes(pattern)
-    );
-
-    // If we see interrupt pattern, AI is still working
-    if (isInterruptible) {
-      return false; // Still processing
-    }
-
-    // Check for prompt indicators (varies by CLI)
-    const promptPatterns = [
-      'human:',           // Claude
-      'h:',               // Claude short
-      '>',                // Generic prompt
-      'you:',             // Some AIs
-      'user:',            // Some AIs
-      'enter prompt:',    // Generic
-      'your message:',    // Generic
-    ];
-
-    const trimmed = output.trimEnd().toLowerCase();
-    const hasPrompt = promptPatterns.some(pattern => trimmed.endsWith(pattern));
-
-    // Ready if: no interrupt pattern AND has a prompt AND has some content
-    return !isInterruptible && hasPrompt && output.length > 10;
-  }
-
+  
   function flushBuffer() {
     if (outputBuffer.length > 0 && terminal) {
       const data = outputBuffer.join('');
@@ -635,116 +553,88 @@
                   clearTimeout(claudeIdleTimeout);
                 }
 
-                // Calculate timeout based on detected CLI type
-                const checkDelay = detectedCliType
-                  ? (CLI_TIMEOUTS[detectedCliType] || DEFAULT_CLI_TIMEOUT)
-                  : DEFAULT_CLI_TIMEOUT;
-
                 // Set timeout to check for idle state
                 claudeIdleTimeout = setTimeout(() => {
-                  // Detect CLI type periodically (every 5 seconds)
-                  if (Date.now() - lastCliTypeCheck > 5000) {
-                    detectedCliType = detectAICliType(accumulatedOutput);
-                    lastCliTypeCheck = Date.now();
+                  // Check if we have Claude's prompt indicator at the end
+                  const lowerOutput = accumulatedOutput.toLowerCase();
+                  const trimmedOutput = accumulatedOutput.trim();
 
-                    // Store CLI type globally for prompt queue access
-                    if (typeof window !== 'undefined' && window.morphboxTerminals) {
-                      if (!window.morphboxTerminals[panelId]) {
-                        window.morphboxTerminals[panelId] = {} as any;
-                      }
-                      window.morphboxTerminals[panelId].cliType = detectedCliType;
-                    }
+                  // Claude Code uses ">" as the prompt with a separator line before it
+                  // Check for the pattern of separator line followed by ">"
+                  const hasClaudeCodePrompt = trimmedOutput.endsWith('>') ||
+                                             accumulatedOutput.includes('───') && trimmedOutput.endsWith('>');
+
+                  // Also check for regular Claude's "Human:" prompt
+                  const hasRegularClaudePrompt = trimmedOutput.endsWith('human:') ||
+                                                trimmedOutput.endsWith('h:') ||
+                                                (lowerOutput.includes('human:') && Date.now() - lastDataReceived > 2000);
+
+                  // Check for "esc to interrupt" text - when it's NOT present, Claude is idle
+                  const hasEscToInterrupt = accumulatedOutput.toLowerCase().includes('esc to interrupt');
+
+                  // Log check status once
+                  if (hasEscToInterrupt) {
+                    console.log('⏳ Claude still responding ("esc to interrupt" present)');
                   }
 
-                  // Use universal AI CLI ready detection
-                  const aiReady = isAICliReady(accumulatedOutput);
-
-                  // Store detection data globally for debugging
+                  // Store the detection data globally for debugging
                   if (typeof window !== 'undefined') {
                     window.claudeDetectionData = {
                       timestamp: new Date().toISOString(),
-                      cliType: detectedCliType,
-                      aiReady,
+                      hasEscToInterrupt,
+                      hasClaudeCodePrompt,
+                      hasRegularClaudePrompt,
                       last100Chars: accumulatedOutput.slice(-100),
                       fullAccumulatedOutput: accumulatedOutput,
                       claudeState
                     };
                   }
 
-                  // Check if AI CLI is ready
-                  if (aiReady) {
-                    // AI is idle and ready for input
+                  // Simplified: Just check if "esc to interrupt" is gone
+                  if (!hasEscToInterrupt && accumulatedOutput.length > 10) {
+                    // Claude is idle and ready for input
                     if (claudeState !== 'idle') {
                       claudeState = 'idle';
                       console.log('');
                       console.log('🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯');
-                      console.log('🎯 AI CLI IS NOW IDLE - DISPATCHING EVENT! 🎯');
+                      console.log('🎯 CLAUDE IS NOW IDLE - DISPATCHING EVENT! 🎯');
                       console.log('🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯');
-                      console.log(`✅ Detected CLI type: ${detectedCliType || 'unknown'}`);
-                      console.log('✅ No interrupt pattern found (AI finished)');
+                      console.log('✅ No "esc to interrupt" found (Claude finished)');
+                      console.log('✅ Claude prompt detected:', hasClaudeCodePrompt ? '>' : hasRegularClaudePrompt ? 'human:' : 'unknown');
                       console.log('📄 Last output:', accumulatedOutput.slice(-100).replace(/\x1b\[[0-9;]*[mGKHJ]/g, ''));
                       console.log('🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯');
                       console.log('');
 
-                      // Store idle event
+                      // Also store this specific idle event
                       if (typeof window !== 'undefined') {
                         window.lastClaudeIdleEvent = {
                           timestamp: new Date().toISOString(),
-                          cliType: detectedCliType,
                           output: accumulatedOutput
                         };
                       }
 
-                      // Dispatch both old and new event names for compatibility
-                      dispatch('claude-idle', {
-                        cliType: detectedCliType,
-                        panelId: panelId
-                      });
-
-                      // Also dispatch to window for prompt queue
-                      window.dispatchEvent(new CustomEvent('ai-cli-idle', {
-                        detail: {
-                          cliType: detectedCliType,
-                          panelId: panelId,
-                          terminalId: panelId
-                        }
-                      }));
+                      dispatch('claude-idle');
                     }
-                  } else if (Date.now() - lastDataReceived > (checkDelay * 0.75)) {
-                    // No data for timeout period, assume idle (fallback)
+                  } else if (Date.now() - lastDataReceived > 3000) {
+                    // No data for 3 seconds, assume idle
                     if (claudeState !== 'idle') {
                       claudeState = 'idle';
-                      console.log(`[Terminal] 🕐 AI CLI IS IDLE (${checkDelay * 0.75}ms timeout) - DISPATCHING EVENT`);
-                      console.log(`[Terminal] CLI type: ${detectedCliType || 'unknown'}`);
+                      console.log('[Terminal] 🕐 CLAUDE IS IDLE (3s timeout) - DISPATCHING EVENT');
                       console.log('[Terminal] Time since last data:', Date.now() - lastDataReceived, 'ms');
                       console.log('[Terminal] Last output:', accumulatedOutput.slice(-100));
 
                       if (typeof window !== 'undefined') {
                         window.lastClaudeIdleEvent = {
                           timestamp: new Date().toISOString(),
-                          cliType: detectedCliType,
                           reason: 'timeout',
                           output: accumulatedOutput
                         };
                       }
 
-                      // Dispatch both event types for compatibility
-                      dispatch('claude-idle', {
-                        cliType: detectedCliType,
-                        panelId: panelId
-                      });
-
-                      window.dispatchEvent(new CustomEvent('ai-cli-idle', {
-                        detail: {
-                          cliType: detectedCliType,
-                          panelId: panelId,
-                          terminalId: panelId,
-                          reason: 'timeout'
-                        }
-                      }));
+                      dispatch('claude-idle');
                     }
                   }
-                }, checkDelay); // Use CLI-specific timeout to ensure AI is done
+                }, 4000); // Check 4 seconds after last data to ensure Claude is done
               }
             }
             break;
@@ -1280,6 +1170,7 @@
         writeln,
         clear,
         clearSession,
+        cliType: autoLaunchClaude ? 'claude' : 'bash', // Default CLI type
         getBufferContent: () => {
           if (!terminal) return '';
           const lines = [];
@@ -1716,6 +1607,7 @@
         writeln,
         clear,
         clearSession,
+        cliType: autoLaunchClaude ? 'claude' : 'bash', // Default CLI type
         getBufferContent: () => {
           if (!terminal) return '';
           const lines = [];

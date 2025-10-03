@@ -344,7 +344,7 @@
       console.log(`[Terminal ${panelId}] Closing old WebSocket`);
       ws.close();
     }
-    
+
     // Include terminal session ID and autoLaunchClaude flag
     let url = websocketUrl;
     if (browser) {
@@ -352,16 +352,10 @@
       if (terminalSessionId) {
         urlObj.searchParams.set('terminalSessionId', terminalSessionId);
       }
-      // For session persistence, try to use existing session ID
+      // For session persistence, always use sessionId if available (already restored in onMount)
       if (sessionId) {
         urlObj.searchParams.set('sessionId', sessionId);
-      } else if (browser && panelId) {
-        // Try to get session ID from localStorage (per-panel to avoid mixing agent types)
-        const storedSessionId = localStorage.getItem(`morphbox-websocket-session-${panelId}`);
-        if (storedSessionId) {
-          sessionId = storedSessionId;
-          urlObj.searchParams.set('sessionId', sessionId);
-        }
+        console.log(`[Terminal ${panelId}] Using sessionId for WebSocket connection:`, sessionId);
       }
       urlObj.searchParams.set('autoLaunchClaude', autoLaunchClaude.toString());
       url = urlObj.toString();
@@ -1404,11 +1398,19 @@
       } : null
     });
     
-    // Load terminal session ID from localStorage if available (per-panel)
+    // Load both WebSocket session ID and terminal session ID from localStorage if available (per-panel)
     if (panelId) {
-      const savedSessionId = localStorage.getItem(`morphbox-terminal-session-${panelId}`);
-      if (savedSessionId) {
-        terminalSessionId = savedSessionId;
+      // Restore WebSocket session ID
+      const savedWsSessionId = localStorage.getItem(`morphbox-websocket-session-${panelId}`);
+      if (savedWsSessionId) {
+        sessionId = savedWsSessionId;
+        console.log(`[Terminal ${panelId}] Restored WebSocket session ID:`, sessionId);
+      }
+
+      // Restore terminal session ID
+      const savedTerminalSessionId = localStorage.getItem(`morphbox-terminal-session-${panelId}`);
+      if (savedTerminalSessionId) {
+        terminalSessionId = savedTerminalSessionId;
         isReconnectingToExistingSession = true; // We're reconnecting, not starting fresh
         console.log(`[Terminal ${panelId}] Restored terminal session ID:`, terminalSessionId);
       }

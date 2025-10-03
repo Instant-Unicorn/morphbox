@@ -310,24 +310,69 @@ export function handleWebSocketConnection(
     // Launch bash automatically for regular terminals
     setTimeout(async () => {
       console.log('Auto-launching bash for terminal connection');
-      
+
       try {
-        // Create session
-        currentSessionId = await stateManager.createSession(process.cwd(), 'bash');
-        send('SESSION_CREATED', { sessionId: currentSessionId });
-        
-        // Launch bash agent
-        currentAgentId = await agentManager.launchAgent('bash', {
-          sessionId: currentSessionId,
-          workspacePath: process.cwd()
-        });
-        
+        // Check if this is a reconnection to an existing session
+        if (isReconnection && currentAgentId) {
+          console.log(`Reattaching to existing bash agent: ${currentAgentId}`);
+
+          // Try to reattach to the agent
+          const reattached = agentManager.reattachAgent(currentAgentId);
+
+          if (!reattached) {
+            console.log('Failed to reattach to bash agent, creating new one');
+            // Agent no longer exists, create a new one
+            isReconnection = false;
+            currentAgentId = null;
+          } else {
+            send('RECONNECTED', { agentId: currentAgentId });
+            // Also send AGENT_LAUNCHED to hide the loading overlay
+            send('AGENT_LAUNCHED', { agentId: currentAgentId });
+
+            // Send any buffered output
+            const bufferedOutput = sessionStore.getAndClearBuffer(sessionId);
+            if (bufferedOutput.length > 0) {
+              console.log(`Sending ${bufferedOutput.length} buffered outputs for bash terminal`);
+              for (const output of bufferedOutput) {
+                send('OUTPUT', { data: output });
+              }
+            }
+
+            // Send current state to ensure terminal is ready
+            await sendCurrentState();
+            console.log('Bash terminal reconnection complete');
+          }
+        }
+
+        if (!isReconnection || !currentAgentId) {
+          // Create new session
+          currentSessionId = await stateManager.createSession(process.cwd(), 'bash');
+          send('SESSION_CREATED', { sessionId: currentSessionId });
+
+          // Launch bash agent
+          currentAgentId = await agentManager.launchAgent('bash', {
+            sessionId: currentSessionId,
+            workspacePath: process.cwd()
+          });
+
+          // Store session info
+          sessionStore.createSession(sessionId, currentAgentId, {
+            terminalSize: { cols: 80, rows: 24 },
+            workingDirectory: process.cwd()
+          });
+        }
+
         // Set up agent event listeners
         const handleOutput = (data: { agentId: string; data: string }) => {
           if (data.agentId === currentAgentId) {
             // Parse for context budget information from Claude Code output
             // (OUTPUT is broadcast globally from websocket-server.ts)
             parseAndBroadcastContextData(data.data);
+
+            // Buffer output if disconnected
+            if (ws.readyState !== 1) {
+              sessionStore.addOutput(sessionId, data.data);
+            }
           }
         };
 
@@ -341,7 +386,7 @@ export function handleWebSocketConnection(
           if (data.agentId === currentAgentId) {
             send('AGENT_EXIT', { code: data.code });
             currentAgentId = null;
-            
+
             // Clean up listeners
             agentManager.off('agent_output', handleOutput);
             agentManager.off('agent_error', handleError);
@@ -353,8 +398,10 @@ export function handleWebSocketConnection(
         agentManager.on('agent_error', handleError);
         agentManager.on('agent_exit', handleExit);
 
-        send('AGENT_LAUNCHED', { agentId: currentAgentId });
-        await sendCurrentState();
+        if (!isReconnection) {
+          send('AGENT_LAUNCHED', { agentId: currentAgentId });
+          await sendCurrentState();
+        }
       } catch (error) {
         console.error('Failed to launch bash:', error);
         sendError('Failed to launch terminal');

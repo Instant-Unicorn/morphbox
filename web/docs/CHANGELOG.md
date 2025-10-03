@@ -1,5 +1,31 @@
 # Changelog
 
+## 2025-10-03 (Latest Session Reconnection Fix)
+
+### Fixed
+- **Critical Panel ID Preservation Issue**
+  - Root cause: `addPanel()` in stores/panels.ts was discarding the panel ID from config
+  - It was always generating new IDs for built-in panels, even during restoration
+  - This broke session reconnection because localStorage keys are based on panel IDs
+  - Solution: Now preserves `config.id` when provided (during restoration from sessionStorage)
+
+- **GridPanel Component Missing Props**
+  - Added missing `autoLaunchClaude` prop for Claude panels
+  - Added missing claude-idle event handler
+  - Added color props (backgroundColor, textColor, boldTextColor) for terminals
+
+### Developer Notes: The Recurring Pattern
+This is the SAME issue that keeps breaking every time we add features:
+1. Panel IDs must be preserved during restoration for session reconnection to work
+2. localStorage keys like `morphbox-websocket-session-${panelId}` depend on stable panel IDs
+3. When panels get new IDs on refresh, they can't find their sessions
+
+**Prevention Checklist:**
+- ✅ NEVER discard panel IDs during restoration
+- ✅ Always check `config?.id` before generating a new ID
+- ✅ Test session reconnection after ANY changes to panel creation
+- ✅ Ensure both GridPanel and RowPanel have matching prop handling
+
 ## 2025-10-03
 
 ### Added

@@ -202,7 +202,7 @@
     {/if}
     <div class="panel-controls">
       <!-- Edit button for custom panels only (not built-ins) -->
-      {#if panel.type.includes('-') && !['terminal', 'claude', 'file-explorer', 'code-editor', 'git-panel', 'web-browser', 'settings', 'task-runner', 'prompt-queue', 'fileExplorer', 'codeEditor', 'gitPanel', 'webBrowser', 'taskRunner', 'promptQueue'].includes(panel.type)}
+      {#if !['terminal', 'claude', 'file-explorer', 'code-editor', 'git-panel', 'web-browser', 'settings', 'task-runner', 'prompt-queue', 'fileExplorer', 'codeEditor', 'gitPanel', 'webBrowser', 'taskRunner', 'promptQueue'].includes(panel.type)}
         <button
           class="control-btn edit-panel-btn"
           on:click={handleEditPanel}

@@ -747,7 +747,7 @@
     
     <div class="panel-controls">
       <!-- Edit button for custom panels only -->
-      {#if !['terminal', 'claude', 'fileExplorer', 'codeEditor', 'gitPanel', 'webBrowser', 'settings', 'taskRunner', 'promptQueue'].includes(panel.type)}
+      {#if !['terminal', 'claude', 'file-explorer', 'code-editor', 'git-panel', 'web-browser', 'settings', 'task-runner', 'prompt-queue', 'fileExplorer', 'codeEditor', 'gitPanel', 'webBrowser', 'taskRunner', 'promptQueue'].includes(panel.type)}
         <button
           class="control-btn edit-panel-btn"
           on:click={handleEditPanel}

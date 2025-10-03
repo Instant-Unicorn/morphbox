@@ -1,5 +1,34 @@
 # MorphBox Changelog
 
+## 2025-10-03 - v0.12.0 (Session Persistence)
+
+### Major Features
+- **Implemented**: Full session persistence for Claude and Terminal panels
+  - Claude panels now reconnect to existing Claude sessions on page refresh
+  - Terminal panels now reconnect to existing bash sessions on page refresh
+  - Both WebSocket and terminal session IDs properly restored from localStorage
+  - Sessions remain active for 30 minutes after disconnect
+
+### Key Improvements
+- **Added**: Session buffering for disconnected clients
+  - Output is buffered while client is disconnected
+  - Buffered output replayed on reconnection
+  - Maximum buffer size of 100KB to prevent memory issues
+- **Fixed**: WebSocket session restoration on mount
+  - Properly restores sessionId before WebSocket connection
+  - Prevents duplicate session ID lookups
+  - Consistent session handling for both panel types
+- **Added**: Agent detach/reattach support
+  - Agents remain running when client disconnects
+  - Proper cleanup of event listeners on detach
+  - Re-establishes listeners on reattach
+
+### Technical Details
+- Modified `Terminal.svelte` to restore both session types on mount
+- Updated `websocket.ts` to handle reconnection for regular terminals
+- Session store maintains 30-minute timeout for inactive sessions
+- Agent manager properly supports detach/reattach operations
+
 ## 2025-10-02 - v0.11.1 (Prompt Queue & Terminal Stability)
 
 ### Major Bug Fixes

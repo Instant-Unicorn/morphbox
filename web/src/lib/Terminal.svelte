@@ -74,10 +74,6 @@
   let claudeState: 'idle' | 'responding' = 'idle';
   let accumulatedOutput: string = ''; // Track recent output for pattern detection
 
-  // Bash prompt detection state
-  let lastBashPromptEvent: number = 0;
-  const BASH_PROMPT_DEBOUNCE_MS = 1000; // Minimum time between bash prompt events
-
   // React to color changes
   $: if (terminal && (backgroundColor || textColor || boldTextColor)) {
     updateTerminalSettings();
@@ -584,34 +580,15 @@
               }
               write(message.payload.data);
 
-              // Bash prompt detection (for regular terminals)
+              // Bash prompt detection DISABLED - causing input duplication issues
+              // TODO: Implement proper command completion detection without false positives
+              // The issue: Terminal echoes include the prompt during typing, not just at completion
+              // For example, typing "ls" echoes "@morphbox-vm:~$ ls" which triggers false positives
+              /*
               if (!autoLaunchClaude) {
-                const data = message.payload.data;
-                const now = Date.now();
-
-                // Only check for prompt at the end of output (command completion)
-                // and debounce to avoid multiple events
-                const trimmedData = data.trim();
-                const endsWithPrompt = trimmedData.endsWith('@morphbox-vm:~$') ||
-                                       trimmedData.endsWith('@morphbox-vm:~#') ||
-                                       (trimmedData.includes('@morphbox-vm:') &&
-                                        trimmedData.endsWith('$')) ||
-                                       (trimmedData.includes('@morphbox-vm:') &&
-                                        trimmedData.endsWith('#'));
-
-                if (endsWithPrompt && (now - lastBashPromptEvent > BASH_PROMPT_DEBOUNCE_MS)) {
-                  lastBashPromptEvent = now;
-                  console.log('[Terminal] Bash prompt detected - command complete');
-                  // Dispatch terminal-idle event for prompt queue
-                  window.dispatchEvent(new CustomEvent('terminal-idle', {
-                    detail: {
-                      terminalId: panelId,
-                      cliType: 'bash',
-                      prompt: '@morphbox-vm:'
-                    }
-                  }));
-                }
+                // Detection disabled to fix input duplication
               }
+              */
 
               // Claude idle detection (only for Claude terminals)
               if (autoLaunchClaude) {

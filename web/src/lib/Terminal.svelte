@@ -74,10 +74,6 @@
   let claudeState: 'idle' | 'responding' = 'idle';
   let accumulatedOutput: string = ''; // Track recent output for pattern detection
 
-  // Bash command execution tracking
-  let bashCommandState: 'idle' | 'command_submitted' = 'idle';
-  let bashOutputBuffer: string = ''; // Buffer to track output after command submission
-
   // React to color changes
   $: if (terminal && (backgroundColor || textColor || boldTextColor)) {
     updateTerminalSettings();
@@ -584,41 +580,8 @@
               }
               write(message.payload.data);
 
-              // Bash command completion detection
-              if (!autoLaunchClaude && bashCommandState === 'command_submitted') {
-                const data = message.payload.data;
-                bashOutputBuffer += data;
-
-                // Look for prompt pattern on its own line (after command output)
-                // The prompt appears on a new line after command completion
-                const lines = bashOutputBuffer.split(/\r?\n/);
-                const lastLine = lines[lines.length - 1].trim();
-
-                // Check if the last line is just the prompt (command completed)
-                const isPromptLine =
-                  lastLine === 'root@morphbox-vm:~#' ||
-                  lastLine === 'root@morphbox-vm:~$' ||
-                  lastLine === 'user@morphbox-vm:~$' ||
-                  lastLine === 'user@morphbox-vm:~#' ||
-                  (lastLine.includes('@morphbox-vm:') &&
-                   (lastLine.endsWith('$') || lastLine.endsWith('#')) &&
-                   lastLine.length < 50); // Prompt should be relatively short
-
-                if (isPromptLine) {
-                  console.log('[Terminal] Bash command completed - prompt detected on new line');
-                  bashCommandState = 'idle';
-                  bashOutputBuffer = '';
-
-                  // Dispatch terminal-idle event for prompt queue
-                  window.dispatchEvent(new CustomEvent('terminal-idle', {
-                    detail: {
-                      terminalId: panelId,
-                      cliType: 'bash',
-                      prompt: lastLine
-                    }
-                  }));
-                }
-              }
+              // Bash command completion detection temporarily disabled
+              // TODO: Find a way to detect command completion without causing input duplication
 
               // Claude idle detection (only for Claude terminals)
               if (autoLaunchClaude) {
@@ -1970,15 +1933,8 @@
       console.warn('[Terminal] Cannot observe mutations - terminalContainer not ready');
     }
     
-    // Handle terminal input - send directly to Claude without buffering
+    // Handle terminal input - send directly to server without buffering
     terminal.onData((data: string) => {
-      // Track when Enter is pressed for bash command completion detection
-      if (!autoLaunchClaude && (data === '\r' || data === '\n' || data === '\r\n')) {
-        console.log('[Terminal] Enter pressed - command submitted');
-        bashCommandState = 'command_submitted';
-        bashOutputBuffer = ''; // Clear buffer for new command output
-      }
-
       if (ws && ws.readyState === WebSocket.OPEN) {
         const message = JSON.stringify({
           type: 'SEND_INPUT',

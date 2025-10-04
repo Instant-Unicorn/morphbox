@@ -883,8 +883,12 @@
   
   function handleAddPrompt() {
     if (!inputValue.trim()) return;
-    
-    promptQueueStore.addPrompt(inputValue);
+
+    // Find first Claude terminal to use as default
+    const claudeTerminal = availableTerminals.find(t => t.cliType === 'claude');
+    const defaultTerminalId = claudeTerminal?.id || availableTerminals[0]?.id;
+
+    promptQueueStore.addPrompt(inputValue, defaultTerminalId);
     inputValue = '';
   }
   
@@ -1223,7 +1227,6 @@
                   title="Send to terminal"
                   class="terminal-select"
                 >
-                  <option value={undefined}>Auto (Any AI)</option>
                   {#each availableTerminals as terminal}
                     <option value={terminal.id}>
                       {terminal.icon} {terminal.title}
@@ -1816,29 +1819,33 @@
   .terminal-selector {
     margin-top: 8px;
     margin-bottom: 4px;
+    display: flex;
+    justify-content: flex-end;
   }
 
   .terminal-select {
-    width: 100%;
-    padding: 6px 10px;
-    font-size: 12px;
-    border-radius: 4px;
+    width: auto;
+    min-width: 120px;
+    max-width: 180px;
+    padding: 4px 8px;
+    font-size: 11px;
+    border-radius: 2px;
     background: var(--bg-secondary, #252526);
     color: var(--text-primary, #cccccc);
     border: 1px solid var(--border-color, #3e3e42);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background 0.15s;
   }
 
   .terminal-select:hover {
-    border-color: var(--accent-color, #007acc);
     background: var(--bg-hover, #2a2d2e);
+    border-color: var(--border-color, #3e3e42);
   }
 
   .terminal-select:focus {
     outline: none;
-    border-color: var(--accent-color, #007acc);
-    box-shadow: 0 0 0 1px var(--accent-color, #007acc);
+    background: var(--bg-hover, #2a2d2e);
+    border-color: #4e4e52;
   }
 
   /* Mode wrapper and delete button */

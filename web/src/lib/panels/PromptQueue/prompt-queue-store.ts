@@ -94,16 +94,17 @@ function createPromptQueueStore() {
   return {
     subscribe,
     
-    addPrompt(text: string) {
+    addPrompt(text: string, targetTerminalId?: string) {
       if (!text.trim()) return;
-      
+
       update(state => ({
         ...state,
         items: [...state.items, {
           id: `prompt-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           text: text.trim(),
           status: 'pending',
-          createdAt: new Date()
+          createdAt: new Date(),
+          targetTerminalId
         }]
       }));
     },

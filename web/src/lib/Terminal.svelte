@@ -461,8 +461,19 @@
             }
             dispatch('agent', {
               status: 'Active',
-              agentId: message.payload?.agentId 
+              agentId: message.payload?.agentId
             });
+
+            // For Claude reconnections, also trigger display refresh here
+            if (autoLaunchClaude && isReconnectingToExistingSession && terminal) {
+              setTimeout(() => {
+                console.log('[Terminal] Claude AGENT_LAUNCHED - refreshing display');
+                // Write a space and backspace to trigger rendering
+                terminal.write(' \b');
+                terminal.refresh(0, terminal.rows - 1);
+                terminal.focus();
+              }, 300);
+            }
             break;
           case 'TERMINAL_SESSION_ID':
             if (message.payload?.sessionId) {
@@ -520,14 +531,28 @@
               setTimeout(() => {
                 console.log('[Terminal] Refreshing terminal display after reconnection');
                 terminal.refresh(0, terminal.rows - 1);
-                // Send a single newline to trigger prompt display (helps both Claude and bash)
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                  ws.send(JSON.stringify({
-                    type: 'SEND_INPUT',
-                    payload: { input: '\r' }
-                  }));
+
+                // For Claude, we need to trigger the display more aggressively
+                if (autoLaunchClaude) {
+                  // Write a space and backspace to trigger rendering without affecting content
+                  terminal.write(' \b');
+                  // Focus the terminal to trigger rendering
+                  terminal.focus();
+                  // Force cursor to blink which triggers a redraw
+                  terminal.options.cursorBlink = false;
+                  setTimeout(() => {
+                    terminal.options.cursorBlink = true;
+                  }, 50);
+                } else {
+                  // For bash terminals, send carriage return
+                  if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                      type: 'SEND_INPUT',
+                      payload: { input: '\r' }
+                    }));
+                  }
                 }
-              }, 100);
+              }, 200); // Slightly longer delay for Claude to be ready
             }
             break;
           case 'AGENT_EXIT':

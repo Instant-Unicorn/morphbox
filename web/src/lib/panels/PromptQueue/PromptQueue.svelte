@@ -87,7 +87,7 @@
     // Don't auto-start monitoring - wait for user to hit play
     console.log('[PromptQueue] Component mounted');
 
-    // Listen for ANY AI CLI idle events
+    // Listen for ANY terminal idle events (AI CLIs and bash terminals)
     aiCliIdleHandler = (event: CustomEvent) => {
       const { cliType, panelId, terminalId } = event.detail || {};
 
@@ -137,6 +137,7 @@
     // Listen to both old and new event names for compatibility
     window.addEventListener('claude-idle', aiCliIdleHandler as EventListener);
     window.addEventListener('ai-cli-idle', aiCliIdleHandler as EventListener);
+    window.addEventListener('terminal-idle', aiCliIdleHandler as EventListener); // Listen for bash terminal idle events
   });
 
   onDestroy(() => {
@@ -149,6 +150,7 @@
     if (aiCliIdleHandler) {
       window.removeEventListener('claude-idle', aiCliIdleHandler as EventListener);
       window.removeEventListener('ai-cli-idle', aiCliIdleHandler as EventListener);
+      window.removeEventListener('terminal-idle', aiCliIdleHandler as EventListener);
     }
   });
   
@@ -476,7 +478,7 @@
       targetTerminal.sendInput('\r');
     }, 100);
 
-    // With event-driven approach, we just wait for the ai-cli-idle event
+    // With event-driven approach, we wait for the terminal idle event
     console.log(`[PromptQueue] Prompt sent, waiting for ${cliType} idle event...`);
   }
 

@@ -580,6 +580,26 @@
               }
               write(message.payload.data);
 
+              // Bash prompt detection (for regular terminals)
+              if (!autoLaunchClaude) {
+                const data = message.payload.data;
+                // Check if the output contains a bash prompt
+                if (data.includes('@morphbox-vm:') || data.includes('morphbox-vm:')) {
+                  console.log('[Terminal] Bash prompt detected - command complete');
+                  // Dispatch terminal-idle event for bash terminals
+                  dispatch('terminal-idle');
+
+                  // Also dispatch ai-cli-idle for compatibility with prompt queue
+                  window.dispatchEvent(new CustomEvent('terminal-idle', {
+                    detail: {
+                      terminalId: panelId,
+                      cliType: 'bash',
+                      prompt: '@morphbox-vm:'
+                    }
+                  }));
+                }
+              }
+
               // Claude idle detection (only for Claude terminals)
               if (autoLaunchClaude) {
                 const data = message.payload.data;

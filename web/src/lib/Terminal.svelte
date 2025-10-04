@@ -516,11 +516,11 @@
             isInitializing = false;
 
             // Refresh terminal display to show reconnected content
-            if (terminal && !autoLaunchClaude) {
+            if (terminal) {
               setTimeout(() => {
                 console.log('[Terminal] Refreshing terminal display after reconnection');
                 terminal.refresh(0, terminal.rows - 1);
-                // Send a single newline to trigger prompt display
+                // Send a single newline to trigger prompt display (helps both Claude and bash)
                 if (ws && ws.readyState === WebSocket.OPEN) {
                   ws.send(JSON.stringify({
                     type: 'SEND_INPUT',

@@ -74,6 +74,10 @@
   let claudeState: 'idle' | 'responding' = 'idle';
   let accumulatedOutput: string = ''; // Track recent output for pattern detection
 
+  // Bash prompt detection state
+  let lastBashPromptEvent: number = 0;
+  const BASH_PROMPT_DEBOUNCE_MS = 1000; // Minimum time between bash prompt events
+
   // React to color changes
   $: if (terminal && (backgroundColor || textColor || boldTextColor)) {
     updateTerminalSettings();
@@ -583,13 +587,22 @@
               // Bash prompt detection (for regular terminals)
               if (!autoLaunchClaude) {
                 const data = message.payload.data;
-                // Check if the output contains a bash prompt
-                if (data.includes('@morphbox-vm:') || data.includes('morphbox-vm:')) {
-                  console.log('[Terminal] Bash prompt detected - command complete');
-                  // Dispatch terminal-idle event for bash terminals
-                  dispatch('terminal-idle');
+                const now = Date.now();
 
-                  // Also dispatch ai-cli-idle for compatibility with prompt queue
+                // Only check for prompt at the end of output (command completion)
+                // and debounce to avoid multiple events
+                const trimmedData = data.trim();
+                const endsWithPrompt = trimmedData.endsWith('@morphbox-vm:~$') ||
+                                       trimmedData.endsWith('@morphbox-vm:~#') ||
+                                       (trimmedData.includes('@morphbox-vm:') &&
+                                        trimmedData.endsWith('$')) ||
+                                       (trimmedData.includes('@morphbox-vm:') &&
+                                        trimmedData.endsWith('#'));
+
+                if (endsWithPrompt && (now - lastBashPromptEvent > BASH_PROMPT_DEBOUNCE_MS)) {
+                  lastBashPromptEvent = now;
+                  console.log('[Terminal] Bash prompt detected - command complete');
+                  // Dispatch terminal-idle event for prompt queue
                   window.dispatchEvent(new CustomEvent('terminal-idle', {
                     detail: {
                       terminalId: panelId,

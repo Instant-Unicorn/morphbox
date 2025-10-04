@@ -167,7 +167,8 @@ export function handleWebSocketConnection(
             if (bufferedOutput.length > 0) {
               console.log(`Sending ${bufferedOutput.length} buffered outputs`);
               for (const output of bufferedOutput) {
-                send('OUTPUT', { data: output });
+                // Include agentId so the OUTPUT is properly displayed
+                send('OUTPUT', { data: output, agentId: currentAgentId });
               }
             }
             
@@ -334,7 +335,8 @@ export function handleWebSocketConnection(
             if (bufferedOutput.length > 0) {
               console.log(`Sending ${bufferedOutput.length} buffered outputs for bash terminal`);
               for (const output of bufferedOutput) {
-                send('OUTPUT', { data: output });
+                // Include agentId so the OUTPUT is properly displayed
+                send('OUTPUT', { data: output, agentId: currentAgentId });
               }
             }
 

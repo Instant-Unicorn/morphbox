@@ -217,8 +217,8 @@
         // Don't show - terminals should reconnect silently
         return false;
       case 'CTRL_L':
-        // Only send Ctrl+L to regular terminals on reconnection
-        return isReconnectingToExistingSession;
+        // Don't send Ctrl+L - it clears the screen and makes terminals appear blank
+        return false;
       default:
         return false;
     }
@@ -514,6 +514,21 @@
             });
             // Agent is already running, hide loading overlay
             isInitializing = false;
+
+            // Refresh terminal display to show reconnected content
+            if (terminal && !autoLaunchClaude) {
+              setTimeout(() => {
+                console.log('[Terminal] Refreshing terminal display after reconnection');
+                terminal.refresh(0, terminal.rows - 1);
+                // Send a single newline to trigger prompt display
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'SEND_INPUT',
+                    payload: { input: '\r' }
+                  }));
+                }
+              }, 100);
+            }
             break;
           case 'AGENT_EXIT':
             dispatch('agent', { status: 'No agent' });

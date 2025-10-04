@@ -81,6 +81,10 @@ export class AgentManager extends EventEmitter {
         this.emit('context_usage', { agentId, usage });
       });
 
+      agent.on('command-complete', () => {
+        this.emit('agent_command_complete', { agentId });
+      });
+
       return agentId;
     } catch (error) {
       console.error(`Failed to launch ${type} agent:`, error);
@@ -178,6 +182,10 @@ export class AgentManager extends EventEmitter {
 
     agent.on('sessionId', (sessionId: string) => {
       this.emit('agent_sessionId', { agentId, sessionId });
+    });
+
+    agent.on('command-complete', () => {
+      this.emit('agent_command_complete', { agentId });
     });
 
     console.log(`Reattached to agent: ${agentId}`);

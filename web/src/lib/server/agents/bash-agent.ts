@@ -9,6 +9,9 @@ export class BashAgent extends EventEmitter implements Agent {
   startTime: number;
   private pty?: pty.IPty;
   private options: AgentOptions;
+  private commandPending: boolean = false;
+  private outputBuffer: string = '';
+  private lastPromptTime: number = 0;
 
   constructor(id: string, options: AgentOptions) {
     super();
@@ -67,6 +70,34 @@ export class BashAgent extends EventEmitter implements Agent {
         console.log(`Bash agent ${this.id} output:`, data);
         this.emit('output', data);
 
+        // Add to output buffer for prompt detection
+        this.outputBuffer += data;
+
+        // Keep buffer size reasonable (last 1000 chars)
+        if (this.outputBuffer.length > 1000) {
+          this.outputBuffer = this.outputBuffer.slice(-1000);
+        }
+
+        // Detect bash prompt pattern (root@morphbox-vm or user@morphbox-vm)
+        // Look for the prompt at the end of output with optional ANSI codes
+        const promptPattern = /(?:root|[a-z]+)@morphbox-vm:[^#$]*[#$]\s*$/;
+        const cleanBuffer = this.outputBuffer.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, ''); // Remove ANSI codes
+
+        if (this.commandPending && promptPattern.test(cleanBuffer)) {
+          // Command completed - prompt has returned
+          const now = Date.now();
+          // Debounce: only emit if more than 100ms since last prompt detection
+          if (now - this.lastPromptTime > 100) {
+            console.log(`[BashAgent] Command completed - prompt detected`);
+            this.commandPending = false;
+            this.lastPromptTime = now;
+            this.outputBuffer = ''; // Clear buffer after prompt detection
+
+            // Emit command complete event
+            this.emit('command-complete');
+          }
+        }
+
         // Parse Claude Code token usage from output
         const tokenMatch = data.match(/Token usage: (\d+)\/(\d+); (\d+) remaining/);
         if (tokenMatch) {
@@ -117,7 +148,13 @@ export class BashAgent extends EventEmitter implements Agent {
     if (!this.pty) {
       throw new Error('PTY not initialized');
     }
-    
+
+    // Detect if user pressed Enter (sending a command)
+    if (input.includes('\r') || input.includes('\n')) {
+      this.commandPending = true;
+      console.log(`[BashAgent] Command submitted - waiting for completion`);
+    }
+
     this.pty.write(input);
   }
 

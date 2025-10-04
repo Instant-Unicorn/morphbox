@@ -137,8 +137,8 @@
     // Listen to both old and new event names for compatibility
     window.addEventListener('claude-idle', aiCliIdleHandler as EventListener);
     window.addEventListener('ai-cli-idle', aiCliIdleHandler as EventListener);
-    // Terminal-idle disabled until we can detect bash completion without input issues
-    // window.addEventListener('terminal-idle', aiCliIdleHandler as EventListener);
+    // Now re-enabled with server-side bash command detection
+    window.addEventListener('terminal-idle', aiCliIdleHandler as EventListener);
   });
 
   onDestroy(() => {
@@ -151,7 +151,7 @@
     if (aiCliIdleHandler) {
       window.removeEventListener('claude-idle', aiCliIdleHandler as EventListener);
       window.removeEventListener('ai-cli-idle', aiCliIdleHandler as EventListener);
-      // window.removeEventListener('terminal-idle', aiCliIdleHandler as EventListener);
+      window.removeEventListener('terminal-idle', aiCliIdleHandler as EventListener);
     }
   });
   

@@ -1,4 +1,10 @@
-- never run morphbox dev server
+## Running Dev Servers
+MorphBox requires TWO dev servers running simultaneously:
+1. **WebSocket server**: `cd /home/kruger/projects/morphbox/web && MORPHBOX_HOST=100.96.36.2 npm run dev:ws` (background)
+2. **Vite dev server**: `cd /home/kruger/projects/morphbox/web && HOST=100.96.36.2 npm run dev` (background)
+
+Both must run on Tailscale IP (100.96.36.2), not localhost or external IPs. Use `run_in_background: true` when starting via Bash tool.
+
 - Always use web/prepare-package.sh for the publishing script, never make a new file
 
 ## MorphBox Panel Development

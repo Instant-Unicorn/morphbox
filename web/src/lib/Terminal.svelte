@@ -57,7 +57,7 @@
   let showUploadModal = false;
   let draggedFiles: File[] = [];
 
-  // REPEAT PROBLEM FIX: Track last sent dimensions to prevent duplicate resize messages
+  // Track last sent dimensions to prevent duplicate resize messages
   let lastSentDimensions = { cols: 0, rows: 0 };
 
   // Store references to event handlers and observers for cleanup
@@ -186,11 +186,8 @@
     });
   });
   
-  // Output buffering for performance
-  let outputBuffer: string[] = [];
-  let flushTimeout: number | null = null;
+  // Early messages buffer (before terminal is ready)
   let earlyMessages: string[] = [];
-  const BUFFER_FLUSH_DELAY = 16; // ~60fps
 
   // Centralized decision function for what messages to show
   function shouldShowSystemMessage(messageType: string): boolean {
@@ -224,38 +221,11 @@
     }
   }
   
-  function flushBuffer() {
-    if (outputBuffer.length > 0 && terminal) {
-      const data = outputBuffer.join('');
-      outputBuffer = [];
-      terminal.write(data);
-    }
-    flushTimeout = null;
-  }
-  
-  function scheduleFlush() {
-    if (!flushTimeout && browser) {
-      flushTimeout = window.requestAnimationFrame(flushBuffer);
-    }
-  }
-  
   export function write(data: string) {
     if (terminal) {
-      // Commented out to reduce spam
-      // console.log('[Terminal.write] Writing data:', {
-      //   dataLength: data.length,
-      //   dataPreview: data.substring(0, 50),
-      //   terminalExists: !!terminal
-      // });
-      // For small amounts of data or when viewport is small, write immediately
-      const viewport = getViewportInfo();
-      if (data.length < 100 || viewport.isSmall) {
-        terminal.write(data);
-      } else {
-        // Buffer larger outputs for performance
-        outputBuffer.push(data);
-        scheduleFlush();
-      }
+      // Simple, direct write - no buffering, no viewport checks
+      // This prevents duplication issues from complex logic
+      terminal.write(data);
     } else {
       console.warn('[Terminal.write] No terminal instance, cannot write data');
     }
@@ -273,11 +243,6 @@
   
   export function clear() {
     if (terminal) {
-      outputBuffer = []; // Clear any pending output
-      if (flushTimeout) {
-        cancelAnimationFrame(flushTimeout);
-        flushTimeout = null;
-      }
       terminal.clear();
     }
   }
@@ -386,8 +351,7 @@
         connectionStatus = 'connected';
         reconnectAttempts = 0;
 
-        // REPEAT PROBLEM FIX: Reset last sent dimensions on reconnect
-        // This ensures resize is sent after reconnection
+        // Reset last sent dimensions on reconnect
         lastSentDimensions = { cols: 0, rows: 0 };
         isReconnecting = false;
 
@@ -580,9 +544,6 @@
               }
               write(message.payload.data);
 
-              // Bash command completion detection temporarily disabled
-              // TODO: Find a way to detect command completion without causing input duplication
-
               // Claude idle detection (only for Claude terminals)
               if (autoLaunchClaude) {
                 const data = message.payload.data;
@@ -694,6 +655,19 @@
                   }
                 }, 4000); // Check 4 seconds after last data to ensure Claude is done
               }
+            }
+            break;
+          case 'COMMAND_COMPLETE':
+            // Handle command completion from bash terminals
+            console.log(`[Terminal ${panelId}] Received COMMAND_COMPLETE:`, {
+              messageAgentId: message.payload?.agentId,
+              terminalAgentId: agentId,
+              autoLaunchClaude,
+              willDispatch: message.payload?.agentId === agentId && !autoLaunchClaude
+            });
+            if (message.payload?.agentId === agentId && !autoLaunchClaude) {
+              console.log(`[Terminal ${panelId}] Dispatching terminal-idle event`);
+              dispatch('terminal-idle');
             }
             break;
           case 'ERROR':
@@ -1780,8 +1754,7 @@
           }
         });
         
-        // REPEAT PROBLEM FIX: Only send resize if dimensions are different from last sent
-        // This prevents duplicate resize messages even if ResizeObserver fires multiple times
+        // Only send resize if dimensions changed
         const shouldSendResize = (cols !== lastSentDimensions.cols || rows !== lastSentDimensions.rows) &&
                                   ws && ws.readyState === WebSocket.OPEN;
 
@@ -1815,9 +1788,8 @@
       }
     };
     
-    // Debounced resize handler - INCREASED TO 300ms TO FIX REPEAT PROBLEM
-    // REPEAT PROBLEM: When terminal is small, ResizeObserver fires rapidly causing repeated output
-    const debouncedResize = debounce(handleResize, 300);
+    // Debounced resize handler
+    const debouncedResize = debounce(handleResize, 100);
     
     // Use ResizeObserver for container-based responsiveness
     resizeObserver = new ResizeObserver((entries) => {
@@ -2050,19 +2022,13 @@
     console.error(`[Terminal ${componentId}] onDestroy called, cleaning up...`);
     console.error(`[Terminal ${componentId}] WebSocket state:`, ws?.readyState);
     console.error(`[Terminal ${componentId}] Stack trace:`, new Error().stack);
-    
-    // Clear any pending output buffer
-    if (flushTimeout) {
-      cancelAnimationFrame(flushTimeout);
-    }
-    outputBuffer = [];
-    
+
     // Clean up global registration
     if (browser && panelId && window.morphboxTerminals && window.morphboxTerminals[panelId]) {
       delete window.morphboxTerminals[panelId];
       console.log('[Terminal] Unregistered terminal globally for panel:', panelId);
     }
-    
+
     if (ws) {
       ws.close();
     }

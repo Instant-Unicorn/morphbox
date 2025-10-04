@@ -54,6 +54,27 @@ async function startWebSocketServer() {
       });
     });
 
+    // Broadcast command completion events
+    agentManager.on('agent_command_complete', (data: { agentId: string }) => {
+      console.log(`[WebSocket] Broadcasting COMMAND_COMPLETE for agent ${data.agentId}`);
+      const message = JSON.stringify({
+        type: 'COMMAND_COMPLETE',
+        payload: {
+          agentId: data.agentId
+        }
+      });
+
+      // Broadcast to ALL connected clients
+      let clientCount = 0;
+      wss.clients.forEach((client: any) => {
+        if (client.readyState === 1) { // WebSocket.OPEN
+          client.send(message);
+          clientCount++;
+        }
+      });
+      console.log(`[WebSocket] COMMAND_COMPLETE sent to ${clientCount} clients`);
+    });
+
     wss.on('connection', (ws, request) => {
       console.log('New WebSocket connection from:', request.headers.host);
       handleWebSocketConnection(ws, request, { agentManager, stateManager, wss });

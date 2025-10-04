@@ -957,6 +957,13 @@
                 detail: { panelId: panel.id }
               }));
             }}
+            on:terminal-idle={() => {
+              console.log('🔄🔄🔄 [RowPanel] Terminal idle event received from panel:', panel.id, '🔄🔄🔄');
+              // Dispatch a global event that PromptQueue can listen to
+              window.dispatchEvent(new CustomEvent('terminal-idle', {
+                detail: { panelId: panel.id, terminalId: panel.id }
+              }));
+            }}
           />
         {:else if panel.type === 'fileExplorer' || panel.type === 'file-explorer'}
           <svelte:component

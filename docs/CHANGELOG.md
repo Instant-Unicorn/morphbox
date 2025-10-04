@@ -1,5 +1,15 @@
 # MorphBox Changelog
 
+## 2025-10-04 - v0.13.0 (Session Persistence Complete)
+
+### Changes
+- **Version bump**: Updated package version to v0.13.0
+- **Session persistence**: Feature is now merged to main branch
+  - Claude panels reconnect with space-typing workaround for rendering
+  - Terminal panels maintain sessions (may need keystroke to display)
+  - Silent reconnection without system messages
+  - 30-minute session timeout
+
 ## 2025-10-03 - v0.12.0 (Session Persistence)
 
 ### Major Features

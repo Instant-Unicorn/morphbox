@@ -211,11 +211,11 @@
         // Always show new session creation
         return true;
       case 'TERMINAL_SESSION_RESTORED':
-        // Only show on reconnection
-        return isReconnectingToExistingSession;
+        // Don't show - terminals should reconnect silently
+        return false;
       case 'RECONNECTED':
-        // Always show reconnection messages for regular terminals
-        return true;
+        // Don't show - terminals should reconnect silently
+        return false;
       case 'CTRL_L':
         // Only send Ctrl+L to regular terminals on reconnection
         return isReconnectingToExistingSession;

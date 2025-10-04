@@ -467,21 +467,31 @@
             // For Claude reconnections, also trigger display refresh here
             if (autoLaunchClaude && isReconnectingToExistingSession && terminal) {
               setTimeout(() => {
-                console.log('[Terminal] Claude AGENT_LAUNCHED - forcing repaint');
-                // Force xterm to repaint by temporarily resizing
-                const cols = terminal.cols;
-                const rows = terminal.rows;
-                terminal.resize(cols + 1, rows);
+                console.log('[Terminal] Claude AGENT_LAUNCHED - simulating input to trigger render');
+                terminal.focus();
+
+                // Find and trigger synthetic events on the input textarea
+                const textarea = terminalContainer?.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement;
+                if (textarea) {
+                  // Focus the textarea
+                  textarea.focus();
+
+                  // Simulate typing nothing to trigger render
+                  const inputEvent = new InputEvent('input', {
+                    bubbles: true,
+                    cancelable: true,
+                    data: ''
+                  });
+                  textarea.dispatchEvent(inputEvent);
+                }
+
+                // Also write and delete a character to force render
+                terminal.write('.');
                 setTimeout(() => {
-                  terminal.resize(cols, rows);
-                  // Also use fitAddon if available
-                  if (fitAddon) {
-                    fitAddon.fit();
-                  }
+                  terminal.write('\b \b');
                   terminal.refresh(0, terminal.rows - 1);
                   terminal.scrollToBottom();
-                  terminal.focus();
-                }, 50);
+                }, 10);
               }, 300);
             }
             break;
@@ -543,21 +553,41 @@
 
                 // For Claude, we need to force xterm to repaint its canvas
                 if (autoLaunchClaude) {
-                  // Force a complete repaint by triggering a resize
-                  const cols = terminal.cols;
-                  const rows = terminal.rows;
+                  // Simulate user typing to trigger the same rendering path
+                  // that makes content visible when user actually types
+                  terminal.focus();
 
-                  // Trigger resize with same dimensions to force repaint
-                  terminal.resize(cols + 1, rows);
+                  // Find the textarea element that xterm uses for input
+                  const textarea = terminalContainer?.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement;
+                  if (textarea) {
+                    // Dispatch a synthetic input event to trigger rendering
+                    const event = new InputEvent('input', {
+                      bubbles: true,
+                      cancelable: true,
+                      data: ''
+                    });
+                    textarea.dispatchEvent(event);
+
+                    // Also trigger keydown/keyup to ensure all handlers fire
+                    const keyEvent = new KeyboardEvent('keydown', {
+                      key: '',
+                      code: '',
+                      bubbles: true
+                    });
+                    textarea.dispatchEvent(keyEvent);
+                  }
+
+                  // Write and immediately delete a character to force render
+                  // This mimics what happens when user types
+                  terminal.write('.');
                   setTimeout(() => {
-                    terminal.resize(cols, rows);
-                    // Also use fitAddon if available
-                    if (fitAddon) {
-                      fitAddon.fit();
-                    }
+                    terminal.write('\b \b'); // Backspace, space, backspace to fully erase
+                  }, 10);
+
+                  // Still do refresh as fallback
+                  setTimeout(() => {
                     terminal.refresh(0, terminal.rows - 1);
                     terminal.scrollToBottom();
-                    terminal.focus();
                   }, 50);
                 } else {
                   // For bash terminals, just refresh and send carriage return

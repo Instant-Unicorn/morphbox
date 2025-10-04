@@ -2045,19 +2045,19 @@
     </div>
   {/if}
   
-  {#if isInitializing}
+  {#if isInitializing && !isReconnectingToExistingSession}
     <div class="loading-overlay">
       <div class="loading-content">
         <div class="loading-spinner"></div>
-        <div class="loading-text">Loading Claude...</div>
+        <div class="loading-text">Loading {autoLaunchClaude ? 'Claude' : 'Terminal'}...</div>
       </div>
     </div>
   {/if}
   
-  <div 
+  <div
     bind:this={terminalContainer}
     class="terminal-container"
-    class:loading={isInitializing || connectionStatus !== 'connected'}
+    class:loading={(isInitializing && !isReconnectingToExistingSession) || connectionStatus !== 'connected'}
     class:dragging-over={isDraggingOver}
     on:dragover={handleDragOver}
     on:dragleave={handleDragLeave}

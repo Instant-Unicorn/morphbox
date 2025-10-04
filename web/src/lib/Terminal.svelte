@@ -467,11 +467,21 @@
             // For Claude reconnections, also trigger display refresh here
             if (autoLaunchClaude && isReconnectingToExistingSession && terminal) {
               setTimeout(() => {
-                console.log('[Terminal] Claude AGENT_LAUNCHED - refreshing display');
-                // Write a space and backspace to trigger rendering
-                terminal.write(' \b');
-                terminal.refresh(0, terminal.rows - 1);
-                terminal.focus();
+                console.log('[Terminal] Claude AGENT_LAUNCHED - forcing repaint');
+                // Force xterm to repaint by temporarily resizing
+                const cols = terminal.cols;
+                const rows = terminal.rows;
+                terminal.resize(cols + 1, rows);
+                setTimeout(() => {
+                  terminal.resize(cols, rows);
+                  // Also use fitAddon if available
+                  if (fitAddon) {
+                    fitAddon.fit();
+                  }
+                  terminal.refresh(0, terminal.rows - 1);
+                  terminal.scrollToBottom();
+                  terminal.focus();
+                }, 50);
               }, 300);
             }
             break;
@@ -530,21 +540,28 @@
             if (terminal) {
               setTimeout(() => {
                 console.log('[Terminal] Refreshing terminal display after reconnection');
-                terminal.refresh(0, terminal.rows - 1);
 
-                // For Claude, we need to trigger the display more aggressively
+                // For Claude, we need to force xterm to repaint its canvas
                 if (autoLaunchClaude) {
-                  // Write a space and backspace to trigger rendering without affecting content
-                  terminal.write(' \b');
-                  // Focus the terminal to trigger rendering
-                  terminal.focus();
-                  // Force cursor to blink which triggers a redraw
-                  terminal.options.cursorBlink = false;
+                  // Force a complete repaint by triggering a resize
+                  const cols = terminal.cols;
+                  const rows = terminal.rows;
+
+                  // Trigger resize with same dimensions to force repaint
+                  terminal.resize(cols + 1, rows);
                   setTimeout(() => {
-                    terminal.options.cursorBlink = true;
+                    terminal.resize(cols, rows);
+                    // Also use fitAddon if available
+                    if (fitAddon) {
+                      fitAddon.fit();
+                    }
+                    terminal.refresh(0, terminal.rows - 1);
+                    terminal.scrollToBottom();
+                    terminal.focus();
                   }, 50);
                 } else {
-                  // For bash terminals, send carriage return
+                  // For bash terminals, just refresh and send carriage return
+                  terminal.refresh(0, terminal.rows - 1);
                   if (ws && ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({
                       type: 'SEND_INPUT',

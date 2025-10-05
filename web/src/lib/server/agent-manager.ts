@@ -91,10 +91,6 @@ export class AgentManager extends EventEmitter {
         this.emit('agent_command_complete', { agentId });
       });
 
-      agent.on('codex-auth-status', (status: any) => {
-        this.emit('codex_auth_status', { agentId, ...status });
-      });
-
       return agentId;
     } catch (error) {
       console.error(`Failed to launch ${type} agent:`, error);

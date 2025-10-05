@@ -306,18 +306,18 @@
             textColor={panel.textColor}
             boldTextColor={panel.boldTextColor}
             {...panel.content}
-            on:claude-idle={() => {
-              console.log('🔄 [GridPanel] Claude idle event received from panel:', panel.id);
+            on:claude-idle={(e) => {
+              console.log('🔄 [GridPanel] Claude idle event received from panel:', panel.id, 'detail:', e.detail);
               // Dispatch a global event that PromptQueue can listen to
               window.dispatchEvent(new CustomEvent('claude-idle', {
-                detail: { panelId: panel.id }
+                detail: e.detail || { panelId: panel.id, terminalId: panel.id, cliType: 'claude' }
               }));
             }}
-            on:terminal-idle={() => {
-              console.log('🔄 [GridPanel] Terminal idle event received from panel:', panel.id);
+            on:terminal-idle={(e) => {
+              console.log('🔄 [GridPanel] Terminal idle event received from panel:', panel.id, 'detail:', e.detail);
               // Dispatch a global event that PromptQueue can listen to
               window.dispatchEvent(new CustomEvent('terminal-idle', {
-                detail: { panelId: panel.id, terminalId: panel.id }
+                detail: e.detail || { panelId: panel.id, terminalId: panel.id, cliType: 'bash' }
               }));
             }}
           />

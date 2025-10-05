@@ -78,17 +78,36 @@ export class BashAgent extends EventEmitter implements Agent {
           this.outputBuffer = this.outputBuffer.slice(-1000);
         }
 
-        // Detect bash prompt pattern (root@morphbox-vm or user@morphbox-vm)
-        // Look for the prompt at the end of output with optional ANSI codes
-        const promptPattern = /(?:root|[a-z]+)@morphbox-vm:[^#$]*[#$]\s*$/;
+        // Detect both bash and Claude prompt patterns
         const cleanBuffer = this.outputBuffer.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, ''); // Remove ANSI codes
 
-        if (this.commandPending && promptPattern.test(cleanBuffer)) {
+        // Bash prompt pattern (root@morphbox-vm or user@morphbox-vm)
+        const bashPromptPattern = /(?:root|[a-z]+)@morphbox-vm:[^#$]*[#$]\s*$/;
+
+        // Claude prompt patterns (detect when Claude is idle)
+        // Claude's UI has the prompt on its own line, followed by other UI elements
+        // So we look for the prompt pattern in the middle of the buffer, not just at the end
+        const claudePromptPatterns = [
+          /^>\s/m,                                     // Prompt at start of line (multiline mode)
+          /\n>\s(?:Try|$)/m,                          // Prompt line with "Try" or just prompt
+          /────+\n>\s/,                                // Separator line followed by prompt
+        ];
+
+        // Check if we're running Claude (vmUser is set for Claude)
+        const isClaudeAgent = !!this.options.vmUser;
+
+        // Select appropriate patterns based on agent type
+        const promptDetected = isClaudeAgent
+          ? claudePromptPatterns.some(pattern => pattern.test(cleanBuffer))
+          : bashPromptPattern.test(cleanBuffer);
+
+        if (this.commandPending && promptDetected) {
           // Command completed - prompt has returned
           const now = Date.now();
           // Debounce: only emit if more than 100ms since last prompt detection
           if (now - this.lastPromptTime > 100) {
-            console.log(`[BashAgent] Command completed - prompt detected`);
+            const agentType = isClaudeAgent ? 'Claude' : 'Bash';
+            console.log(`[BashAgent] ${agentType} command completed - prompt detected`);
             this.commandPending = false;
             this.lastPromptTime = now;
             this.outputBuffer = ''; // Clear buffer after prompt detection

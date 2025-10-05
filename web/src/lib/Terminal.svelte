@@ -658,16 +658,23 @@
             }
             break;
           case 'COMMAND_COMPLETE':
-            // Handle command completion from bash terminals
+            // Handle command completion from both bash and Claude terminals
             console.log(`[Terminal ${panelId}] Received COMMAND_COMPLETE:`, {
               messageAgentId: message.payload?.agentId,
               terminalAgentId: agentId,
               autoLaunchClaude,
-              willDispatch: message.payload?.agentId === agentId && !autoLaunchClaude
+              terminalType: autoLaunchClaude ? 'claude' : 'bash'
             });
-            if (message.payload?.agentId === agentId && !autoLaunchClaude) {
-              console.log(`[Terminal ${panelId}] Dispatching terminal-idle event`);
-              dispatch('terminal-idle');
+            if (message.payload?.agentId === agentId) {
+              // Dispatch appropriate idle event based on terminal type
+              const eventName = autoLaunchClaude ? 'claude-idle' : 'terminal-idle';
+              const cliType = autoLaunchClaude ? 'claude' : 'bash';
+              console.log(`[Terminal ${panelId}] Dispatching ${eventName} event with terminalId=${panelId}, cliType=${cliType}`);
+              dispatch(eventName, {
+                terminalId: panelId,
+                panelId: panelId,
+                cliType: cliType
+              });
             }
             break;
           case 'ERROR':
@@ -765,49 +772,42 @@
     return info;
   }
   
-  // Calculate appropriate font size and dimensions based on viewport and container
+  // Calculate appropriate font size and dimensions based on container
   function getTerminalOptions() {
-    const viewport = getViewportInfo();
     const currentSettings = $settings;
-    
+
     console.log('[Terminal.getTerminalOptions] Starting calculation:', {
-      viewport,
       hasContainer: !!terminalContainer,
       currentSettings: currentSettings?.terminal
     });
-    
-    // Dynamic font sizing based on viewport
-    let fontSize = currentSettings?.terminal.fontSize || 14;
-    if (viewport.isSmall) {
-      // Ensure minimum readable font size on small screens
-      fontSize = Math.max(12, Math.min(fontSize, 14));
-    }
-    
+
+    // Fixed font sizing - no viewport dependency
+    const fontSize = currentSettings?.terminal.fontSize || 14;
+
     // Get container dimensions if available
-    let containerWidth = viewport.width;
-    let containerHeight = viewport.height;
+    let containerWidth = 1200; // Default width
+    let containerHeight = 800; // Default height
     if (terminalContainer) {
       const rect = terminalContainer.getBoundingClientRect();
       containerWidth = rect.width || containerWidth;
       containerHeight = rect.height || containerHeight;
-      
+
       console.log('[Terminal.getTerminalOptions] Container dimensions:', {
         rectWidth: rect.width,
         rectHeight: rect.height,
         containerWidth,
-        containerHeight,
-        fallbackToViewport: rect.width === 0 || rect.height === 0
+        containerHeight
       });
     }
-    
+
     // Calculate columns and rows based on actual container size
-    const charWidth = fontSize * 0.55; // Better approximation for monospace fonts
+    const charWidth = fontSize * 0.55; // Approximation for monospace fonts
     const lineHeight = fontSize * (currentSettings?.terminal.lineHeight || 1.1);
-    const padding = viewport.isSmall ? 5 : 10;
-    
+    const padding = 10; // Fixed padding - no viewport dependency
+
     const cols = Math.max(40, Math.floor((containerWidth - padding * 2) / charWidth));
     const rows = Math.max(10, Math.floor((containerHeight - padding * 2) / lineHeight));
-    
+
     console.log('[Terminal.getTerminalOptions] Calculated dimensions:', {
       fontSize,
       charWidth,
@@ -818,7 +818,7 @@
       availableWidth: containerWidth - padding * 2,
       availableHeight: containerHeight - padding * 2
     });
-    
+
     return {
       fontSize,
       fontFamily: currentSettings?.terminal.fontFamily || '"Cascadia Code", "Fira Code", monospace',
@@ -828,9 +828,9 @@
       cursorStyle: currentSettings?.terminal.cursorStyle || 'block',
       cursorBlink: currentSettings?.terminal.cursorBlink ?? true,
       allowProposedApi: true,
-      scrollback: viewport.isSmall ? 1000 : 5000, // Reduce scrollback on mobile for performance
+      scrollback: 5000, // Fixed scrollback size - no viewport dependency
       fastScrollModifier: 'ctrl',
-      smoothScrollDuration: viewport.isSmall ? 0 : 125 // Disable smooth scroll on mobile
+      smoothScrollDuration: 125 // Fixed smooth scroll duration - no viewport dependency
     };
   }
   

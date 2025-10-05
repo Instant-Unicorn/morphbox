@@ -29,6 +29,12 @@ export class AgentManager extends EventEmitter {
   private agents: Map<string, Agent> = new Map();
   private agentTypes: Map<string, any> = new Map();
 
+  constructor() {
+    super();
+    // Increase max listeners to prevent warnings with multiple WebSocket connections
+    this.setMaxListeners(100);
+  }
+
   async initialize(): Promise<void> {
     // Register available agent types
     this.registerAgentType('ssh', SSHAgent);
@@ -154,9 +160,8 @@ export class AgentManager extends EventEmitter {
       return;
     }
 
-    // Remove event listeners to prevent memory leaks
-    agent.removeAllListeners();
-    
+    // Don't remove listeners from the agent itself - we'll reattach
+    // Just note that it's detached
     console.log(`Detached agent: ${agentId}`);
   }
 
@@ -167,27 +172,8 @@ export class AgentManager extends EventEmitter {
       return false;
     }
 
-    // Re-add event listeners
-    agent.on('output', (data: any) => {
-      this.emit('agent_output', { agentId, data });
-    });
-
-    agent.on('error', (error: any) => {
-      this.emit('agent_error', { agentId, error });
-    });
-
-    agent.on('exit', (code: number | null) => {
-      this.handleAgentExit(agentId, code);
-    });
-
-    agent.on('sessionId', (sessionId: string) => {
-      this.emit('agent_sessionId', { agentId, sessionId });
-    });
-
-    agent.on('command-complete', () => {
-      this.emit('agent_command_complete', { agentId });
-    });
-
+    // Don't re-add listeners - they're already there from initial launch
+    // Detach doesn't remove them anymore, so we don't need to re-add
     console.log(`Reattached to agent: ${agentId}`);
     return true;
   }

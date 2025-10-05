@@ -471,13 +471,35 @@
       console.log('[PromptQueue] Applied modes to prompt');
     }
 
-    // Send prompt text first, then Enter separately (works for all CLI types)
-    // The delay allows the CLI to process and display the text before receiving Enter
-    targetTerminal.sendInput(finalPrompt);
-    setTimeout(() => {
-      console.log('[PromptQueue] Sending Enter key to submit prompt');
-      targetTerminal.sendInput('\r');
-    }, 100);
+    // For bash terminals, simulate typing character-by-character
+    // This ensures the CLI's readline properly processes each character
+    const isBashTerminal = cliType === 'bash' || cliType === 'terminal';
+
+    if (isBashTerminal) {
+      console.log('[PromptQueue] Simulating typing for bash CLI');
+      // Type each character with a small delay
+      let charIndex = 0;
+      const typeInterval = setInterval(() => {
+        if (charIndex < finalPrompt.length) {
+          targetTerminal.sendInput(finalPrompt[charIndex]);
+          charIndex++;
+        } else {
+          clearInterval(typeInterval);
+          // Send Enter after all characters are typed
+          setTimeout(() => {
+            console.log('[PromptQueue] Sending Enter key to submit prompt');
+            targetTerminal.sendInput('\r');
+          }, 50);
+        }
+      }, 10); // 10ms between characters
+    } else {
+      // Claude-style: send full text, then Enter
+      targetTerminal.sendInput(finalPrompt);
+      setTimeout(() => {
+        console.log('[PromptQueue] Sending Enter key to submit prompt');
+        targetTerminal.sendInput('\r');
+      }, 100);
+    }
 
     // With event-driven approach, we wait for the terminal idle event
     console.log(`[PromptQueue] Prompt sent, waiting for ${cliType} idle event...`);
@@ -535,12 +557,33 @@
     // Build final prompt with mode instructions
     const finalPrompt = buildPromptWithModes(nextPrompt);
 
-    // Send prompt text first, then Enter separately (works for all CLI types)
-    // The delay allows the CLI to process and display the text before receiving Enter
-    targetTerminal.sendInput(finalPrompt);
-    setTimeout(() => {
-      targetTerminal.sendInput('\r');
-    }, 100);
+    // For bash terminals, simulate typing character-by-character
+    // This ensures the CLI's readline properly processes each character
+    const isBashTerminal = cliType === 'bash' || cliType === 'terminal';
+
+    if (isBashTerminal) {
+      console.log('[PromptQueue] Simulating typing for bash CLI (direct)');
+      // Type each character with a small delay
+      let charIndex = 0;
+      const typeInterval = setInterval(() => {
+        if (charIndex < finalPrompt.length) {
+          targetTerminal.sendInput(finalPrompt[charIndex]);
+          charIndex++;
+        } else {
+          clearInterval(typeInterval);
+          // Send Enter after all characters are typed
+          setTimeout(() => {
+            targetTerminal.sendInput('\r');
+          }, 50);
+        }
+      }, 10); // 10ms between characters
+    } else {
+      // Claude-style: send full text, then Enter
+      targetTerminal.sendInput(finalPrompt);
+      setTimeout(() => {
+        targetTerminal.sendInput('\r');
+      }, 100);
+    }
 
     console.log(`[PromptQueue] First prompt sent, waiting for ${cliType} idle event...`);
   }

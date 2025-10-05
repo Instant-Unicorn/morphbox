@@ -172,6 +172,9 @@ Make it fully functional and production-ready. Use modern JavaScript features.`
   let settings: Settings = { ...defaultSettings };
   let activeTab: 'appearance' | 'editor' | 'explorer' | 'panels' | 'layout' | 'shortcuts' | 'security' = 'appearance';
   let importInput: HTMLInputElement;
+  let codexAuthInput: HTMLInputElement;
+  let codexAuthStatus: 'idle' | 'uploading' | 'success' | 'error' = 'idle';
+  let codexAuthMessage = '';
   let version = '0.10.1'; // MorphBox version
   
   // Load settings from localStorage
@@ -274,7 +277,79 @@ Make it fully functional and production-ready. Use modern JavaScript features.`
       saveSettings();
     }
   }
-  
+
+  // Codex CLI Authentication
+  function uploadCodexAuth() {
+    codexAuthInput.click();
+  }
+
+  async function handleCodexAuthUpload(event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+
+    // Validate file name
+    if (file.name !== 'auth.json') {
+      codexAuthStatus = 'error';
+      codexAuthMessage = 'Please select a file named "auth.json"';
+      return;
+    }
+
+    // Validate file size (should be small, < 10KB)
+    if (file.size > 10240) {
+      codexAuthStatus = 'error';
+      codexAuthMessage = 'File too large. auth.json should be less than 10KB';
+      return;
+    }
+
+    codexAuthStatus = 'uploading';
+    codexAuthMessage = 'Uploading and setting up Codex authentication...';
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          // Validate JSON format
+          const authContent = e.target?.result as string;
+          const authData = JSON.parse(authContent);
+
+          // Basic validation - check for required fields
+          if (!authData.access_token && !authData.refresh_token) {
+            throw new Error('Invalid auth.json format - missing required tokens');
+          }
+
+          // Send to backend
+          const response = await fetch('/api/codex-auth', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ authContent })
+          });
+
+          const result = await response.json();
+
+          if (response.ok) {
+            codexAuthStatus = 'success';
+            codexAuthMessage = result.message || 'Codex authentication set up successfully!';
+            // Clear the file input
+            codexAuthInput.value = '';
+          } else {
+            throw new Error(result.error || 'Failed to setup Codex authentication');
+          }
+        } catch (error) {
+          console.error('Failed to setup Codex auth:', error);
+          codexAuthStatus = 'error';
+          codexAuthMessage = error instanceof Error ? error.message : 'Failed to setup Codex authentication';
+        }
+      };
+      reader.readAsText(file);
+    } catch (error) {
+      console.error('Failed to read auth file:', error);
+      codexAuthStatus = 'error';
+      codexAuthMessage = 'Failed to read auth.json file';
+    }
+  }
+
   // Font families available
   const fontFamilies = [
     '"Cascadia Code", "Fira Code", monospace',
@@ -815,6 +890,45 @@ Make it fully functional and production-ready. Use modern JavaScript features.`
           <p>External mode exposes Morphbox to your network. Always use strong authentication credentials and keep them secure.</p>
         </div>
       </section>
+
+      <section class="settings-section">
+        <h3>OpenAI Codex CLI Authentication</h3>
+        <p class="hint">Upload your Codex auth.json file to enable Codex CLI in Terminal panels.</p>
+
+        <div class="codex-auth-container">
+          <div class="codex-auth-instructions">
+            <h4>How to authenticate:</h4>
+            <ol>
+              <li><strong>On your local machine:</strong> Run <code>codex login</code></li>
+              <li><strong>Complete</strong> the browser authentication flow</li>
+              <li><strong>Upload</strong> your <code>~/.codex/auth.json</code> file here</li>
+            </ol>
+            <p class="hint">
+              <strong>Alternative:</strong> Inside a Terminal panel, run <code>codex login --with-api-key</code> to authenticate with an API key directly.
+            </p>
+          </div>
+
+          <div class="codex-auth-upload">
+            <button class="btn btn-primary" on:click={uploadCodexAuth}>
+              📁 Upload auth.json
+            </button>
+
+            {#if codexAuthStatus !== 'idle'}
+              <div class="codex-auth-status" class:success={codexAuthStatus === 'success'} class:error={codexAuthStatus === 'error'} class:uploading={codexAuthStatus === 'uploading'}>
+                {#if codexAuthStatus === 'uploading'}
+                  <span class="spinner">⏳</span>
+                {/if}
+                {codexAuthMessage}
+              </div>
+            {/if}
+          </div>
+
+          <div class="info-box">
+            <p><strong>📖 Documentation:</strong></p>
+            <p>See <code>docs/CODEX_AUTHENTICATION.md</code> for detailed setup instructions including SSH port forwarding and alternative authentication methods.</p>
+          </div>
+        </div>
+      </section>
     {/if}
   </div>
   
@@ -831,11 +945,18 @@ Make it fully functional and production-ready. Use modern JavaScript features.`
     </div>
   </footer>
   
-  <input 
-    type="file" 
+  <input
+    type="file"
     accept=".json"
     bind:this={importInput}
     on:change={handleFileImport}
+    style="display: none;"
+  />
+  <input
+    type="file"
+    accept=".json"
+    bind:this={codexAuthInput}
+    on:change={handleCodexAuthUpload}
     style="display: none;"
   />
 </div>
@@ -1159,5 +1280,104 @@ Make it fully functional and production-ready. Use modern JavaScript features.`
   
   .warning-box p:last-child {
     margin-bottom: 0;
+  }
+
+  .info-box {
+    background-color: rgba(33, 150, 243, 0.1);
+    border: 1px solid rgba(33, 150, 243, 0.3);
+    border-radius: 4px;
+    padding: 12px;
+    margin-top: 20px;
+  }
+
+  .info-box p {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+  }
+
+  .info-box p:last-child {
+    margin-bottom: 0;
+  }
+
+  .codex-auth-container {
+    margin-top: 16px;
+  }
+
+  .codex-auth-instructions {
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .codex-auth-instructions h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    color: var(--text-color, #cccccc);
+  }
+
+  .codex-auth-instructions ol {
+    margin: 0 0 12px 20px;
+    padding: 0;
+  }
+
+  .codex-auth-instructions li {
+    margin-bottom: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .codex-auth-instructions code {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 12px;
+  }
+
+  .codex-auth-upload {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .codex-auth-status {
+    padding: 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .codex-auth-status.success {
+    background-color: rgba(76, 175, 80, 0.1);
+    border: 1px solid rgba(76, 175, 80, 0.3);
+    color: #4caf50;
+  }
+
+  .codex-auth-status.error {
+    background-color: rgba(244, 67, 54, 0.1);
+    border: 1px solid rgba(244, 67, 54, 0.3);
+    color: #f44336;
+  }
+
+  .codex-auth-status.uploading {
+    background-color: rgba(33, 150, 243, 0.1);
+    border: 1px solid rgba(33, 150, 243, 0.3);
+    color: #2196f3;
+  }
+
+  .spinner {
+    display: inline-block;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
   }
 </style>

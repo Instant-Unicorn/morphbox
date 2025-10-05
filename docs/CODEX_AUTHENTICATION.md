@@ -12,9 +12,50 @@ OpenAI Codex CLI uses OAuth authentication with a callback to `http://localhost:
 
 ## Supported Authentication Methods
 
-### Method 1: API Key Authentication (Recommended - Simplest)
+### Method 1: UI Upload (Recommended - Easiest)
 
-The simplest method is to use an OpenAI API key directly.
+Upload your auth.json file directly through the MorphBox Settings panel.
+
+**Prerequisites:**
+- Codex CLI installed on your local machine
+- Browser access on local machine
+
+**Steps:**
+
+1. **On your local machine**, authenticate with Codex:
+   ```bash
+   codex login
+   ```
+
+2. Complete the browser authentication flow
+
+3. **In MorphBox**, open the Settings panel (Ctrl+,) and go to the **Security** tab
+
+4. Scroll to the **OpenAI Codex CLI Authentication** section
+
+5. Click **📁 Upload auth.json**
+
+6. Select your auth.json file from:
+   - Mac/Linux: `~/.codex/auth.json`
+   - Windows: `%USERPROFILE%\.codex\auth.json`
+
+7. Wait for confirmation - the file will be automatically transferred to the container!
+
+**Pros:**
+- Easiest method - all done through the UI
+- No command line needed after initial authentication
+- Works from anywhere (local or remote MorphBox)
+- Automatic setup and validation
+- Instant feedback on success/failure
+
+**Cons:**
+- Requires browser access for initial Codex login on local machine
+
+---
+
+### Method 2: API Key Authentication (Simplest for Direct Setup)
+
+Use an OpenAI API key directly inside the container.
 
 **Prerequisites:**
 - OpenAI API key with access to the Responses API
@@ -42,9 +83,9 @@ The simplest method is to use an OpenAI API key directly.
 
 ---
 
-### Method 2: Auth.json Transfer (Recommended - Most Practical)
+### Method 3: Manual Auth.json Transfer (Advanced)
 
-Authenticate on your local machine, then copy the credentials to the container.
+Authenticate on your local machine, then manually transfer credentials to the container via command line.
 
 **Prerequisites:**
 - Codex CLI installed on your local machine
@@ -102,7 +143,7 @@ Authenticate on your local machine, then copy the credentials to the container.
 
 ---
 
-### Method 3: SSH Port Forwarding (Advanced)
+### Method 4: SSH Port Forwarding (Advanced)
 
 For direct authentication from inside the Docker container using port forwarding.
 
@@ -251,13 +292,20 @@ If the format is wrong, re-authenticate on your local machine.
 
 ## Quick Start Summary
 
+**Easiest method (UI upload with ChatGPT subscription):**
+1. On local machine: `codex login`
+2. In MorphBox: Open Settings (Ctrl+,) → Security tab
+3. Click **📁 Upload auth.json**
+4. Select `~/.codex/auth.json` from your local machine
+5. Done! ✅
+
 **Fastest method (if you have API key):**
 ```bash
 # Inside MorphBox terminal
 codex login --with-api-key
 ```
 
-**Most practical method (using ChatGPT subscription):**
+**Manual method (command line):**
 ```bash
 # On local machine
 codex login

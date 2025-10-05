@@ -84,6 +84,13 @@ export class BashAgent extends EventEmitter implements Agent {
         // Bash prompt pattern (root@morphbox-vm or user@morphbox-vm)
         const bashPromptPattern = /(?:root|[a-z]+)@morphbox-vm:[^#$]*[#$]\s*$/;
 
+        // Codex CLI prompt patterns (for regular terminals running Codex)
+        const codexPromptPatterns = [
+          /esc to interrupt/i,                         // Codex CLI waiting for input
+          /esc to cancel/i,                            // Codex CLI waiting for input
+          /press esc to/i,                             // Generic ESC prompt pattern
+        ];
+
         // Claude prompt patterns (detect when Claude is idle)
         // Claude's UI has the prompt on its own line, followed by other UI elements
         // So we look for the prompt pattern in the middle of the buffer, not just at the end
@@ -97,9 +104,10 @@ export class BashAgent extends EventEmitter implements Agent {
         const isClaudeAgent = !!this.options.vmUser;
 
         // Select appropriate patterns based on agent type
+        // For bash terminals, also check for Codex CLI prompts
         const promptDetected = isClaudeAgent
           ? claudePromptPatterns.some(pattern => pattern.test(cleanBuffer))
-          : bashPromptPattern.test(cleanBuffer);
+          : bashPromptPattern.test(cleanBuffer) || codexPromptPatterns.some(pattern => pattern.test(cleanBuffer));
 
         if (this.commandPending && promptDetected) {
           // Command completed - prompt has returned

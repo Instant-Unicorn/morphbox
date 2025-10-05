@@ -154,6 +154,13 @@ export class BashAgent extends EventEmitter implements Agent {
         }
       }, 100);
 
+      // Check for Codex CLI authentication if this is a Claude agent
+      if (this.options.vmUser) {
+        setTimeout(() => {
+          this.checkCodexAuth();
+        }, 500);
+      }
+
       console.log(`Bash agent ${this.id} initialized successfully`);
     } catch (error) {
       this.status = 'error';
@@ -175,6 +182,70 @@ export class BashAgent extends EventEmitter implements Agent {
     }
 
     this.pty.write(input);
+  }
+
+  /**
+   * Check if Codex CLI is authenticated
+   * Emits 'codex-auth-status' event with authentication status
+   */
+  private checkCodexAuth(): void {
+    if (!this.pty) return;
+
+    console.log('[BashAgent] Checking Codex CLI authentication status...');
+
+    // Create a temporary handler to capture the auth check result
+    let authCheckOutput = '';
+    const tempHandler = (data: string) => {
+      authCheckOutput += data;
+    };
+
+    // Add temporary data handler
+    this.pty.onData(tempHandler);
+
+    // Check if auth.json exists
+    this.pty.write('test -f ~/.codex/auth.json && echo "CODEX_AUTH_EXISTS" || echo "CODEX_AUTH_MISSING"\n');
+
+    // Wait for result
+    setTimeout(() => {
+      // Remove temporary handler
+      // Note: node-pty doesn't have removeListener, so we just let it go
+
+      const isAuthenticated = authCheckOutput.includes('CODEX_AUTH_EXISTS');
+
+      console.log(`[BashAgent] Codex auth status: ${isAuthenticated ? 'authenticated' : 'not authenticated'}`);
+
+      // Emit auth status event
+      this.emit('codex-auth-status', {
+        authenticated: isAuthenticated,
+        agentId: this.id
+      });
+
+      // If not authenticated, display helpful message in terminal
+      if (!isAuthenticated) {
+        const helpMessage = `
+\x1b[33m╔════════════════════════════════════════════════════════════════╗
+║  OpenAI Codex CLI Not Authenticated                           ║
+╚════════════════════════════════════════════════════════════════╝\x1b[0m
+
+To use Codex CLI in this terminal, you need to authenticate first.
+
+\x1b[36mOption 1: API Key (Simplest)\x1b[0m
+  codex login --with-api-key
+
+\x1b[36mOption 2: Transfer auth.json (Recommended)\x1b[0m
+  1. On your local machine: codex login
+  2. Copy ~/.codex/auth.json to MorphBox
+  3. Run: ./scripts/codex-setup-auth.sh
+
+\x1b[36mFor detailed instructions:\x1b[0m
+  See docs/CODEX_AUTHENTICATION.md
+
+`;
+        if (this.pty) {
+          this.pty.write(helpMessage);
+        }
+      }
+    }, 500);
   }
 
   async stop(): Promise<void> {

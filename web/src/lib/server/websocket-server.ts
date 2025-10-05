@@ -75,6 +75,25 @@ async function startWebSocketServer() {
       console.log(`[WebSocket] COMMAND_COMPLETE sent to ${clientCount} clients`);
     });
 
+    // Broadcast Codex authentication status
+    agentManager.on('codex_auth_status', (data: { agentId: string; authenticated: boolean }) => {
+      console.log(`[WebSocket] Broadcasting CODEX_AUTH_STATUS for agent ${data.agentId}: ${data.authenticated}`);
+      const message = JSON.stringify({
+        type: 'CODEX_AUTH_STATUS',
+        payload: {
+          agentId: data.agentId,
+          authenticated: data.authenticated
+        }
+      });
+
+      // Broadcast to ALL connected clients
+      wss.clients.forEach((client: any) => {
+        if (client.readyState === 1) { // WebSocket.OPEN
+          client.send(message);
+        }
+      });
+    });
+
     wss.on('connection', (ws, request) => {
       console.log('New WebSocket connection from:', request.headers.host);
       handleWebSocketConnection(ws, request, { agentManager, stateManager, wss });

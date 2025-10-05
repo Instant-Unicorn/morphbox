@@ -471,13 +471,22 @@
       console.log('[PromptQueue] Applied modes to prompt');
     }
 
-    // First send the text
-    targetTerminal.sendInput(finalPrompt);
-    // Then send Enter key separately after a small delay to ensure text is processed
-    setTimeout(() => {
-      console.log('[PromptQueue] Sending Enter key to submit prompt');
-      targetTerminal.sendInput('\r');
-    }, 100);
+    // For bash terminals (Codex, Gemini, etc.), send prompt + Enter together
+    // For Claude terminals, send text first then Enter separately
+    const isBashTerminal = cliType === 'bash' || cliType === 'terminal';
+
+    if (isBashTerminal) {
+      // Send prompt and Enter in one call for bash-like CLIs
+      console.log('[PromptQueue] Sending prompt with Enter (bash-style)');
+      targetTerminal.sendInput(finalPrompt + '\r');
+    } else {
+      // Claude-style: send text first, then Enter separately
+      targetTerminal.sendInput(finalPrompt);
+      setTimeout(() => {
+        console.log('[PromptQueue] Sending Enter key to submit prompt');
+        targetTerminal.sendInput('\r');
+      }, 100);
+    }
 
     // With event-driven approach, we wait for the terminal idle event
     console.log(`[PromptQueue] Prompt sent, waiting for ${cliType} idle event...`);
@@ -535,11 +544,21 @@
     // Build final prompt with mode instructions
     const finalPrompt = buildPromptWithModes(nextPrompt);
 
-    // Send the prompt right away
-    targetTerminal.sendInput(finalPrompt);
-    setTimeout(() => {
-      targetTerminal.sendInput('\r');
-    }, 100);
+    // For bash terminals (Codex, Gemini, etc.), send prompt + Enter together
+    // For Claude terminals, send text first then Enter separately
+    const isBashTerminal = cliType === 'bash' || cliType === 'terminal';
+
+    if (isBashTerminal) {
+      // Send prompt and Enter in one call for bash-like CLIs
+      console.log('[PromptQueue] Sending first prompt with Enter (bash-style)');
+      targetTerminal.sendInput(finalPrompt + '\r');
+    } else {
+      // Claude-style: send text first, then Enter separately
+      targetTerminal.sendInput(finalPrompt);
+      setTimeout(() => {
+        targetTerminal.sendInput('\r');
+      }, 100);
+    }
 
     console.log(`[PromptQueue] First prompt sent, waiting for ${cliType} idle event...`);
   }

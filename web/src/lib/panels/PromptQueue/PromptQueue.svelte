@@ -477,8 +477,9 @@
 
     if (isBashTerminal) {
       // Send prompt and Enter in one call for bash-like CLIs
+      // Use \n for bash shells (line feed) instead of \r (carriage return)
       console.log('[PromptQueue] Sending prompt with Enter (bash-style)');
-      targetTerminal.sendInput(finalPrompt + '\r');
+      targetTerminal.sendInput(finalPrompt + '\n');
     } else {
       // Claude-style: send text first, then Enter separately
       targetTerminal.sendInput(finalPrompt);
@@ -550,8 +551,9 @@
 
     if (isBashTerminal) {
       // Send prompt and Enter in one call for bash-like CLIs
+      // Use \n for bash shells (line feed) instead of \r (carriage return)
       console.log('[PromptQueue] Sending first prompt with Enter (bash-style)');
-      targetTerminal.sendInput(finalPrompt + '\r');
+      targetTerminal.sendInput(finalPrompt + '\n');
     } else {
       // Claude-style: send text first, then Enter separately
       targetTerminal.sendInput(finalPrompt);

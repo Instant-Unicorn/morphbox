@@ -84,51 +84,51 @@ export class BashAgent extends EventEmitter implements Agent {
         // Bash prompt pattern (root@morphbox-vm or user@morphbox-vm)
         const bashPromptPattern = /(?:root|[a-z]+)@morphbox-vm:[^#$]*[#$]\s*$/;
 
-        // Codex CLI prompt patterns (for regular terminals running Codex)
-        const codexPromptPatterns = [
-          /esc to interrupt/i,                         // Codex CLI waiting for input
-          /esc to cancel/i,                            // Codex CLI waiting for input
-          /press esc to/i,                             // Generic ESC prompt pattern
-        ];
-
-        // Gemini CLI prompt patterns (simple > prompt)
-        const geminiPromptPatterns = [
-          />\s*$/,                                     // Gemini's simple "> " prompt at end of buffer
-        ];
-
-        // Claude prompt patterns (detect when Claude is idle)
-        // Claude's UI has the prompt on its own line, followed by other UI elements
-        // So we look for the prompt pattern in the middle of the buffer, not just at the end
-        const claudePromptPatterns = [
-          /^>\s/m,                                     // Prompt at start of line (multiline mode)
-          /\n>\s(?:Try|$)/m,                          // Prompt line with "Try" or just prompt
-          /────+\n>\s/,                                // Separator line followed by prompt
-        ];
+        // "esc to" pattern - when CLIs (Codex, Gemini, Claude) are responding/busy
+        const escToPattern = /esc to/i;
 
         // Check if we're running Claude (vmUser is set for Claude)
         const isClaudeAgent = !!this.options.vmUser;
 
-        // Select appropriate patterns based on agent type
-        // For bash terminals, also check for Codex and Gemini CLI prompts
+        // Detect different states
         const bashPromptDetected = bashPromptPattern.test(cleanBuffer);
-        const codexPromptDetected = codexPromptPatterns.some(pattern => pattern.test(cleanBuffer));
-        const geminiPromptDetected = geminiPromptPatterns.some(pattern => pattern.test(cleanBuffer));
-        const claudePromptDetected = claudePromptPatterns.some(pattern => pattern.test(cleanBuffer));
+        const escToDetected = escToPattern.test(cleanBuffer);
 
-        const promptDetected = isClaudeAgent ? claudePromptDetected : (bashPromptDetected || codexPromptDetected || geminiPromptDetected);
+        // Determine if terminal is ready for next command:
+        // - Claude terminals: Ready when "esc to" is NOT present (idle)
+        // - Bash terminals: Ready when bash prompt is present, OR when NOT bash prompt and "esc to" is NOT present (CLI idle)
+        let terminalReady = false;
+        let detectedType = 'Unknown';
 
-        // Codex/Gemini prompts are always considered "ready" even if commandPending is false
-        // This is because they may start after the bash command completes
-        const shouldEmitComplete = this.commandPending && promptDetected;
-        const cliReady = !isClaudeAgent && (codexPromptDetected || geminiPromptDetected);
+        if (isClaudeAgent) {
+          // Claude terminal: idle when "esc to" is absent
+          terminalReady = !escToDetected;
+          detectedType = 'Claude';
+        } else {
+          // Bash terminal
+          if (bashPromptDetected) {
+            // Regular bash prompt
+            terminalReady = true;
+            detectedType = 'Bash';
+          } else if (!escToDetected) {
+            // Not bash prompt, but CLI (Codex/Gemini) is idle (no "esc to" text)
+            terminalReady = true;
+            detectedType = 'CLI (Codex/Gemini)';
+          }
+        }
 
-        if (shouldEmitComplete || cliReady) {
-          // Command completed - prompt has returned
+        // Emit completion if:
+        // 1. We have a pending command and terminal is ready, OR
+        // 2. Terminal is ready even without pending command (CLI might have started after bash command)
+        const shouldEmitComplete = this.commandPending && terminalReady;
+        const cliReadyWithoutPending = !isClaudeAgent && !this.commandPending && terminalReady && !bashPromptDetected;
+
+        if (shouldEmitComplete || cliReadyWithoutPending) {
+          // Command completed - terminal is ready
           const now = Date.now();
           // Debounce: only emit if more than 100ms since last prompt detection
           if (now - this.lastPromptTime > 100) {
-            const agentType = isClaudeAgent ? 'Claude' : (codexPromptDetected ? 'Codex' : geminiPromptDetected ? 'Gemini' : 'Bash');
-            console.log(`[BashAgent] ${agentType} command completed - prompt detected`);
+            console.log(`[BashAgent] ${detectedType} command completed - terminal ready`);
             this.commandPending = false;
             this.lastPromptTime = now;
             this.outputBuffer = ''; // Clear buffer after prompt detection

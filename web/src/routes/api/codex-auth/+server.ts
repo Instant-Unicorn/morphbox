@@ -24,9 +24,23 @@ export const POST: RequestHandler = async ({ request }) => {
       throw error(400, 'Invalid JSON format in auth.json');
     }
 
-    // Basic validation - check for required fields
-    if (!authData.access_token && !authData.refresh_token) {
-      throw error(400, 'Invalid auth.json - missing required authentication tokens');
+    // Log what we received for debugging
+    console.log('[Codex Auth] Received auth data with keys:', Object.keys(authData));
+
+    // Basic validation - Codex auth.json should be an object with token-related fields
+    // Common fields: access_token, refresh_token, token_type, expires_in, expires_at
+    if (typeof authData !== 'object' || authData === null || Array.isArray(authData)) {
+      throw error(400, 'Invalid auth.json - must be a JSON object');
+    }
+
+    // Check if it looks like an auth file (has at least some relevant fields)
+    const hasTokenFields = Object.keys(authData).some(key =>
+      key.includes('token') || key.includes('access') || key.includes('refresh') || key.includes('expires')
+    );
+
+    if (!hasTokenFields) {
+      const receivedKeys = Object.keys(authData).join(', ');
+      throw error(400, `Invalid auth.json - doesn't appear to be an authentication file. Received keys: ${receivedKeys}`);
     }
 
     // Get the project root (where package.json is)

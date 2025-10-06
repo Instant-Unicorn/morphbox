@@ -312,10 +312,22 @@ Make it fully functional and production-ready. Use modern JavaScript features.`
           const authContent = e.target?.result as string;
           const authData = JSON.parse(authContent);
 
-          // Basic validation - check for required fields
-          if (!authData.access_token && !authData.refresh_token) {
-            throw new Error('Invalid auth.json format - missing required tokens');
+          // Basic validation - just check it's a valid JSON object
+          if (typeof authData !== 'object' || authData === null || Array.isArray(authData)) {
+            throw new Error('Invalid auth.json - must be a JSON object');
           }
+
+          // Check if it looks like an auth file (has some token-related fields)
+          const hasTokenFields = Object.keys(authData).some(key =>
+            key.includes('token') || key.includes('access') || key.includes('refresh') || key.includes('expires')
+          );
+
+          if (!hasTokenFields) {
+            const receivedKeys = Object.keys(authData).join(', ');
+            throw new Error(`Invalid auth.json - doesn't appear to be an authentication file. Found keys: ${receivedKeys}`);
+          }
+
+          console.log('[Codex Auth] Uploading auth.json with keys:', Object.keys(authData));
 
           // Send to backend
           const response = await fetch('/api/codex-auth', {

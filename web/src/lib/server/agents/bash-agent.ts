@@ -91,6 +91,11 @@ export class BashAgent extends EventEmitter implements Agent {
           /press esc to/i,                             // Generic ESC prompt pattern
         ];
 
+        // Gemini CLI prompt patterns (simple > prompt)
+        const geminiPromptPatterns = [
+          />\s*$/,                                     // Gemini's simple "> " prompt at end of buffer
+        ];
+
         // Claude prompt patterns (detect when Claude is idle)
         // Claude's UI has the prompt on its own line, followed by other UI elements
         // So we look for the prompt pattern in the middle of the buffer, not just at the end
@@ -104,17 +109,25 @@ export class BashAgent extends EventEmitter implements Agent {
         const isClaudeAgent = !!this.options.vmUser;
 
         // Select appropriate patterns based on agent type
-        // For bash terminals, also check for Codex CLI prompts
-        const promptDetected = isClaudeAgent
-          ? claudePromptPatterns.some(pattern => pattern.test(cleanBuffer))
-          : bashPromptPattern.test(cleanBuffer) || codexPromptPatterns.some(pattern => pattern.test(cleanBuffer));
+        // For bash terminals, also check for Codex and Gemini CLI prompts
+        const bashPromptDetected = bashPromptPattern.test(cleanBuffer);
+        const codexPromptDetected = codexPromptPatterns.some(pattern => pattern.test(cleanBuffer));
+        const geminiPromptDetected = geminiPromptPatterns.some(pattern => pattern.test(cleanBuffer));
+        const claudePromptDetected = claudePromptPatterns.some(pattern => pattern.test(cleanBuffer));
 
-        if (this.commandPending && promptDetected) {
+        const promptDetected = isClaudeAgent ? claudePromptDetected : (bashPromptDetected || codexPromptDetected || geminiPromptDetected);
+
+        // Codex/Gemini prompts are always considered "ready" even if commandPending is false
+        // This is because they may start after the bash command completes
+        const shouldEmitComplete = this.commandPending && promptDetected;
+        const cliReady = !isClaudeAgent && (codexPromptDetected || geminiPromptDetected);
+
+        if (shouldEmitComplete || cliReady) {
           // Command completed - prompt has returned
           const now = Date.now();
           // Debounce: only emit if more than 100ms since last prompt detection
           if (now - this.lastPromptTime > 100) {
-            const agentType = isClaudeAgent ? 'Claude' : 'Bash';
+            const agentType = isClaudeAgent ? 'Claude' : (codexPromptDetected ? 'Codex' : geminiPromptDetected ? 'Gemini' : 'Bash');
             console.log(`[BashAgent] ${agentType} command completed - prompt detected`);
             this.commandPending = false;
             this.lastPromptTime = now;

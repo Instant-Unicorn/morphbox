@@ -119,6 +119,14 @@ services:
     hostname: morphbox-vm
     ports:
       - "2222:22"
+      # Expose dev server ports (uses MORPHBOX_HOST env var, defaults to 127.0.0.1)
+      - "${MORPHBOX_HOST:-127.0.0.1}:5173:5173"
+      - "${MORPHBOX_HOST:-127.0.0.1}:5174:5174"
+      - "${MORPHBOX_HOST:-127.0.0.1}:5175:5175"
+      - "${MORPHBOX_HOST:-127.0.0.1}:5176:5176"
+      - "${MORPHBOX_HOST:-127.0.0.1}:5177:5177"
+      - "${MORPHBOX_HOST:-127.0.0.1}:5178:5178"
+      - "${MORPHBOX_HOST:-127.0.0.1}:5179:5179"
     volumes:
       - claude-config:/home/morphbox/.config/claude-code
       - ./workspace:/workspace

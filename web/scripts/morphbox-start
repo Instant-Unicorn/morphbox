@@ -396,6 +396,34 @@ if [[ "$NEED_CREATE" == "true" ]]; then
         IMAGE_EXISTS=false
     fi
 
+    # Find available dev server ports (5173-5179)
+    info "Checking for available dev server ports..."
+    DEV_PORT_MAPPINGS=""
+    for port in {5173..5179}; do
+        # Check if port is available on BIND_HOST
+        set +e  # Temporarily disable error checking
+        if [[ "$(uname)" == "Darwin" ]]; then
+            # Mac: use lsof
+            lsof -i TCP:${port} -sTCP:LISTEN 2>/dev/null | grep -q "${BIND_HOST}:${port}"
+            port_in_use=$?
+        else
+            # Linux: use ss
+            ss -tulpn 2>/dev/null | grep -q "${BIND_HOST}:${port}"
+            port_in_use=$?
+        fi
+        set -e  # Re-enable error checking
+
+        if [[ $port_in_use -ne 0 ]]; then
+            # Port is available
+            DEV_PORT_MAPPINGS="${DEV_PORT_MAPPINGS}      - \"${BIND_HOST}:${port}:${port}\"
+"
+        fi
+    done
+
+    if [[ -n "$DEV_PORT_MAPPINGS" ]]; then
+        info "Exposing available dev server ports on ${BIND_HOST}"
+    fi
+
     # Create a temporary docker-compose file with absolute paths
     TEMP_COMPOSE="/tmp/morphbox-compose-$$.yml"
 
@@ -409,7 +437,7 @@ services:
     hostname: $CONTAINER_NAME
     ports:
       - "$SSH_PORT:22"  # SSH port mapping (unique per instance)
-    volumes:
+${DEV_PORT_MAPPINGS}    volumes:
       # Persist Claude authentication data (shared across instances)
       - claude-config:/home/morphbox/.config/claude-code
       # Mount USER'S CURRENT DIRECTORY as workspace (absolute path)
@@ -442,7 +470,7 @@ services:
     hostname: $CONTAINER_NAME
     ports:
       - "$SSH_PORT:22"  # SSH port mapping (unique per instance)
-    volumes:
+${DEV_PORT_MAPPINGS}    volumes:
       # Persist Claude authentication data (shared across instances)
       - claude-config:/home/morphbox/.config/claude-code
       # Mount USER'S CURRENT DIRECTORY as workspace (absolute path)

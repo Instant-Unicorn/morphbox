@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.14.2 - 2025-10-06
+
+### Fixed
+- **Codex/Gemini Prompt Queue Execution**
+  - Fixed prompt queue not executing commands in Codex and Gemini terminals
+  - Rewrote CLI idle detection logic to detect ABSENCE of "esc to" pattern instead of presence
+  - Claude terminals: Idle when "esc to" is NOT present
+  - Bash terminals: Idle when bash prompt present OR "esc to" is NOT present
+  - Added 100ms delay between sending prompt text and Enter key for reliable submission
+  - Removed CLI-specific patterns in favor of universal "esc to" detection
+  - All AI CLIs (Claude, Codex, Gemini) now properly advance through prompt queue
+
+### Technical Details
+- Updated bash-agent.ts with inverted detection logic (lines 81-139)
+- Simplified from multiple CLI-specific patterns to single `escToPattern`
+- Fixed prompt sending in PromptQueue.svelte with text-first + Enter delay approach
+- Added debouncing (100ms) to prevent duplicate prompt detection events
+
 ## 2025-10-03 (REPEAT PROBLEM FIX)
 
 ### Fixed: The REPEAT PROBLEM - Terminal output repeating with every keystroke

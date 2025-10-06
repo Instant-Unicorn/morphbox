@@ -1,5 +1,33 @@
 # MorphBox Changelog
 
+## 2025-10-06 - v1.0.0 (Major Release) 🎉
+
+### Major Features
+- **🚀 MAJOR RELEASE**: MorphBox v1.0.0 is now production-ready!
+- **Added**: Dynamic dev server port forwarding (ports 5173-5179)
+  - Automatically detects available ports and only exposes those not in use
+  - Supports `--local`, `--vpn`, and `--external` modes
+  - Tailscale VPN integration with auto-detection
+  - Smart port conflict resolution
+
+### Breaking Changes
+- **Removed**: WebBrowser panel (redundant with external browser workflow)
+- **Removed**: TaskRunner panel (terminal provides better functionality)
+
+### Improvements
+- **Enhanced**: Docker container networking
+  - Dev servers inside containers can now be accessed from host
+  - Auto-detects which ports are available on host machine
+  - Works seamlessly with Tailscale VPN setup
+- **Fixed**: Empty row rendering when panels are removed
+  - Added automatic cleanup of stale panel state from sessionStorage
+
+### Technical Details
+- Modified `morphbox-start` script to dynamically check port availability
+- Updated `docker-compose.yml` to use MORPHBOX_HOST environment variable
+- Removed panel references from `RowLayout.svelte` and `GridLayout.svelte`
+- Updated panel registry to remove WebBrowser and TaskRunner entries
+
 ## 2025-10-04 - v0.13.0 (Session Persistence Complete)
 
 ### Changes

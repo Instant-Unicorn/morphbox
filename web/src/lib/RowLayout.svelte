@@ -510,10 +510,10 @@
     const { panelId, newWidth, newHeight, isLeftResize, moveTop, deltaY } = event.detail;
     const panel = $panels.find(p => p.id === panelId);
     if (!panel) return;
-    
+
     // Update panel size
     const updates: Partial<Panel> = {};
-    
+
     if (newWidth !== undefined) {
       const row = rows.find(r => r.panels.some(p => p.id === panelId));
       if (row) {
@@ -571,28 +571,50 @@
         updates.widthPercent = newWidth;
       }
     }
-    
+
     if (newHeight !== undefined) {
       updates.heightPixels = newHeight;
-      
-      // Update row height if this panel is taller
-      const row = rows.find(r => r.panels.some(p => p.id === panelId));
-      if (row) {
+
+      // Update row height - IMPORTANT: We need to recreate the rows array to trigger Svelte reactivity
+      const rowIndex = rows.findIndex(r => r.panels.some(p => p.id === panelId));
+      if (rowIndex !== -1) {
+        const row = rows[rowIndex];
+        const oldHeight = row.height;
+        let newRowHeight = row.height;
+
         if (moveTop) {
           // For top resize, maintain the bottom position
-          row.height = newHeight;
-        } else if (newHeight > row.height) {
-          row.height = newHeight;
+          newRowHeight = newHeight;
+        } else {
+          // For bottom resize, update to the new height
+          newRowHeight = newHeight;
         }
-        
-        // Update all panels in row to new height
-        row.panels.forEach(p => {
-          panelStore.updatePanel(p.id, { heightPixels: row.height });
-        });
+
+        // Only update if height actually changed
+        if (newRowHeight !== oldHeight) {
+          console.log(`[RowLayout] Updating row ${row.id} height: ${oldHeight}px → ${newRowHeight}px`);
+
+          // Update other panels in row to match height (but NOT the panel being resized)
+          row.panels.forEach(p => {
+            if (p.id !== panelId) {
+              panelStore.updatePanel(p.id, { heightPixels: newRowHeight });
+            }
+          });
+
+          // Recreate rows array to trigger Svelte reactivity
+          rows = rows.map((r, idx) =>
+            idx === rowIndex
+              ? { ...r, height: newRowHeight }
+              : r
+          );
+        }
       }
     }
-    
+
     panelStore.updatePanel(panelId, updates);
+
+    // Save layout changes to server to persist resize
+    saveLayoutToServer();
   }
   
   // Handle panel close
@@ -918,10 +940,10 @@
     data-viewport-height={viewportHeight}
   >
     {#each rows as row (row.id)}
-      <div 
+      <div
         id={row.id}
-        class="row" 
-        style="height: {stackedLayout ? 'auto' : row.height + 'px'}; min-height: {stackedLayout ? 'var(--min-panel-height)' : row.height + 'px'};"
+        class="row"
+        style="height: {row.height}px; min-height: {row.height}px;"
       >
         {#if row.panels.length === 0}
           <div 
@@ -957,6 +979,7 @@
                   {websocketUrl}
                   isDragging={draggedPanelId === panel.id}
                   isActive={$activePanel?.id === panel.id}
+                  isFirstInRow={panel.orderInRow === 0}
                   on:dragstart={handleDragStart}
                   on:click={() => panelStore.setActivePanel(panel.id)}
                   on:dragend={handleDragEnd}

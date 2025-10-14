@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { createEventDispatcher } from 'svelte';
   import { settings as settingsStore, applyTheme } from './settings-store';
-  
+
   const dispatch = createEventDispatcher();
   
   // Define settings interface
@@ -175,10 +175,21 @@ Make it fully functional and production-ready. Use modern JavaScript features.`
   let codexAuthInput: HTMLInputElement;
   let codexAuthStatus: 'idle' | 'uploading' | 'success' | 'error' = 'idle';
   let codexAuthMessage = '';
-  let version = '0.10.1'; // MorphBox version
-  
+  let version = '1.0.0'; // MorphBox version (will be loaded from API)
+
   // Load settings from localStorage
-  onMount(() => {
+  onMount(async () => {
+    // Fetch version from API
+    try {
+      const res = await fetch('/api/version');
+      if (res.ok) {
+        const data = await res.json();
+        version = data.version;
+      }
+    } catch (e) {
+      console.error('Failed to load version:', e);
+    }
+
     const savedSettings = localStorage.getItem('morphbox-settings');
     if (savedSettings) {
       try {

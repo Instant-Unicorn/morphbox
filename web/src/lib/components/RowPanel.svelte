@@ -22,6 +22,7 @@
   export let websocketUrl: string = '';
   export let isDragging: boolean = false;
   export let isActive: boolean = false;
+  export let isFirstInRow: boolean = false; // Only first panel in row can resize height
   
   let componentInstance: any;
   let terminalMethods: any = null;
@@ -571,21 +572,27 @@
     } else if (resizeDirection === 'vertical') {
       if (resizeSide === 'bottom') {
         const deltaY = touch.clientY - resizeStartY;
-        // More generous height constraints for mobile
+        // Minimal constraints for mobile - allow any size
         const minHeight = 100; // Smaller minimum for mobile
-        const maxHeight = window.innerHeight * 0.9; // Allow up to 90% of viewport
-        const newHeight = Math.max(minHeight, Math.min(maxHeight, resizeStartHeight + deltaY));
+        const newHeight = Math.max(minHeight, resizeStartHeight + deltaY);
         currentResizeHeight = newHeight; // Update current height for display
-        
-        dispatch('resize', { 
-          panelId: panel.id, 
+
+        console.log('[RowPanel MOBILE RESIZE]', {
+          panelId: panel.id,
+          deltaY,
+          resizeStartHeight,
+          newHeight,
+          currentHeight: panel.heightPixels
+        });
+
+        dispatch('resize', {
+          panelId: panel.id,
           newHeight
         });
       } else if (resizeSide === 'top') {
         const deltaY = touch.clientY - resizeStartY;
         const minHeight = 100;
-        const maxHeight = window.innerHeight * 0.9;
-        const newHeight = Math.max(minHeight, Math.min(maxHeight, resizeStartHeight - deltaY));
+        const newHeight = Math.max(minHeight, resizeStartHeight - deltaY);
         currentResizeHeight = newHeight; // Update current height for display
         
         dispatch('resize', { 
@@ -997,7 +1004,7 @@
   </div>
   
   <!-- Resize handles -->
-  <div 
+  <div
     class="resize-handle resize-left"
     on:mousedown={(e) => handleHorizontalResizeStart(e, 'left')}
     on:touchstart={(e) => handleHorizontalResizeStart(e, 'left')}
@@ -1011,7 +1018,7 @@
     aria-valuemin="10"
     aria-valuemax="100"
   ></div>
-  <div 
+  <div
     class="resize-handle resize-right"
     on:mousedown={(e) => handleHorizontalResizeStart(e, 'right')}
     on:touchstart={(e) => handleHorizontalResizeStart(e, 'right')}
@@ -1025,46 +1032,50 @@
     aria-valuemin="10"
     aria-valuemax="100"
   ></div>
-  <div 
-    class="resize-handle resize-top"
-    on:mousedown={(e) => handleVerticalResizeStart(e, 'top')}
-    on:touchstart={(e) => handleVerticalResizeStart(e, 'top')}
-    on:keydown={(e) => handleResizeKeydown(e, 'vertical', 'top')}
-    title="Resize height"
-    role="slider"
-    tabindex="0"
-    aria-orientation="horizontal"
-    aria-label="Resize panel height from top"
-    aria-valuenow={panel.heightPixels || 400}
-    aria-valuemin="150"
-    aria-valuemax={Math.floor(window.innerHeight * 0.8)}
-  ></div>
-  <div 
-    class="resize-handle resize-bottom"
-    on:mousedown={(e) => handleVerticalResizeStart(e, 'bottom')}
-    on:touchstart={(e) => handleVerticalResizeStart(e, 'bottom')}
-    on:keydown={(e) => handleResizeKeydown(e, 'vertical', 'bottom')}
-    title="Resize height"
-    role="slider"
-    tabindex="0"
-    aria-orientation="horizontal"
-    aria-label="Resize panel height from bottom"
-    aria-valuenow={panel.heightPixels || 400}
-    aria-valuemin="150"
-    aria-valuemax={Math.floor(window.innerHeight * 0.8)}
-  ></div>
-  
-  <!-- Mobile-specific resize handle -->
-  <div 
+
+  <!-- Height resize handles - desktop only shows for first panel in row -->
+  {#if isFirstInRow}
+    <div
+      class="resize-handle resize-top"
+      on:mousedown={(e) => handleVerticalResizeStart(e, 'top')}
+      on:touchstart={(e) => handleVerticalResizeStart(e, 'top')}
+      on:keydown={(e) => handleResizeKeydown(e, 'vertical', 'top')}
+      title="Resize row height"
+      role="slider"
+      tabindex="0"
+      aria-orientation="horizontal"
+      aria-label="Resize row height from top"
+      aria-valuenow={panel.heightPixels || 400}
+      aria-valuemin="150"
+      aria-valuemax={Math.floor(window.innerHeight * 0.8)}
+    ></div>
+    <div
+      class="resize-handle resize-bottom"
+      on:mousedown={(e) => handleVerticalResizeStart(e, 'bottom')}
+      on:touchstart={(e) => handleVerticalResizeStart(e, 'bottom')}
+      on:keydown={(e) => handleResizeKeydown(e, 'vertical', 'bottom')}
+      title="Resize row height"
+      role="slider"
+      tabindex="0"
+      aria-orientation="horizontal"
+      aria-label="Resize row height from bottom"
+      aria-valuenow={panel.heightPixels || 400}
+      aria-valuemin="150"
+      aria-valuemax={Math.floor(window.innerHeight * 0.8)}
+    ></div>
+  {/if}
+
+  <!-- Mobile-specific resize handle - always show on mobile for better UX -->
+  <div
     class="mobile-resize-handle"
     on:touchstart={(e) => handleVerticalResizeStart(e, 'bottom')}
     on:mousedown={(e) => handleVerticalResizeStart(e, 'bottom')}
     on:keydown={(e) => handleResizeKeydown(e, 'vertical', 'bottom')}
-    title="Drag to resize"
+    title="Drag to resize row"
     role="slider"
     tabindex="0"
     aria-orientation="horizontal"
-    aria-label="Resize panel height"
+    aria-label="Resize row height"
     aria-valuenow={panel.heightPixels || 400}
     aria-valuemin="100"
     aria-valuemax={Math.floor(window.innerHeight * 0.9)}
@@ -1638,7 +1649,7 @@
       bottom: -10px;
     }
     
-    /* Add visual indicator for mobile resize handles */
+    /* Add visual indicator for mobile resize handles - hidden by default to avoid gaps */
     .resize-handle.resize-top::after,
     .resize-handle.resize-bottom::after {
       content: '';
@@ -1649,7 +1660,7 @@
       height: 4px;
       background-color: var(--panel-border, #3e3e42);
       border-radius: 2px;
-      opacity: 0.8;
+      opacity: 0; /* Hidden by default - only show on touch */
       transition: all 0.2s;
     }
     
@@ -1749,15 +1760,15 @@
     right: -10px;
   }
   
-  /* Show mobile handle on touch devices */
-  @media (max-width: 768px) and (pointer: coarse) {
+  /* Show mobile handle on narrow viewports */
+  @media (max-width: 768px) {
     .mobile-resize-handle {
-      display: block;
+      display: block !important; /* Force display on mobile viewports */
     }
-    
+
     /* Hide the standard bottom resize handle on mobile since we have the mobile one */
     .resize-handle.resize-bottom {
-      display: none;
+      display: none !important;
     }
   }
   
@@ -1796,7 +1807,7 @@
   /* Ensure resize handle is visible even when panel is at bottom of viewport */
   @media (max-width: 768px) {
     .row-panel {
-      margin-bottom: 15px;
+      margin-bottom: 0; /* No gap between panels on mobile */
     }
   }
   

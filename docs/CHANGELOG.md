@@ -1,5 +1,148 @@
 # MorphBox Changelog
 
+## 2025-10-29 - v1.3.0 (Multiple Terminals & Enhanced Prompt Queue)
+
+### New Features
+- **✨ Multiple Terminal Support**: Can now open unlimited Sandbox Terminals and Admin Terminals simultaneously
+  - Each terminal gets unique sequential numbering (Sandbox Terminal 1, 2, 3, etc.)
+  - Removed duplicate panel restrictions for terminal types
+  - Updated panel manager to allow multiple instances
+
+- **🎯 Enhanced Prompt Queue Terminal Targeting**:
+  - Added "All Terminals" broadcast option - send prompts to all terminals at once
+  - Restored terminal selector dropdown for each prompt
+  - Smart default selection: prioritizes sandbox terminals, then admin terminals
+  - Updated to recognize new sandboxTerminal and adminTerminal panel types
+
+- **🔐 Sandboxed Parameter Implementation**: Admin terminals now correctly run on host with full system access
+  - Added `sandboxed` field to `AgentOptions` interface
+  - BashAgent supports both sandboxed (Docker) and host (PTY) modes
+  - WebSocket server parses and passes sandboxed parameter correctly
+  - Clear console warnings distinguish between modes
+
+### Bug Fixes
+- Fixed: Both terminal types were showing as sandboxed - admin terminal now runs on host as intended
+- Fixed: Could only open one terminal of each type - now supports multiple instances
+- Fixed: Prompt Queue wasn't recognizing new terminal types - updated filters throughout
+- Fixed: Terminal targeting in Prompt Queue not working - fully restored functionality
+
+### Technical Changes
+- **agent-manager.ts**: Added `sandboxed?: boolean` to `AgentOptions`
+- **bash-agent.ts**: Implemented dual-mode PTY spawning (Docker container vs host)
+- **websocket.ts**: Added sandboxed parameter parsing and passing to agent launcher
+- **panels.ts**: Added sandboxTerminal/adminTerminal to builtInTypes array with counters
+- **PanelManager.svelte**: Updated allowMultiple array to include new terminal types
+- **PromptQueue.svelte**:
+  - Updated terminal filters to include sandboxTerminal/adminTerminal
+  - Implemented "All Terminals" broadcast functionality
+  - Added smart default terminal selection logic
+
+### User Experience Improvements
+- Terminal selector now shows individual terminals first, "All Terminals" option at bottom
+- Default terminal selection prioritizes safety: sandbox first, then admin
+- Clear visual distinction between terminal types in UI
+- Auto-completion for "All Terminals" prompts (2 second delay)
+
+## 2025-10-29 - v1.2.0 (Automatic Version Detection & Container Rebuild)
+
+### New Features
+- **🔄 Automatic Container Version Detection**: MorphBox now automatically detects when the npm package version doesn't match the running Docker container version
+  - Adds `MORPHBOX_VERSION` build argument to Dockerfile
+  - Labels container images with version metadata (`morphbox.version` label)
+  - Checks version on every startup and rebuilds if mismatch detected
+
+- **📦 Version-Specific Image Tagging**: Docker images now use version-specific tags (e.g., `morphbox:1.2.0`) in addition to `latest`
+  - Prevents issues where users install new version but run old container
+  - Each version builds its own image, allowing rollback if needed
+  - Backwards compatible with `morphbox:latest` tag
+
+### Problem Solved
+Previously, when users installed a new version via `npm install -g morphbox`, the CLI updated but the Docker container continued running old code. This meant new features (like Admin Terminal in v1.1.2) wouldn't appear until users manually rebuilt the container.
+
+### Solution
+- On startup, morphbox reads version from `package.json`
+- Compares it to the running container's image version label
+- If mismatch: automatically stops old container and rebuilds with new version
+- Users get features matching their installed version automatically
+
+### Technical Changes
+- **Dockerfile**: Added `MORPHBOX_VERSION` ARG and version labels
+- **morphbox-start**: Added version checking logic before container creation
+- **prepare-package.sh**: Builds images with version-specific tags and passes version as build arg
+- Container recreation now triggered by version mismatch, not just workspace changes
+
+### Benefits
+- Zero-friction updates: install and run, container rebuilds automatically
+- Version consistency: running code always matches installed package
+- Better debugging: can identify which version a container is running
+- Future-proof: supports version pinning and rollbacks
+
+## 2025-10-24 - v1.1.1 (Terminal Architecture Redesign - Fixed)
+
+### Patch Fixes (v1.1.1)
+- **Fixed**: Admin Terminal in packaged mode now correctly spawns on host
+  - Issue: `websocket-proxy.js` was missing the sandboxed logic, causing both terminals to run in container
+  - Solution: Added sandboxed parameter handling to websocket-proxy.js
+- **Fixed**: Blank space from old terminal/claude panel types in saved layouts
+  - Added filtering to remove obsolete panel types when loading saved layouts
+- **Changed**: Default panels now Sandbox Terminal + Prompt Queue (was just Sandbox Terminal)
+
+### Major Architectural Change
+- **🔧 BREAKING**: Replaced Terminal and Claude panels with unified dual-terminal architecture
+  - **New**: Sandbox Terminal (sandboxed=true) - Safe for AI autonomy with `--dangerously-skip-permissions`
+  - **New**: Admin Terminal (sandboxed=false) - Direct host access for real workflows ⚠️
+  - **Removed**: Claude panel (was just a wrapper - now redundant)
+
+### The Problem Solved
+MorphBox originally ran terminals only in sandboxed containers (safe for AI), but this broke real workflows like git push, NGINX builds, and production deployments. Users had to choose between AI safety and functional workflows.
+
+### The Solution
+Two terminal types with clear purposes:
+1. **Sandbox Terminal**: Runs in Docker container
+   - Primary terminal for AI agents with `--dangerously-skip-permissions`
+   - Contained blast radius - AI can't damage host system
+   - Safe for autonomous AI operations
+
+2. **Admin Terminal**: Runs directly on host ⚠️
+   - Full system access for git operations, builds, deployments
+   - Use with caution - no sandbox protection
+   - Enables real workflows that require host access
+
+### Technical Changes - Frontend
+- Added `sandboxed` prop to Terminal.svelte (default: true)
+- Updated panel registry with `sandboxTerminal` and `adminTerminal` entries
+- Removed Claude.svelte component (was redundant wrapper)
+- Updated all layouts (GridLayout, RowLayout, TerminalModeLayout)
+- Updated panel renderers (GridPanel, RowPanel)
+- Terminal.svelte passes `sandboxed` query param to backend
+
+### Technical Changes - Backend (Dev Mode)
+- Added `sandboxed` flag to AgentOptions interface
+- Modified BashAgent to support both container and host execution
+  - `sandboxed=true` (default): Spawns bash in Docker container via `docker exec`
+  - `sandboxed=false`: Spawns bash directly on host with `pty.spawn('/bin/bash')`
+- Updated prompt detection regex to handle both container and host prompts
+- WebSocket handler parses `sandboxed` query parameter and passes to agent launch
+- Added logging to clearly indicate when Admin terminals are spawned
+
+### Technical Changes - Backend (Packaged Mode)
+- Modified `websocket-proxy.js` to support Admin Terminal
+  - Parses `sandboxed` query parameter from WebSocket URL
+  - `sandboxed=false`: Spawns local PTY directly on host with `pty.spawn('/bin/bash')`
+  - `sandboxed=true`: Uses SSH to spawn in Docker container (existing behavior)
+  - Admin terminals bypass SSH entirely - true host access
+
+### Why This Works
+- FileExplorer, CodeEditor, GitPanel already talk to host (not sandboxed)
+- We just exposed what was already there - no architectural rewrite
+- AI gets safe autonomous environment (Sandbox Terminal)
+- Engineers get functional workflows (Admin Terminal)
+- Clean separation of concerns
+
+### Documentation Updated
+- MORPHBOX_PANEL_DEVELOPMENT_GUIDE.md - Updated Built-in Panels section
+- CLAUDE.md - Added Terminal Architecture section with full explanation
+
 ## 2025-10-06 - v1.0.0 (Major Release) 🎉
 
 ### Major Features

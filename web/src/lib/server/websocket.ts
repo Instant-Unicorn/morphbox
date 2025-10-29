@@ -73,10 +73,11 @@ export function handleWebSocketConnection(
   
   sessionStore.on('session-timeout', handleSessionTimeout);
   
-  // Extract terminal session ID and autoLaunchClaude from query params if provided
+  // Extract terminal session ID, autoLaunchClaude, and sandboxed from query params if provided
   const url = new URL(request.url || '', `http://${request.headers.host}`);
   const providedSessionId = url.searchParams.get('sessionId');
   const autoLaunchClaude = url.searchParams.get('autoLaunchClaude') === 'true';
+  const sandboxed = url.searchParams.get('sandboxed') !== 'false'; // Default to true (sandboxed)
   
   // Generate or use provided session ID
   const sessionId = providedSessionId || crypto.randomBytes(12).toString('hex');
@@ -188,11 +189,12 @@ export function handleWebSocketConnection(
 
           // Launch bash agent with Claude command
           // Use morphbox user instead of root so --dangerously-skip-permissions works
-          console.log('Launching bash agent with Claude');
+          console.log('Launching bash agent with Claude, sandboxed=', sandboxed);
           currentAgentId = await agentManager.launchAgent('bash', {
             sessionId: currentSessionId,
             workspacePath: process.cwd(),
-            vmUser: 'morphbox'
+            vmUser: 'morphbox',
+            sandboxed: sandboxed
           });
 
           // Store session info
@@ -351,10 +353,12 @@ export function handleWebSocketConnection(
           currentSessionId = await stateManager.createSession(process.cwd(), 'bash');
           send('SESSION_CREATED', { sessionId: currentSessionId });
 
-          // Launch bash agent
+          // Launch bash agent with sandboxed option
+          console.log('Launching bash agent for terminal connection, sandboxed=', sandboxed);
           currentAgentId = await agentManager.launchAgent('bash', {
             sessionId: currentSessionId,
-            workspacePath: process.cwd()
+            workspacePath: process.cwd(),
+            sandboxed: sandboxed
           });
 
           // Store session info
@@ -688,11 +692,13 @@ export function handleWebSocketConnection(
             currentSessionId = await stateManager.createSession(process.cwd(), 'bash');
             send('SESSION_CREATED', { sessionId: currentSessionId });
           }
-          
-          // Launch bash agent
+
+          // Launch bash agent with sandboxed option
+          console.log('Launching bash agent on message, sandboxed=', sandboxed);
           currentAgentId = await agentManager.launchAgent('bash', {
             sessionId: currentSessionId,
-            workspacePath: process.cwd()
+            workspacePath: process.cwd(),
+            sandboxed: sandboxed
           });
           
           // Set up agent event listeners

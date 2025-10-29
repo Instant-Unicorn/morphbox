@@ -83,18 +83,33 @@ const HOT_RELOAD_MARKER = 'morphbox-hot-reload-marker';
 
 // Default panel configurations
 export const defaultPanelConfigs: Record<string, Partial<Panel>> = {
+  sandboxTerminal: {
+    type: 'sandboxTerminal',
+    title: 'Sandbox Terminal',
+    size: { width: 800, height: 400 },
+    persistent: false,
+    terminalPersistent: true
+  },
+  adminTerminal: {
+    type: 'adminTerminal',
+    title: 'Admin Terminal',
+    size: { width: 800, height: 400 },
+    persistent: false,
+    terminalPersistent: true
+  },
+  // Legacy support - map old types to new ones
   terminal: {
-    type: 'terminal',
-    title: 'Terminal',
+    type: 'sandboxTerminal',
+    title: 'Sandbox Terminal',
     size: { width: 800, height: 400 },
     persistent: false,
     terminalPersistent: true
   },
   claude: {
-    type: 'claude',
-    title: 'Claude',
+    type: 'sandboxTerminal',
+    title: 'Sandbox Terminal',
     size: { width: 800, height: 400 },
-    persistent: true,
+    persistent: false,
     terminalPersistent: true
   },
   fileExplorer: {
@@ -315,12 +330,16 @@ export function restorePanelSnapshot(snapshotData: string): PanelState | null {
 // Session-based counters for terminal numbering
 let terminalCounter = 0;
 let claudeCounter = 0;
+let sandboxTerminalCounter = 0;
+let adminTerminalCounter = 0;
 
 // Initialize counters based on existing panels
 function initializeCounters(panels: Panel[]) {
   // Find the highest numbered terminal and claude panels
   let maxTerminal = 0;
   let maxClaude = 0;
+  let maxSandbox = 0;
+  let maxAdmin = 0;
 
   panels.forEach(panel => {
     if (panel.type === 'terminal' && panel.title) {
@@ -333,11 +352,23 @@ function initializeCounters(panels: Panel[]) {
       if (match) {
         maxClaude = Math.max(maxClaude, parseInt(match[1]));
       }
+    } else if (panel.type === 'sandboxTerminal' && panel.title) {
+      const match = panel.title.match(/Sandbox Terminal (\d+)/);
+      if (match) {
+        maxSandbox = Math.max(maxSandbox, parseInt(match[1]));
+      }
+    } else if (panel.type === 'adminTerminal' && panel.title) {
+      const match = panel.title.match(/Admin Terminal (\d+)/);
+      if (match) {
+        maxAdmin = Math.max(maxAdmin, parseInt(match[1]));
+      }
     }
   });
 
   terminalCounter = maxTerminal;
   claudeCounter = maxClaude;
+  sandboxTerminalCounter = maxSandbox;
+  adminTerminalCounter = maxAdmin;
 }
 
 // Create the main store
@@ -345,11 +376,12 @@ function createPanelStore() {
   // Try to restore state from sessionStorage first
   const restoredState = loadStateFromSessionStorage();
   
-  // Filter out FileExplorer panels if they exist in restored state
+  // Filter out obsolete panel types from restored state
   if (restoredState && restoredState.panels) {
-    restoredState.panels = restoredState.panels.filter(p => p.type !== 'fileExplorer');
+    const obsoleteTypes = ['fileExplorer', 'terminal', 'claude'];
+    restoredState.panels = restoredState.panels.filter(p => !obsoleteTypes.includes(p.type));
     if (restoredState.panels.length === 0) {
-      // If no panels left after filtering, set to null to use defaults
+      // If no panels left after filtering, set to empty array to use defaults
       restoredState.panels = [];
     }
   }
@@ -378,7 +410,7 @@ function createPanelStore() {
   // Initialize counters based on existing panels
   if (initialState.panels.length > 0) {
     initializeCounters(initialState.panels);
-    console.log('[PanelStore] Initialized counters:', { terminalCounter, claudeCounter });
+    console.log('[PanelStore] Initialized counters:', { terminalCounter, claudeCounter, sandboxTerminalCounter, adminTerminalCounter });
   }
 
   const { subscribe, set, update } = writable<PanelState>(initialState);
@@ -428,7 +460,7 @@ function createPanelStore() {
         const defaultConfig = defaultPanelConfigs[type] || {};
 
         // Built-in panel types that need unique IDs
-        const builtInTypes = ['terminal', 'claude', 'fileExplorer', 'editor', 'codeEditor', 'preview', 'settings'];
+        const builtInTypes = ['terminal', 'claude', 'sandboxTerminal', 'adminTerminal', 'fileExplorer', 'editor', 'codeEditor', 'preview', 'settings'];
 
         // For custom panels, use the type as the ID to match the filename
         // For built-in panels, use provided ID (for restoration) or generate a unique ID (for new panels)
@@ -458,6 +490,12 @@ function createPanelStore() {
           } else if (type === 'claude') {
             claudeCounter++;
             title = `Claude ${claudeCounter}`;
+          } else if (type === 'sandboxTerminal') {
+            sandboxTerminalCounter++;
+            title = `Sandbox Terminal ${sandboxTerminalCounter}`;
+          } else if (type === 'adminTerminal') {
+            adminTerminalCounter++;
+            title = `Admin Terminal ${adminTerminalCounter}`;
           }
         }
 

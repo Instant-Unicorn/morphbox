@@ -26,44 +26,72 @@ export class BashAgent extends EventEmitter implements Agent {
       console.log('Creating bash PTY with options:', {
         cwd: this.options.workspacePath || process.env.HOME || '/',
         cols: 80,
-        rows: 24
+        rows: 24,
+        sandboxed: this.options.sandboxed !== false  // Default to sandboxed
       });
-      
-      // SECURITY: Use Docker container for isolation
-      // The workspace is mounted at /workspace in the container
-      const workDir = '/workspace';
 
-      // If vmUser is specified, run as that user (needed for Claude with --dangerously-skip-permissions)
-      // Claude Code won't allow --dangerously-skip-permissions when running as root
-      const dockerArgs = this.options.vmUser
-        ? [
-            'exec',
-            '-it',
-            'morphbox-vm',
-            'su', '-', this.options.vmUser, '-c',
-            `cd ${workDir} && /bin/bash -i`
-          ]
-        : [
-            'exec',
-            '-it',
-            '-w', workDir,  // Set working directory in container
-            'morphbox-vm',
-            '/bin/bash',
-            '-i'
-          ];
-      
-      console.log('Spawning containerized bash with args:', dockerArgs);
-      
-      this.pty = pty.spawn('docker', dockerArgs, {
-        name: 'xterm-256color',
-        env: {
-          ...process.env,
-          TERM: 'xterm-256color',
-          COLORTERM: 'truecolor'
-        },
-        cols: 80,
-        rows: 24
-      });
+      // Check if we should run sandboxed (default) or on host
+      const sandboxed = this.options.sandboxed !== false;  // Default to true
+
+      if (sandboxed) {
+        console.log('⚠️ [BashAgent] Running in SANDBOXED Docker container');
+
+        // SECURITY: Use Docker container for isolation
+        // The workspace is mounted at /workspace in the container
+        const workDir = '/workspace';
+
+        // If vmUser is specified, run as that user (needed for Claude with --dangerously-skip-permissions)
+        // Claude Code won't allow --dangerously-skip-permissions when running as root
+        const dockerArgs = this.options.vmUser
+          ? [
+              'exec',
+              '-it',
+              'morphbox-vm',
+              'su', '-', this.options.vmUser, '-c',
+              `cd ${workDir} && /bin/bash -i`
+            ]
+          : [
+              'exec',
+              '-it',
+              '-w', workDir,  // Set working directory in container
+              'morphbox-vm',
+              '/bin/bash',
+              '-i'
+            ];
+
+        console.log('Spawning containerized bash with args:', dockerArgs);
+
+        this.pty = pty.spawn('docker', dockerArgs, {
+          name: 'xterm-256color',
+          env: {
+            ...process.env,
+            TERM: 'xterm-256color',
+            COLORTERM: 'truecolor'
+          },
+          cols: 80,
+          rows: 24
+        });
+      } else {
+        console.log('⚠️ [BashAgent] Running on HOST - direct system access (use with caution)');
+
+        // Run directly on host - use with caution!
+        const command = '/bin/bash';
+        const args = ['-i'];  // Interactive mode
+
+        this.pty = pty.spawn(command, args, {
+          name: 'xterm-256color',
+          cwd: this.options.workspacePath || process.env.HOME || process.cwd(),
+          env: {
+            ...process.env,
+            TERM: 'xterm-256color',
+            COLORTERM: 'truecolor'
+          },
+          cols: 80,
+          rows: 24
+        });
+
+        console.log(`⚠️ [BashAgent] PTY spawned on host: ${command} ${args.join(' ')}`);
+      }
 
       // Handle PTY output
       this.pty.onData((data) => {

@@ -36,7 +36,7 @@
 
   // Get available terminals with their detected CLI types
   $: availableTerminals = $allPanels
-    .filter(panel => panel.type === 'terminal' || panel.type === 'claude')
+    .filter(panel => ['terminal', 'claude', 'sandboxTerminal', 'adminTerminal'].includes(panel.type))
     .map(panel => {
       const terminal = typeof window !== 'undefined' && window.morphboxTerminals?.[panel.id];
       const cliType = terminal?.cliType || (panel.type === 'claude' ? 'claude' : 'bash');
@@ -425,6 +425,47 @@
     // Find target terminal based on prompt configuration
     let targetTerminal, targetPanelId;
 
+    // Handle "send to all terminals" case
+    if (nextPrompt.targetTerminalId === 'ALL_TERMINALS') {
+      const panels = get(allPanels);
+      const terminalPanels = panels.filter(p =>
+        ['terminal', 'claude', 'sandboxTerminal', 'adminTerminal'].includes(p.type)
+      );
+
+      if (terminalPanels.length === 0) {
+        console.error('[PromptQueue] No terminals available for sending to all');
+        return;
+      }
+
+      console.log(`[PromptQueue] Sending prompt to ${terminalPanels.length} terminals`);
+      const finalPrompt = buildPromptWithModes(nextPrompt);
+
+      // Mark as active
+      promptQueueStore.setPromptStatus(nextPrompt.id, 'active');
+      promptQueueStore.setTargetTerminal(nextPrompt.id, 'ALL_TERMINALS');
+
+      // Send to all terminals
+      terminalPanels.forEach((panel, index) => {
+        const terminal = window.morphboxTerminals?.[panel.id];
+        if (terminal) {
+          console.log(`[PromptQueue] Sending to terminal ${index + 1}/${terminalPanels.length}: ${panel.title}`);
+          terminal.sendInput(finalPrompt);
+          setTimeout(() => {
+            terminal.sendInput('\r');
+          }, 100);
+        }
+      });
+
+      // For "all terminals" mode, auto-complete after sending
+      setTimeout(() => {
+        console.log('[PromptQueue] Auto-completing after sending to all terminals');
+        promptQueueStore.setPromptStatus(nextPrompt.id, 'completed');
+        processNextPrompt();
+      }, 2000);
+
+      return;
+    }
+
     if (nextPrompt.targetTerminalId) {
       targetTerminal = findTerminalById(nextPrompt.targetTerminalId);
       targetPanelId = nextPrompt.targetTerminalId;
@@ -496,6 +537,47 @@
 
     // Find target terminal (same logic as processNextPrompt)
     let targetTerminal, targetPanelId;
+
+    // Handle "send to all terminals" case
+    if (nextPrompt.targetTerminalId === 'ALL_TERMINALS') {
+      const panels = get(allPanels);
+      const terminalPanels = panels.filter(p =>
+        ['terminal', 'claude', 'sandboxTerminal', 'adminTerminal'].includes(p.type)
+      );
+
+      if (terminalPanels.length === 0) {
+        console.error('[PromptQueue] No terminals available for sending to all');
+        return;
+      }
+
+      console.log(`[PromptQueue] Sending prompt to ${terminalPanels.length} terminals`);
+      const finalPrompt = buildPromptWithModes(nextPrompt);
+
+      // Mark as active
+      promptQueueStore.setPromptStatus(nextPrompt.id, 'active');
+      promptQueueStore.setTargetTerminal(nextPrompt.id, 'ALL_TERMINALS');
+
+      // Send to all terminals
+      terminalPanels.forEach((panel, index) => {
+        const terminal = window.morphboxTerminals?.[panel.id];
+        if (terminal) {
+          console.log(`[PromptQueue] Sending to terminal ${index + 1}/${terminalPanels.length}: ${panel.title}`);
+          terminal.sendInput(finalPrompt);
+          setTimeout(() => {
+            terminal.sendInput('\r');
+          }, 100);
+        }
+      });
+
+      // For "all terminals" mode, auto-complete after sending
+      setTimeout(() => {
+        console.log('[PromptQueue] Auto-completing after sending to all terminals');
+        promptQueueStore.setPromptStatus(nextPrompt.id, 'completed');
+        processNextPromptDirect();
+      }, 2000);
+
+      return;
+    }
 
     if (nextPrompt.targetTerminalId) {
       targetTerminal = findTerminalById(nextPrompt.targetTerminalId);
@@ -888,9 +970,13 @@
   function handleAddPrompt() {
     if (!inputValue.trim()) return;
 
-    // Find first Claude terminal to use as default
-    const claudeTerminal = availableTerminals.find(t => t.cliType === 'claude');
-    const defaultTerminalId = claudeTerminal?.id || availableTerminals[0]?.id;
+    // Priority: 1) First sandbox terminal, 2) First admin terminal, 3) Any terminal
+    const panels = get(allPanels);
+    const sandboxTerminal = panels.find(p =>
+      ['terminal', 'claude', 'sandboxTerminal'].includes(p.type)
+    );
+    const adminTerminal = panels.find(p => p.type === 'adminTerminal');
+    const defaultTerminalId = sandboxTerminal?.id || adminTerminal?.id || availableTerminals[0]?.id;
 
     promptQueueStore.addPrompt(inputValue, defaultTerminalId);
     inputValue = '';
@@ -1237,6 +1323,7 @@
                       {#if terminal.cliType !== 'bash'}({terminal.cliType}){/if}
                     </option>
                   {/each}
+                  <option value="ALL_TERMINALS">📢 All Terminals</option>
                 </select>
               </div>
             {/if}

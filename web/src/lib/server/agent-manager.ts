@@ -10,6 +10,7 @@ export interface AgentOptions {
   vmHost?: string;
   vmPort?: number;
   vmUser?: string;
+  sandboxed?: boolean;  // Whether to run in sandboxed Docker container (default: true)
 }
 
 export interface Agent extends EventEmitter {

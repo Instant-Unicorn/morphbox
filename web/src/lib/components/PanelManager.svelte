@@ -87,9 +87,10 @@
     console.log('[PanelManager] Opening panel:', { panelId, definition });
     
     if (definition) {
-      // Check if panel already exists (except for terminal and claude which can have multiple)
+      // Check if panel already exists (except for terminals which can have multiple)
       const existingPanel = $panels.find(p => p.type === definition.id);
-      if (existingPanel && definition.id !== 'terminal' && definition.id !== 'claude') {
+      const allowMultiple = ['terminal', 'claude', 'sandboxTerminal', 'adminTerminal'].includes(definition.id);
+      if (existingPanel && !allowMultiple) {
         // Focus existing panel instead of creating new one
         // For grid layout, we can't really "focus" but we could highlight it
         return;

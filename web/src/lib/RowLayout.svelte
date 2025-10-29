@@ -3,7 +3,6 @@
   import { browser } from '$app/environment';
   import { panels, panelStore, activePanel, type Panel } from '$lib/stores/panels';
   import Terminal from '$lib/Terminal.svelte';
-  import Claude from '$lib/Claude.svelte';
   import FileExplorer from '$lib/panels/FileExplorer/FileExplorer.svelte';
   import CodeEditor from '$lib/panels/CodeEditor/CodeEditor.svelte';
   import Settings from '$lib/panels/Settings/Settings.svelte';
@@ -21,7 +20,9 @@
   // Static component mapping for built-in panels
   const builtinComponents = {
     terminal: Terminal,
-    claude: Claude,
+    claude: Terminal, // Legacy - maps to Terminal with autoLaunchClaude
+    sandboxTerminal: Terminal,
+    adminTerminal: Terminal,
     fileExplorer: FileExplorer,
     'file-explorer': FileExplorer,
     codeEditor: CodeEditor,
@@ -251,16 +252,16 @@
     };
   });
   
-  // Initialize layout with Claude
+  // Initialize layout with Sandbox Terminal and Prompt Queue
   function initializeLayout() {
     panelStore.clear();
-    
+
     // Get row height from settings
     const currentSettings = $settings;
     const rowHeight = currentSettings.panels?.rowHeight || 400;
-    
-    const newPanel = panelStore.addPanel('claude', { 
-      title: 'Claude',
+
+    const newPanel = panelStore.addPanel('sandboxTerminal', {
+      title: 'Sandbox Terminal',
       rowIndex: 0,
       widthPercent: 100,
       heightPixels: rowHeight,

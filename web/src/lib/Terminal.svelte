@@ -31,6 +31,7 @@
 
   export let websocketUrl = 'ws://localhost:3000';
   export let autoLaunchClaude = false;
+  export let sandboxed = true; // Whether to run in sandboxed container (true) or on host (false)
   export let panelId: string = '';
   export let backgroundColor: string | undefined = undefined;
   export let textColor: string | undefined = undefined;
@@ -323,6 +324,7 @@
         console.log(`[Terminal ${panelId}] Using sessionId for WebSocket connection:`, sessionId);
       }
       urlObj.searchParams.set('autoLaunchClaude', autoLaunchClaude.toString());
+      urlObj.searchParams.set('sandboxed', sandboxed.toString());
       url = urlObj.toString();
     }
     

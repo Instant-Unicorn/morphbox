@@ -356,12 +356,24 @@ info "Checking Docker container..."
 USER_DIR="${MORPHBOX_USER_DIR:-$INITIAL_PWD}"
 info "User workspace: $USER_DIR"
 
+# Get the current morphbox version for checking
+MORPHBOX_VERSION=$(node -e "console.log(require('$SCRIPT_DIR/package.json').version)" 2>/dev/null || echo "unknown")
+
 # Check if container exists (running or stopped)
 if docker ps -a | grep -q "$CONTAINER_NAME"; then
-    # Container exists - check if volumes are correct
+    # Container exists - check version, workspace, and state
+    CONTAINER_IMAGE=$(docker inspect "$CONTAINER_NAME" --format '{{ .Config.Image }}' 2>/dev/null || echo "")
+    CONTAINER_IMAGE_VERSION=$(docker image inspect "$CONTAINER_IMAGE" --format '{{index .Config.Labels "morphbox.version"}}' 2>/dev/null || echo "")
     CONTAINER_WORKSPACE=$(docker inspect "$CONTAINER_NAME" --format '{{ range .Mounts }}{{ if eq .Destination "/workspace" }}{{ .Source }}{{ end }}{{ end }}')
-    
-    if [[ "$CONTAINER_WORKSPACE" != "$USER_DIR" ]]; then
+
+    # Check version mismatch
+    if [[ "$CONTAINER_IMAGE_VERSION" != "$MORPHBOX_VERSION" ]]; then
+        info "Container version mismatch: running $CONTAINER_IMAGE_VERSION, package is $MORPHBOX_VERSION"
+        info "Recreating container with updated version..."
+        docker stop "$CONTAINER_NAME" 2>/dev/null || true
+        docker rm "$CONTAINER_NAME" 2>/dev/null || true
+        NEED_CREATE=true
+    elif [[ "$CONTAINER_WORKSPACE" != "$USER_DIR" ]]; then
         # Workspace mismatch - MUST recreate container with correct mount
         # This is core MorphBox functionality - the container must always
         # use the current directory as workspace
@@ -371,12 +383,12 @@ if docker ps -a | grep -q "$CONTAINER_NAME"; then
         docker rm "$CONTAINER_NAME" 2>/dev/null || true
         NEED_CREATE=true
     elif ! docker ps | grep -q "$CONTAINER_NAME"; then
-        info "Starting existing MorphBox VM container..."
+        info "Starting existing MorphBox VM container (v$CONTAINER_IMAGE_VERSION)..."
         docker start "$CONTAINER_NAME"
         sleep 2
         NEED_CREATE=false
     else
-        info "MorphBox VM container already running with correct workspace"
+        info "MorphBox VM container already running (v$CONTAINER_IMAGE_VERSION)"
         NEED_CREATE=false
     fi
 else
@@ -385,13 +397,25 @@ fi
 
 if [[ "$NEED_CREATE" == "true" ]]; then
     info "Creating MorphBox VM container with workspace: $USER_DIR"
+    info "MorphBox package version: $MORPHBOX_VERSION"
 
-    # Check if morphbox:latest image exists
-    if docker image inspect morphbox:latest >/dev/null 2>&1; then
-        info "Using existing morphbox:latest image"
-        IMAGE_EXISTS=true
+    # Check if version-specific image exists
+    IMAGE_TAG="morphbox:${MORPHBOX_VERSION}"
+    if docker image inspect "$IMAGE_TAG" >/dev/null 2>&1; then
+        # Check if the image has the correct version label
+        IMAGE_LABEL_VERSION=$(docker image inspect "$IMAGE_TAG" --format '{{index .Config.Labels "morphbox.version"}}' 2>/dev/null || echo "")
+
+        if [[ "$IMAGE_LABEL_VERSION" == "$MORPHBOX_VERSION" ]]; then
+            info "Using existing $IMAGE_TAG image (version verified)"
+            IMAGE_EXISTS=true
+        else
+            warn "Image $IMAGE_TAG exists but has wrong version label ($IMAGE_LABEL_VERSION)"
+            warn "Rebuilding to ensure correct version..."
+            docker rmi -f "$IMAGE_TAG" 2>/dev/null || true
+            IMAGE_EXISTS=false
+        fi
     else
-        warn "morphbox:latest image not found - will build it now"
+        warn "$IMAGE_TAG image not found - will build it now"
         warn "This may take a few minutes on first run..."
         IMAGE_EXISTS=false
     fi
@@ -432,7 +456,7 @@ if [[ "$NEED_CREATE" == "true" ]]; then
         cat > "$TEMP_COMPOSE" << EOF
 services:
   morphbox-vm:
-    image: morphbox:latest
+    image: $IMAGE_TAG
     container_name: $CONTAINER_NAME
     hostname: $CONTAINER_NAME
     ports:
@@ -458,14 +482,16 @@ ${DEV_PORT_MAPPINGS}    volumes:
       - morphbox-network
 EOF
     else
-        # Build the image for first-time users
+        # Build the image with version tag
         cat > "$TEMP_COMPOSE" << EOF
 services:
   morphbox-vm:
     build:
       context: $SCRIPT_DIR/docker
       dockerfile: Dockerfile
-    image: morphbox:latest
+      args:
+        - MORPHBOX_VERSION=$MORPHBOX_VERSION
+    image: $IMAGE_TAG
     container_name: $CONTAINER_NAME
     hostname: $CONTAINER_NAME
     ports:

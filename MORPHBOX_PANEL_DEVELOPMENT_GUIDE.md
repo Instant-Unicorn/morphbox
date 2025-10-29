@@ -252,15 +252,18 @@ Panels can use Svelte stores for state management:
 
 ## Built-in Panels Reference
 
-### Terminal Panel
-- **Location**: `web/src/lib/Terminal.svelte`
-- **Features**: Full terminal emulator with PTY support
+### Sandbox Terminal Panel
+- **Location**: `web/src/lib/Terminal.svelte` (with `sandboxed={true}`)
+- **Features**: Full terminal emulator running in Docker container, safe for AI autonomy with `--dangerously-skip-permissions` mode
 - **WebSocket Events**: `create_session`, `terminal_input`, `terminal_output`
+- **Use Case**: Primary terminal for running AI agents and automated tasks with contained blast radius
 
-### Claude Panel
-- **Location**: `web/src/lib/Claude.svelte`
-- **Features**: AI assistant integration with streaming responses
-- **WebSocket Events**: `claude_message`, `claude_response`, `claude_stream`
+### Admin Terminal Panel
+- **Location**: `web/src/lib/Terminal.svelte` (with `sandboxed={false}`)
+- **Features**: Full terminal emulator with direct host system access
+- **WebSocket Events**: `create_session`, `terminal_input`, `terminal_output`
+- **Use Case**: System administration tasks requiring host access (git push, NGINX builds, production deployments)
+- **Warning**: ⚠️ Use with caution - has full host system access
 
 ### File Explorer
 - **Location**: `web/src/lib/panels/FileExplorer/FileExplorer.svelte`

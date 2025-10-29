@@ -27,8 +27,8 @@ When working with MorphBox panels, refer to the comprehensive guide at `/home/kr
 3. Export from `web/src/lib/panels/index.ts`
 
 ### Built-in Panels
-- Terminal (`web/src/lib/Terminal.svelte`) - PTY terminal emulator
-- Claude (`web/src/lib/Claude.svelte`) - AI assistant interface
+- **Sandbox Terminal** (`web/src/lib/Terminal.svelte` with `sandboxed={true}`) - PTY terminal in container, safe for AI autonomy
+- **Admin Terminal** (`web/src/lib/Terminal.svelte` with `sandboxed={false}`) - PTY terminal on host, for system access
 - FileExplorer (`web/src/lib/panels/FileExplorer/`) - File navigation
 - CodeEditor (`web/src/lib/panels/CodeEditor/`) - Monaco editor integration
 - GitPanel (`web/src/lib/panels/GitPanel/`) - Git operations
@@ -37,16 +37,48 @@ When working with MorphBox panels, refer to the comprehensive guide at `/home/kr
 - TaskRunner (`web/src/lib/panels/TaskRunner/`) - Command execution
 - PromptQueue (`web/src/lib/panels/PromptQueue/`) - Claude prompt management
 
+### Terminal Architecture
+MorphBox now has **two terminal types** solving a key architectural issue:
+
+**The Problem:**
+- Originally, terminals ran only in sandboxed containers (safe for AI)
+- But this broke real workflows: git push, NGINX builds, production deploys
+- The old "Claude Panel" was just a wrapper around Terminal
+
+**The Solution:**
+1. **Sandbox Terminal** - Runs in container with `sandboxed={true}`
+   - Safe for AI with `--dangerously-skip-permissions` mode
+   - Contained blast radius
+   - Primary terminal for AI automation
+
+2. **Admin Terminal** - Runs on host with `sandboxed={false}` ⚠️
+   - Direct host access for git, builds, deployments
+   - Use with caution - full system access
+   - For tasks requiring real system access
+
+**Why this works:**
+- AI can run autonomously in Sandbox Terminal (safe)
+- Real workflows (git, NGINX) work in Admin Terminal (host access)
+- No architectural rewrite needed - just exposed what was already there
+- Other panels (FileExplorer, CodeEditor, GitPanel) already talk to host
+
 ### Important Patterns
 - Use `panelId` prop to namespace all panel-specific operations
 - Handle WebSocket via `getContext('websocket')`
 - Clean up resources in `onDestroy()`
 - Use CSS variables for theming consistency
 - Support multiple panel instances with unique IDs
+- For terminals, specify `sandboxed` prop based on use case
 
 ### Container Context
-Remember panels run inside Docker containers with:
+**Sandbox Terminals** run inside Docker containers with:
 - Container filesystem paths
 - Container networking
 - Resource limits
 - Volume mounts for persistence
+
+**Admin Terminals** run directly on the host system with:
+- Full filesystem access
+- Host networking
+- No resource limits (host limits apply)
+- Direct access to git, docker, system tools

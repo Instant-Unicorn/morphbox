@@ -2,6 +2,11 @@
 # Includes Claude, Gemini, and Codex CLI tools
 FROM node:20
 
+# Version label for tracking - set via build arg
+ARG MORPHBOX_VERSION=unknown
+LABEL morphbox.version="${MORPHBOX_VERSION}"
+LABEL org.opencontainers.image.version="${MORPHBOX_VERSION}"
+
 # Cache-optimized layer: System packages (rarely changes)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \

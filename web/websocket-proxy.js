@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 
 // Simple WebSocket proxy for packaged MorphBox
-// Forwards WebSocket connections to Docker container via SSH
+// Forwards WebSocket connections to Docker container via SSH (sandboxed)
+// Or spawns PTY directly on host (admin terminal)
 
 import { WebSocketServer } from 'ws';
 import { Client } from 'ssh2';
 import { spawn } from 'child_process';
+import pty from 'node-pty';
 
 const WS_PORT = process.env.PORT || 8009;
 const WEB_PORT = process.env.MORPHBOX_WEB_PORT || 8008;
@@ -26,6 +28,85 @@ const wss = new WebSocketServer({
 wss.on('listening', () => {
   console.log(`[WebSocket Proxy] Server listening on ${BIND_HOST}:${WS_PORT}`);
 });
+
+// Handle host terminal (Admin terminal - runs directly on host, not sandboxed)
+function handleHostTerminal(ws, autoLaunchClaude, sessionId) {
+  console.log('⚠️ [WebSocket Proxy] Spawning PTY on HOST (Admin Terminal)');
+
+  // Send initial connection message
+  ws.send(JSON.stringify({
+    type: 'CONNECTED',
+    payload: { message: 'Welcome to MorphBox Admin Terminal (Host Access)' }
+  }));
+
+  if (sessionId) {
+    ws.send(JSON.stringify({
+      type: 'TERMINAL_SESSION_ID',
+      payload: { sessionId }
+    }));
+  }
+
+  // Spawn PTY directly on host
+  const command = autoLaunchClaude ? 'claude' : '/bin/bash';
+  const args = autoLaunchClaude ? ['--dangerously-skip-permissions'] : [];
+
+  const ptyProcess = pty.spawn(command, args, {
+    name: 'xterm-256color',
+    cols: 80,
+    rows: 30,
+    cwd: process.env.HOME || process.cwd(),
+    env: process.env
+  });
+
+  console.log(`⚠️ [WebSocket Proxy] PTY spawned on host: ${command}`, args);
+
+  // Always send agent launched message with appropriate agentId
+  const agentId = autoLaunchClaude ? 'host-claude' : 'host-bash';
+  ws.send(JSON.stringify({
+    type: 'AGENT_LAUNCHED',
+    payload: { agentId }
+  }));
+
+  // Handle data from PTY to WebSocket
+  ptyProcess.onData((data) => {
+    if (ws.readyState === ws.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'OUTPUT',
+        payload: { data: data, agentId }
+      }));
+    }
+  });
+
+  ptyProcess.onExit((e) => {
+    console.log('[WebSocket Proxy] Host PTY exited:', e);
+    ws.close();
+  });
+
+  // Handle WebSocket messages
+  ws.on('message', (message) => {
+    try {
+      const msg = JSON.parse(message.toString());
+
+      if (msg.type === 'SEND_INPUT') {
+        ptyProcess.write(msg.payload.input);
+      } else if (msg.type === 'RESIZE') {
+        ptyProcess.resize(msg.payload.cols, msg.payload.rows);
+      }
+    } catch (err) {
+      console.error('[WebSocket Proxy] Host terminal message parse error:', err);
+    }
+  });
+
+  ws.on('close', () => {
+    console.log('[WebSocket Proxy] WebSocket closed, killing host PTY');
+    ptyProcess.kill();
+  });
+
+  ws.on('error', (err) => {
+    console.error('[WebSocket Proxy] WebSocket error:', err);
+    ptyProcess.kill();
+  });
+}
 
 wss.on('connection', (ws, req) => {
   console.log('[WebSocket Proxy] New connection from:', req.socket.remoteAddress);
@@ -65,7 +146,20 @@ wss.on('connection', (ws, req) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const autoLaunchClaude = url.searchParams.get('autoLaunchClaude') === 'true';
   const sessionId = url.searchParams.get('terminalSessionId');
-  
+  const sandboxed = url.searchParams.get('sandboxed') !== 'false'; // Default to true (sandboxed)
+
+  console.log('[WebSocket Proxy] Connection params:', { autoLaunchClaude, sessionId, sandboxed });
+
+  // For admin terminal (sandboxed=false), spawn PTY directly on host
+  if (!sandboxed) {
+    console.log('⚠️ [WebSocket Proxy] Admin Terminal - Running on HOST (not sandboxed)');
+    handleHostTerminal(ws, autoLaunchClaude, sessionId);
+    return;
+  }
+
+  // For sandbox terminal (sandboxed=true), use SSH to Docker container
+  console.log('[WebSocket Proxy] Sandbox Terminal - Running in Docker container');
+
   // Create SSH connection to Docker container
   const ssh = new Client();
   let shellStream = null;
@@ -98,23 +192,22 @@ wss.on('connection', (ws, req) => {
       }
       
       shellStream = stream;
-      
-      // Send agent launched message if Claude
-      if (autoLaunchClaude) {
-        ws.send(JSON.stringify({
-          type: 'AGENT_LAUNCHED',
-          payload: { agentId: 'ssh-claude' }
-        }));
-      }
-      
+
+      // Always send agent launched message with appropriate agentId
+      const agentId = autoLaunchClaude ? 'ssh-claude' : 'ssh-bash';
+      ws.send(JSON.stringify({
+        type: 'AGENT_LAUNCHED',
+        payload: { agentId }
+      }));
+
       let firstData = true;
-      
+
       // Handle data from SSH to WebSocket
       stream.on('data', (data) => {
         if (ws.readyState === ws.OPEN) {
           ws.send(JSON.stringify({
             type: 'OUTPUT',
-            payload: { data: data.toString() }
+            payload: { data: data.toString(), agentId }
           }));
         }
         

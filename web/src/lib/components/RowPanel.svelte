@@ -36,7 +36,7 @@
   }
   
   // Also check after a delay to ensure component is fully mounted
-  $: if (component && (panel.type === 'terminal' || panel.type === 'claude')) {
+  $: if (component && (panel.type === 'terminal' || panel.type === 'claude' || panel.type === 'sandboxTerminal' || panel.type === 'adminTerminal')) {
     setTimeout(() => {
       console.log(`Delayed check for panel ${panel.id}:`, {
         componentInstance,
@@ -754,7 +754,7 @@
     
     <div class="panel-controls">
       <!-- Edit button for custom panels only -->
-      {#if !['terminal', 'claude', 'file-explorer', 'code-editor', 'git-panel', 'web-browser', 'settings', 'task-runner', 'prompt-queue', 'fileExplorer', 'codeEditor', 'gitPanel', 'webBrowser', 'taskRunner', 'promptQueue'].includes(panel.type)}
+      {#if !['terminal', 'claude', 'sandboxTerminal', 'adminTerminal', 'file-explorer', 'code-editor', 'git-panel', 'web-browser', 'settings', 'task-runner', 'prompt-queue', 'fileExplorer', 'codeEditor', 'gitPanel', 'webBrowser', 'taskRunner', 'promptQueue'].includes(panel.type)}
         <button
           class="control-btn edit-panel-btn"
           on:click={handleEditPanel}
@@ -946,13 +946,14 @@
   <div class="panel-content">
     {#if component}
       {#key panel.id}
-        {#if panel.type === 'terminal' || panel.type === 'claude'}
+        {#if panel.type === 'terminal' || panel.type === 'claude' || panel.type === 'sandboxTerminal' || panel.type === 'adminTerminal'}
           <svelte:component
             this={component}
             bind:this={componentInstance}
             {websocketUrl}
             panelId={panel.id}
             autoLaunchClaude={panel.type === 'claude'}
+            sandboxed={panel.type !== 'adminTerminal'}
             backgroundColor={panel.backgroundColor}
             textColor={panel.textColor}
             boldTextColor={panel.boldTextColor}

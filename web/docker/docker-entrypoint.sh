@@ -63,8 +63,9 @@ chown -R morphbox:morphbox /usr/local/lib/node_modules /usr/local/bin /usr/local
 
 # Ensure morphbox user starts in /workspace directory
 echo "📁 Setting default directory to /workspace..."
-echo "cd /workspace" >> /home/morphbox/.bashrc
-echo "cd /workspace" >> /home/morphbox/.profile
+# Only add if not already present to avoid duplicates
+grep -qxF 'cd /workspace' /home/morphbox/.bashrc || echo "cd /workspace" >> /home/morphbox/.bashrc
+grep -qxF 'cd /workspace' /home/morphbox/.profile || echo "cd /workspace" >> /home/morphbox/.profile
 
 # Start SSH daemon
 echo "🔐 Starting SSH daemon..."

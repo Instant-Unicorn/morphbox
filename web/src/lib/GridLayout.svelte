@@ -3,7 +3,6 @@
   import { browser } from '$app/environment';
   import { panels, panelStore, type Panel } from '$lib/stores/panels';
   import Terminal from '$lib/Terminal.svelte';
-  import Claude from '$lib/Claude.svelte';
   import FileExplorer from '$lib/panels/FileExplorer/FileExplorer.svelte';
   import CodeEditor from '$lib/panels/CodeEditor/CodeEditor.svelte';
   import Settings from '$lib/panels/Settings/Settings.svelte';
@@ -22,7 +21,9 @@
   // Static component mapping for built-in panels
   const builtinComponents = {
     terminal: Terminal,
-    claude: Claude,
+    claude: Terminal, // Legacy - maps to Terminal with autoLaunchClaude
+    sandboxTerminal: Terminal,
+    adminTerminal: Terminal,
     fileExplorer: FileExplorer,
     'file-explorer': FileExplorer,
     codeEditor: CodeEditor,
@@ -138,11 +139,11 @@
     };
   });
   
-  // Initialize grid with Claude
+  // Initialize grid with Sandbox Terminal
   function initializeGrid() {
     panelStore.clear();
-    panelStore.addPanel('claude', { 
-      title: 'Claude',
+    panelStore.addPanel('sandboxTerminal', {
+      title: 'Sandbox Terminal',
       gridPosition: { row: 0, col: 0, rowSpan: 1, colSpan: gridColumns }
     });
   }

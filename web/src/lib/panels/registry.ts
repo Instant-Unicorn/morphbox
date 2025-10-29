@@ -133,20 +133,20 @@ function createPanelRegistry() {
     initializeBuiltins() {
       const builtinPanels: Omit<PanelDefinition, 'component'>[] = [
         {
-          id: 'terminal',
-          name: 'Terminal',
-          description: 'Interactive terminal emulator',
+          id: 'sandboxTerminal',
+          name: 'Sandbox Terminal',
+          description: 'Sandboxed terminal running in Docker container - safe for AI autonomy',
           path: '$lib/Terminal.svelte',
-          features: ['terminal', 'websocket'],
+          features: ['terminal', 'websocket', 'sandboxed'],
           createdAt: new Date(),
           isCustom: false
         },
         {
-          id: 'claude',
-          name: 'Claude',
-          description: 'Claude AI assistant',
-          path: '$lib/Claude.svelte',
-          features: ['terminal', 'websocket', 'ai'],
+          id: 'adminTerminal',
+          name: 'Admin Terminal',
+          description: 'Terminal with direct host access - use with caution ⚠️',
+          path: '$lib/Terminal.svelte',
+          features: ['terminal', 'websocket', 'host', 'admin'],
           createdAt: new Date(),
           isCustom: false
         },

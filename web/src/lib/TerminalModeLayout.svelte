@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
-  import Claude from '$lib/Claude.svelte';
+  import Terminal from '$lib/Terminal.svelte';
   import { settings, applyTheme } from '$lib/panels/Settings/settings-store';
   
   // WebSocket URL should use the same hostname as the web interface
@@ -84,10 +84,12 @@
   </div>
   
   <div class="terminal-content">
-    <Claude 
+    <Terminal
       bind:this={claudeComponent}
       {websocketUrl}
-      panelTitle="Claude Code"
+      panelId="terminal-mode-claude"
+      autoLaunchClaude={true}
+      sandboxed={true}
     />
   </div>
 </div>

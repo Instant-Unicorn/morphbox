@@ -8,4 +8,7 @@ web/build/
 web/dist/
 *.pid
 .morphbox.env
+.env
+.env.local
+.env.*.local
 todo.md

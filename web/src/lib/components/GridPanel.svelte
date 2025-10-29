@@ -202,7 +202,7 @@
     {/if}
     <div class="panel-controls">
       <!-- Edit button for custom panels only (not built-ins) -->
-      {#if !['terminal', 'claude', 'file-explorer', 'code-editor', 'git-panel', 'web-browser', 'settings', 'task-runner', 'prompt-queue', 'fileExplorer', 'codeEditor', 'gitPanel', 'webBrowser', 'taskRunner', 'promptQueue'].includes(panel.type)}
+      {#if !['terminal', 'claude', 'sandboxTerminal', 'adminTerminal', 'file-explorer', 'code-editor', 'git-panel', 'web-browser', 'settings', 'task-runner', 'prompt-queue', 'fileExplorer', 'codeEditor', 'gitPanel', 'webBrowser', 'taskRunner', 'promptQueue'].includes(panel.type)}
         <button
           class="control-btn edit-panel-btn"
           on:click={handleEditPanel}
@@ -296,12 +296,13 @@
   <div class="panel-content">
     {#if component}
       {#key panel.id}
-        {#if panel.type === 'terminal' || panel.type === 'claude'}
+        {#if panel.type === 'terminal' || panel.type === 'claude' || panel.type === 'sandboxTerminal' || panel.type === 'adminTerminal'}
           <svelte:component
             this={component}
             {websocketUrl}
             panelId={panel.id}
             autoLaunchClaude={panel.type === 'claude'}
+            sandboxed={panel.type !== 'adminTerminal'}
             backgroundColor={panel.backgroundColor}
             textColor={panel.textColor}
             boldTextColor={panel.boldTextColor}

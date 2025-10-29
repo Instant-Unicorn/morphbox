@@ -56,9 +56,13 @@ fi
 
 echo "✅ Build completed successfully"
 
-# Docker image rebuild - intelligent caching
+# Docker image rebuild - intelligent caching with versioning
 echo "🐳 Building Docker container..."
 cd docker
+
+# Get version from package.json
+MORPHBOX_VERSION=$(node -e "console.log(require('../package.json').version)" 2>/dev/null || echo "unknown")
+echo "Building version: $MORPHBOX_VERSION"
 
 # Stop and remove running containers
 echo "Stopping running morphbox containers..."
@@ -68,11 +72,20 @@ docker rm $(docker ps -aq --filter "name=morphbox") 2>/dev/null || true
 # Check if Dockerfile has changed since last build
 DOCKERFILE_CHANGED=false
 IMAGE_EXISTS=false
+IMAGE_TAG="morphbox:${MORPHBOX_VERSION}"
 
-if docker image inspect morphbox:latest >/dev/null 2>&1; then
+if docker image inspect "$IMAGE_TAG" >/dev/null 2>&1; then
     IMAGE_EXISTS=true
+    # Verify version label matches
+    IMAGE_LABEL_VERSION=$(docker image inspect "$IMAGE_TAG" --format '{{index .Config.Labels "morphbox.version"}}' 2>/dev/null || echo "")
+
+    if [[ "$IMAGE_LABEL_VERSION" != "$MORPHBOX_VERSION" ]]; then
+        echo "Image version mismatch (label: $IMAGE_LABEL_VERSION, expected: $MORPHBOX_VERSION)"
+        DOCKERFILE_CHANGED=true
+    fi
+
     # Get image build time
-    IMAGE_BUILD_TIME=$(docker inspect morphbox:latest --format='{{.Created}}' | xargs -I {} date -d {} +%s 2>/dev/null || echo "0")
+    IMAGE_BUILD_TIME=$(docker inspect "$IMAGE_TAG" --format='{{.Created}}' | xargs -I {} date -d {} +%s 2>/dev/null || echo "0")
     # Get Dockerfile modification time
     DOCKERFILE_MTIME=$(stat -c %Y Dockerfile 2>/dev/null || stat -f %m Dockerfile 2>/dev/null || echo "999999999")
 
@@ -84,37 +97,41 @@ fi
 
 # Decide build strategy
 if [ "$IMAGE_EXISTS" = "false" ]; then
-    echo "No existing morphbox image found - building fresh image..."
+    echo "No existing morphbox:${MORPHBOX_VERSION} image found - building fresh image..."
     # First time build - use caching but ensure we get latest base image
-    docker build --pull -t morphbox:latest -f Dockerfile .
+    docker build --pull --build-arg MORPHBOX_VERSION="$MORPHBOX_VERSION" -t "$IMAGE_TAG" -f Dockerfile .
 elif [ "$DOCKERFILE_CHANGED" = "true" ]; then
-    echo "Dockerfile changed - rebuilding image from scratch..."
-    # Force rebuild when Dockerfile changes
-    docker build --no-cache --pull -t morphbox:latest -f Dockerfile .
+    echo "Dockerfile changed or version mismatch - rebuilding image from scratch..."
+    # Force rebuild when Dockerfile changes or version doesn't match
+    docker build --no-cache --pull --build-arg MORPHBOX_VERSION="$MORPHBOX_VERSION" -t "$IMAGE_TAG" -f Dockerfile .
 else
     echo "Using cached image layers for faster build..."
     # Normal incremental build using cache
-    docker build -t morphbox:latest -f Dockerfile .
+    docker build --build-arg MORPHBOX_VERSION="$MORPHBOX_VERSION" -t "$IMAGE_TAG" -f Dockerfile .
 fi
 
+# Tag as latest for backwards compatibility
+docker tag "$IMAGE_TAG" morphbox:latest
+
 # Verify the image was tagged correctly
-if docker image inspect morphbox:latest >/dev/null 2>&1; then
-    echo "✅ morphbox:latest image built and tagged successfully"
+if docker image inspect "$IMAGE_TAG" >/dev/null 2>&1; then
+    echo "✅ $IMAGE_TAG image built and tagged successfully"
+    echo "✅ Also tagged as morphbox:latest for backwards compatibility"
 else
-    echo "❌ ERROR: Failed to build or tag morphbox:latest image"
+    echo "❌ ERROR: Failed to build or tag $IMAGE_TAG image"
     exit 1
 fi
 
-# No need to build again with docker-compose since we already built morphbox:latest
+# No need to build again with docker-compose since we already built the versioned image
 # Just recreate the container with the new image
 echo "Recreating container with updated image..."
 
 # Create a temporary docker-compose file that uses the image we just built
 TEMP_COMPOSE="/tmp/morphbox-compose-rebuild.yml"
-cat > "$TEMP_COMPOSE" << 'EOF'
+cat > "$TEMP_COMPOSE" << EOF
 services:
   morphbox-vm:
-    image: morphbox:latest
+    image: $IMAGE_TAG
     container_name: morphbox-vm
     hostname: morphbox-vm
     ports:
